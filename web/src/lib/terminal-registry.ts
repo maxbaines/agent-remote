@@ -20,6 +20,7 @@ import xtermCss from '@xterm/xterm/css/xterm.css?inline';
 import { resolvePalette } from './theme.js';
 import { muxLog } from './mux-log.js';
 import { TERMINAL_FONT_FAMILY } from './fonts.js';
+import { terminalPresentation } from './terminal-presentation.js';
 
 /**
  * Ensure xterm.js's stylesheet is present in the root node that actually
@@ -246,6 +247,31 @@ function _fitIfPlausible(entry: PaneEntry): boolean {
 function _isVisible(el: HTMLElement): boolean {
   // offsetParent is null when element is display:none or disconnected.
   return el.isConnected && el.offsetParent !== null;
+}
+
+function _splitChunksAtByte(
+  chunks: readonly (Uint8Array | string)[],
+  byteOffset: number,
+): [(Uint8Array | string)[], (Uint8Array | string)[]] {
+  const before: (Uint8Array | string)[] = [];
+  const after: (Uint8Array | string)[] = [];
+  let remaining = byteOffset;
+  for (const chunk of chunks) {
+    if (remaining <= 0) {
+      after.push(chunk);
+      continue;
+    }
+    const bytes = typeof chunk === 'string' ? _encoder.encode(chunk) : chunk;
+    if (bytes.byteLength <= remaining) {
+      before.push(chunk);
+      remaining -= bytes.byteLength;
+      continue;
+    }
+    before.push(bytes.slice(0, remaining));
+    after.push(bytes.slice(remaining));
+    remaining = 0;
+  }
+  return [before, after];
 }
 
 /**
@@ -769,7 +795,8 @@ export const terminalRegistry = {
    * flips `ready` so subsequent writes go direct.
    */
   _settleAndDrain(paneId: number): void {
-    const entry = _map.get(_key(paneId));
+    const key = _key(paneId);
+    const entry = _map.get(key);
     if (!entry || !entry.opened || entry.ready) return;
 
     // Guard RC-2: only one drain sequence at a time.
@@ -819,6 +846,61 @@ export const terminalRegistry = {
         pendingBytes: pending.reduce((s, c) => s + (typeof c === 'string' ? c.length : c.byteLength), 0),
         seqBytes: entry.seqBytes, expected: entry.expectedReplayBytes,
         w: entry.hostEl.offsetWidth, h: entry.hostEl.offsetHeight });
+
+    const retainedAfterClear = terminalPresentation.replayAfterBoundary(key);
+    if (retainedAfterClear !== null) {
+      const [serverReplay, liveAtSettle] = _splitChunksAtByte(
+        pending,
+        entry.expectedReplayBytes,
+      );
+      entry.draining = true;
+      const myGeneration = entry.generation;
+
+      const finishReady = (): void => {
+        if (entry.generation !== myGeneration) return;
+        muxLog('registry ready', `pane=${paneId} READY (after Clear boundary restore)`,
+          { seqBytes: entry.seqBytes });
+        entry.ready = true;
+        entry.handlers.onSettled?.();
+        entry.draining = false;
+        const lateLive = entry.pendingData.splice(0);
+        for (const chunk of lateLive) {
+          terminalPresentation.appendAfterBoundary(key, chunk);
+          entry.term.write(chunk);
+        }
+      };
+
+      const restoreBoundary = (): void => {
+        if (entry.generation !== myGeneration) return;
+        entry.term.clear();
+        for (const chunk of liveAtSettle) {
+          terminalPresentation.appendAfterBoundary(key, chunk);
+        }
+        const visible = [...retainedAfterClear, ...liveAtSettle];
+        if (visible.length === 0) {
+          finishReady();
+          return;
+        }
+        let visibleRemaining = visible.length;
+        const onVisibleWriteDone = (): void => {
+          if (entry.generation !== myGeneration) return;
+          if (--visibleRemaining === 0) finishReady();
+        };
+        for (const chunk of visible) entry.term.write(chunk, onVisibleWriteDone);
+      };
+
+      if (serverReplay.length === 0) {
+        restoreBoundary();
+        return;
+      }
+      let replayRemaining = serverReplay.length;
+      const onReplayWriteDone = (): void => {
+        if (entry.generation !== myGeneration) return;
+        if (--replayRemaining === 0) restoreBoundary();
+      };
+      for (const chunk of serverReplay) entry.term.write(chunk, onReplayWriteDone);
+      return;
+    }
 
     if (pending.length === 0) {
       // All replay bytes received (seqBytes >= expectedReplayBytes) but nothing
@@ -957,6 +1039,18 @@ export const terminalRegistry = {
   },
 
   /**
+   * Clear this browser's visible screen and scrollback without writing to the
+   * PTY or resetting xterm.js emulator state.
+   */
+  clearToStart(paneId: number): void {
+    const key = _key(paneId);
+    const entry = _map.get(key);
+    if (!entry) return;
+    terminalPresentation.startClearBoundary(key);
+    entry.term.clear();
+  },
+
+  /**
    * Write data to the terminal. Works before attach (buffered) and while the
    * terminal is hidden (background window stays current). If ensure() has not
    * yet been called for paneId, the data is buffered in a pre-ensure queue
@@ -988,6 +1082,7 @@ export const terminalRegistry = {
         if (_containsScrollbackPollutingRedraw(data)) {
           entry.term.clear();
         }
+        terminalPresentation.appendAfterBoundary(key, data);
         entry.term.write(data);
       } else {
         // Queued until the layout settles + initial drain.
@@ -1103,6 +1198,7 @@ export const terminalRegistry = {
         if (entry.resizeTimer !== undefined) clearTimeout(entry.resizeTimer);
         entry.term.dispose();
         _map.delete(key);
+        terminalPresentation.forget(key);
       }
     }
     // Also clear pre-ensure buffer for panes that will never exist.

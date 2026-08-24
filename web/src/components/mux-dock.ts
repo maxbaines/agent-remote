@@ -1088,6 +1088,11 @@ export class MuxDock extends LitElement {
     return lines.join('\n');
   }
 
+  /** Read the active xterm.js buffer kind for playwright verification. */
+  getTerminalBufferType(paneId: number): 'normal' | 'alternate' | '' {
+    return terminalRegistry.getTerminal(paneId)?.buffer.active.type ?? '';
+  }
+
   /**
    * Cycle to the next (or previous) tab within the active panel's dockview
    * group. Deliberately does NOT cross split-pane group boundaries — only tabs

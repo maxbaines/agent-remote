@@ -9,6 +9,7 @@ import { terminalRegistry, configureTerminals } from './lib/terminal-registry.js
 import { parseResolvedConfig, patchConfig, configToGoJSON, type ResolvedConfig } from './lib/config.js';
 import { makeKeyHandler, installAppShortcuts, installCommandShortcuts, type UIActions } from './lib/keybindings.js';
 import {
+  CLEAR_TO_START_COMMAND,
   CommandRegistry,
   CREATE_TAB_COMMAND,
   DIRECTIONAL_SPLIT_COMMANDS,
@@ -464,6 +465,14 @@ export class MuxApp extends LitElement {
         this._layoutMode === 'wide' && store.attached !== null && store.activePaneId > 0,
       execute: () => this._createDirectionalSplit(command.direction),
     })),
+    {
+      ...CLEAR_TO_START_COMMAND,
+      isAvailable: () =>
+        store.attached !== null &&
+        store.activePaneId > 0 &&
+        terminalRegistry.getTerminal(store.activePaneId) !== null,
+      execute: () => terminalRegistry.clearToStart(store.activePaneId),
+    },
   ]);
 
   /** Browser-local overrides for configurable registered Commands. */

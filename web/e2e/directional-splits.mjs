@@ -231,7 +231,7 @@ try {
     app.requestUpdate();
   })()`);
   const EDITOR = `${APP}?.shadowRoot?.querySelector('mux-keybindings-surface')`;
-  waitFor(`${EDITOR}?.shadowRoot?.querySelectorAll('.command-row').length === 5`);
+  waitFor(`${EDITOR}?.shadowRoot?.querySelectorAll('.command-row').length === 6`);
   pcli('eval', `(() => {
     const editor = ${EDITOR};
     const button = editor.shadowRoot.querySelector('[data-command-id="pane.split-left"] .edit-shortcut');

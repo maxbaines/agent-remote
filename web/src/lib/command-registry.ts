@@ -3,6 +3,7 @@ export const SPLIT_LEFT_COMMAND_ID = 'pane.split-left' as const;
 export const SPLIT_RIGHT_COMMAND_ID = 'pane.split-right' as const;
 export const SPLIT_UP_COMMAND_ID = 'pane.split-up' as const;
 export const SPLIT_DOWN_COMMAND_ID = 'pane.split-down' as const;
+export const CLEAR_TO_START_COMMAND_ID = 'terminal.clear-to-start' as const;
 
 export type DirectionalSplit = 'left' | 'right' | 'up' | 'down';
 export type CommandId =
@@ -10,8 +11,9 @@ export type CommandId =
   | typeof SPLIT_LEFT_COMMAND_ID
   | typeof SPLIT_RIGHT_COMMAND_ID
   | typeof SPLIT_UP_COMMAND_ID
-  | typeof SPLIT_DOWN_COMMAND_ID;
-export type CommandCategory = 'Layout';
+  | typeof SPLIT_DOWN_COMMAND_ID
+  | typeof CLEAR_TO_START_COMMAND_ID;
+export type CommandCategory = 'Layout' | 'Terminal';
 export type CommandShortcutPlatform = 'macos' | 'other';
 export type CommandShortcutScope = 'always' | 'standalone';
 
@@ -105,6 +107,17 @@ export const DIRECTIONAL_SPLIT_COMMANDS: readonly DirectionalSplitCommandMetadat
     defaultShortcuts: Object.freeze([]),
   }),
 ]);
+
+/** Browser-local macOS Terminal-style presentation clear. */
+export const CLEAR_TO_START_COMMAND: CommandMetadata = Object.freeze({
+  id: CLEAR_TO_START_COMMAND_ID,
+  title: 'Clear to start',
+  category: 'Terminal',
+  configurable: true,
+  defaultShortcuts: Object.freeze([
+    Object.freeze({ chord: 'meta+k', label: 'Cmd+K', platform: 'macos', scope: 'always' }),
+  ]),
+});
 
 /**
  * Authoritative catalogue and guarded invocation seam for user Commands.
