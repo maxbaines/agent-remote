@@ -194,6 +194,9 @@ cd web && npm test
 cd web && npm run check:fast
 ```
 
+The macOS desktop-v1 cutover, browser gate, non-root ownership checks, and rollback exercise are
+documented in the [desktop v1 development release runbook](docs/releases/desktop-v1-development.md).
+
 ## Design
 
 See [docs/design.md](docs/design.md) for architecture details and decision rationale.

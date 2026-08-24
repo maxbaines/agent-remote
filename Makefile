@@ -1,4 +1,4 @@
-.PHONY: build dev dev-local demo demo-install install-stable test clean web
+.PHONY: build dev dev-local demo demo-install install-stable test clean web verify-desktop-v1
 
 # Path to the web source (relative to this Makefile)
 WEB_SRC := ./web
@@ -119,6 +119,15 @@ web:
 
 test:
 	go test -v ./...
+
+# Desktop v1 release gate: static/Go checks plus real Chromium and Safari
+# against a new non-root Gateway, Session Owner, Workspace, and Pane per case.
+verify-desktop-v1: build
+	cd $(WEB_SRC) && npm run check:fast
+	go build ./...
+	go test ./...
+	go vet ./...
+	./scripts/verify-desktop-v1.sh
 
 # Run frontend tests separately.
 test-web:
