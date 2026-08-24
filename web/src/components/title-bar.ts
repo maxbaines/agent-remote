@@ -1,5 +1,5 @@
 import { LitElement, html, css } from 'lit';
-import { customElement, state } from 'lit/decorators.js';
+import { customElement, property, state } from 'lit/decorators.js';
 import type { PropertyValues } from 'lit';
 import './launcher-menu.js';
 import './mux-pane-picker.js';
@@ -7,9 +7,12 @@ import './mic-button.js';
 import { icon } from '../lib/icons.js';
 import { Ellipsis, Plus } from 'lucide';
 import { instanceLabel } from '../lib/instance-identity.js';
+import { CREATE_TAB_COMMAND, type CommandInvocation } from '../lib/command-registry.js';
 
 @customElement('mux-title-bar')
 export class MuxTitleBar extends LitElement {
+  @property({ attribute: false, type: Boolean }) createTabAvailable = false;
+
   static styles = css`
     :host {
       display: flex;
@@ -76,6 +79,16 @@ export class MuxTitleBar extends LitElement {
     .launcher-btn:hover,
     .pane-btn:hover {
       background: var(--chrome-hover);
+    }
+
+    .pane-btn:disabled {
+      color: var(--chrome-text-dim);
+      cursor: default;
+      opacity: 0.55;
+    }
+
+    .pane-btn:disabled:hover {
+      background: transparent;
     }
 
     .menu-anchor {
@@ -163,11 +176,12 @@ export class MuxTitleBar extends LitElement {
     );
   }
 
-  private _requestNewPane(): void {
+  private _requestCreateTab(): void {
     this.dispatchEvent(
-      new CustomEvent('pane-create-request', {
+      new CustomEvent<CommandInvocation>('command-invoke', {
         bubbles: true,
         composed: true,
+        detail: { commandId: CREATE_TAB_COMMAND.id },
       }),
     );
   }
@@ -184,9 +198,10 @@ export class MuxTitleBar extends LitElement {
         <mux-mic-button></mux-mic-button>
         <button
           class="pane-btn"
-          title="New pane"
-          aria-label="New pane"
-          @click="${this._requestNewPane}"
+          title="${CREATE_TAB_COMMAND.title}"
+          aria-label="${CREATE_TAB_COMMAND.title}"
+          ?disabled="${!this.createTabAvailable}"
+          @click="${this._requestCreateTab}"
         >${icon(Plus, { size: 20 })}</button>
         <button
           class="launcher-btn"

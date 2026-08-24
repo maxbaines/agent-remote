@@ -8,6 +8,7 @@ import { terminalRegistry } from '../lib/terminal-registry.js';
 import { muxLog } from '../lib/mux-log.js';
 import type { SessiondPaneInfo, LayoutCommand } from '../types.js';
 import { store } from '../state.js';
+import { CREATE_TAB_COMMAND, type CommandInvocation } from '../lib/command-registry.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TerminalRenderer
@@ -278,6 +279,14 @@ export class MuxDock extends LitElement {
     this._placementReferenceId =
       group?.activePanel?.id ?? this._dv?.activePanel?.id ?? null;
     this._splitReferenceId = placement === 'split' ? this._placementReferenceId : null;
+    if (placement === 'tab') {
+      this.dispatchEvent(new CustomEvent<CommandInvocation>('command-invoke', {
+        bubbles: true,
+        composed: true,
+        detail: { commandId: CREATE_TAB_COMMAND.id },
+      }));
+      return;
+    }
     this.dispatchEvent(new CustomEvent('pane-create', { bubbles: true, composed: true }));
   }
 
@@ -578,7 +587,7 @@ export class MuxDock extends LitElement {
       // The factory receives the dockview group its header belongs to, so the
       // "+" / split on an INACTIVE group still targets THAT group.
       createLeftHeaderActionComponent: (group) =>
-        new HeaderButton(ADD_ICON, 'New pane', () => this._requestPane('tab', group)),
+        new HeaderButton(ADD_ICON, CREATE_TAB_COMMAND.title, () => this._requestPane('tab', group)),
       // Narrow (phone) is a tab view only — no split button.
       createRightHeaderActionComponent: (group) => {
         if (this.narrow) {

@@ -7,7 +7,12 @@ import { MonitorX } from 'lucide';
 import { MuxSocket, buildWsUrl } from './ws.js';
 import { terminalRegistry, configureTerminals } from './lib/terminal-registry.js';
 import { parseResolvedConfig, patchConfig, configToGoJSON, type ResolvedConfig } from './lib/config.js';
-import { makeKeyHandler, installAppShortcuts, type UIActions } from './lib/keybindings.js';
+import { makeKeyHandler, installAppShortcuts, installCommandShortcuts, type UIActions } from './lib/keybindings.js';
+import {
+  CommandRegistry,
+  CREATE_TAB_COMMAND,
+  type CommandInvocation,
+} from './lib/command-registry.js';
 import { applyThemeTokens, applyChromeTokens, resolvePalette } from './lib/theme.js';
 import { applyDocumentTitle, applyTitlebarColor, restoreTitlebarColor } from './lib/instance-identity.js';
 import { injectTerminalFont } from './lib/fonts.js';
@@ -100,6 +105,9 @@ let disposeKeys: (() => void) | undefined;
 /** Disposer for fixed app-level shortcuts (Cmd+W, Cmd+T). Installed once per
  *  app connection and not re-set on config changes — these are not configurable. */
 let disposeAppShortcuts: (() => void) | undefined;
+
+/** Disposer for default Keybindings sourced from the Command Registry. */
+let disposeCommandShortcuts: (() => void) | undefined;
 
 /**
  * Installs a global keydown handler wired to the given UIActions.
@@ -462,6 +470,13 @@ export class MuxApp extends LitElement {
   @state()
   private _layoutMode: 'wide' | 'narrow' = currentLayoutMode();
 
+  /** Public Command seam consumed by UI surfaces, shortcut dispatch, and E2E. */
+  readonly commands = new CommandRegistry([{
+    ...CREATE_TAB_COMMAND,
+    isAvailable: () => store.attached !== null && store.activePaneId > 0,
+    execute: () => this._createPaneOptimistic(),
+  }]);
+
   /** Active grace-period timers, keyed by paneId. Presence => a deferred close
    *  is pending and a toast is shown. */
   private _pendingCloses = new Map<number, ReturnType<typeof setTimeout>>();
@@ -537,16 +552,17 @@ export class MuxApp extends LitElement {
     applyTitlebarColor(restoreTitlebarColor());
     // Install keybindings with defaults immediately — mirrors applyThemeTokens.
     disposeKeys = installKeybindings(uiActions);
-    // Install fixed app-level shortcuts (Cmd+W close, Cmd+T new pane). These
-    // override the browser's native tab-close / new-tab actions so agent-remote
-    // feels like a native app. Installed once — not re-set on config changes.
+    // Registered defaults and interface clicks share the guarded Command path.
+    disposeCommandShortcuts?.();
+    disposeCommandShortcuts = installCommandShortcuts(this.commands);
+    // Install the remaining fixed app-level shortcuts. Installed once — not
+    // re-set on config changes.
     disposeAppShortcuts?.();
     disposeAppShortcuts = installAppShortcuts({
       // Remove the active panel from dockview, which triggers onDidRemovePanel
       // → pane-close event → _startDeferredClose (deferred kill + undo toast).
       // This mirrors exactly what clicking the tab X button does.
       closePane: () => this._dock?.closeActivePanel(),
-      newPane: () => this._createPaneOptimistic(),
       // Cycle tabs within the active pane's group only (not across split panes).
       nextTab: () => this._dock?.cycleTabInGroup('next'),
       prevTab: () => this._dock?.cycleTabInGroup('prev'),
@@ -696,6 +712,8 @@ export class MuxApp extends LitElement {
     this._paneFocusCoordinator = null;
     disposeAppShortcuts?.();
     disposeAppShortcuts = undefined;
+    disposeCommandShortcuts?.();
+    disposeCommandShortcuts = undefined;
     if (this._unsubscribe) {
       this._unsubscribe();
       this._unsubscribe = null;
@@ -866,13 +884,15 @@ export class MuxApp extends LitElement {
     // They have no terminal and should not render as blank tiles.
     const panes = store.panes.filter((p) => p.paneId >= 0);
     const isWide = this._layoutMode === 'wide';
+    const createTab = this.commands.get(CREATE_TAB_COMMAND.id)!;
 
     return html`
       ${!isWide ? html`<mux-title-bar
         @launcher-action="${this._onLauncherAction}"
         @pane-select="${this._onActivePane}"
         @workspace-switch="${this._onWorkspaceSelected}"
-        @pane-create-request="${this._createPaneOptimistic}"
+        .createTabAvailable="${createTab.available}"
+        @command-invoke="${this._onCommandInvoke}"
         @voice-transcript="${this._onVoiceTranscript}"
       ></mux-title-bar>` : ''}
       <div class="content-area">
@@ -906,6 +926,7 @@ export class MuxApp extends LitElement {
                   .narrow="${!isWide}"
                   @pane-select="${this._onActivePane}"
                   @pane-close="${this._onClosePane}"
+                  @command-invoke="${this._onCommandInvoke}"
                   @pane-create="${this._createPaneOptimistic}"
                   @pane-rename="${this._onPaneRename}"
                   @workspace-switch="${this._onWorkspaceSelected}"
@@ -978,8 +999,8 @@ export class MuxApp extends LitElement {
                     <button class="close-btn" @click="${this._closeOverlayPanel}">×</button>
                   </h2>
                   <div class="shortcut-grid">
-                    <span class="sc-label">New pane (any mode)</span>
-                    <span class="sc-key">Cmd+Ctrl+T</span>
+                    <span class="sc-label">${createTab.title}</span>
+                    <span class="sc-key">${createTab.defaultShortcuts.map((shortcut) => shortcut.label).join(' / ')}</span>
                     <span class="sc-label">Close pane</span>
                     <span class="sc-key">Cmd+W / Ctrl+W</span>
                     <span class="sc-label">Cycle tabs (forward)</span>
@@ -1056,6 +1077,13 @@ export class MuxApp extends LitElement {
   /** Empty-state button: create a connection-scoped pane in the workspace. */
   private _onCreatePane = (): void => {
     this._createPaneOptimistic();
+  };
+
+  /** Single UI invocation adapter for every registered Command surface. */
+  private _onCommandInvoke = (e: Event): void => {
+    const invocation = (e as CustomEvent<CommandInvocation>).detail;
+    if (!invocation) return;
+    this.commands.invoke(invocation.commandId);
   };
 
   /**

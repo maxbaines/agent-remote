@@ -254,6 +254,11 @@ export class MuxStore {
           clientRef: msg.clientRef,
           surfaceKind: msg.surfaceKind,
         });
+        // A freshly-created Workspace first attaches with an empty Composition,
+        // then receives its auto-created Pane as PaneAdded. Promote that first
+        // Pane to Active Pane so context-sensitive Commands become available
+        // without requiring a reload or pointer focus first.
+        if (this._activePaneId === 0) this._activePaneId = paneId;
         break;
       }
 

@@ -1,4 +1,5 @@
 import type { ResolvedConfig } from './config';
+import type { CommandRegistry, CommandShortcut } from './command-registry.js';
 
 export type Keys = ResolvedConfig['keys'];
 
@@ -10,7 +11,6 @@ export interface UIActions {
   openLauncher?: () => void;
   focusDriver?: () => void;
   closePane?: () => void;
-  newPane?: () => void;
   nextTab?: () => void;
   prevTab?: () => void;
 }
@@ -61,42 +61,51 @@ function isPwa(): boolean {
   return window.matchMedia('(display-mode: standalone)').matches;
 }
 
+function isMacOS(): boolean {
+  return /Mac|iPhone|iPad|iPod/.test(navigator.platform);
+}
+
+function shortcutApplies(shortcut: CommandShortcut): boolean {
+  if (shortcut.platform === 'macos' && !isMacOS()) return false;
+  if (shortcut.platform === 'other' && isMacOS()) return false;
+  return shortcut.scope === 'always' || isPwa();
+}
+
+/**
+ * Installs default Keybindings sourced directly from registered Command
+ * metadata. Matching unavailable Commands are left unconsumed and cannot run.
+ */
+export function installCommandShortcuts(registry: CommandRegistry): () => void {
+  const handler = (e: KeyboardEvent): void => {
+    for (const command of registry.list()) {
+      for (const shortcut of command.defaultShortcuts) {
+        if (!shortcutApplies(shortcut) || !matchChord(shortcut.chord, e)) continue;
+        if (registry.invoke(command.id)) e.preventDefault();
+        return;
+      }
+    }
+  };
+
+  window.addEventListener('keydown', handler, { capture: true });
+  return () => window.removeEventListener('keydown', handler, { capture: true });
+}
+
 /**
  * Installs fixed app-level keyboard shortcuts that override browser defaults.
  * These are not user-configurable — they make agent-remote feel like a native app.
  *
  *   Cmd/Ctrl+W      — close the active pane   (interceptable in all modes)
- *   Cmd+Ctrl+T      — open a new pane          (interceptable in all modes —
- *                      both modifiers together is not a Chrome-reserved chord)
- *   Cmd/Ctrl+T      — open a new pane          (PWA standalone mode only —
- *                      browsers handle Cmd+T at the browser-process level in
- *                      tab mode so preventDefault() has no effect there)
  *
  * Returns a cleanup function.
  */
 export function installAppShortcuts(
-  actions: Pick<UIActions, 'closePane' | 'newPane' | 'nextTab' | 'prevTab'>,
+  actions: Pick<UIActions, 'closePane' | 'nextTab' | 'prevTab'>,
 ): () => void {
   const handler = (e: KeyboardEvent): void => {
     if (e.key === 'w' || e.key === 'W') {
       if (e.metaKey || e.ctrlKey) {
         e.preventDefault();
         actions.closePane?.();
-      }
-      return;
-    }
-
-    if (e.key === 't' || e.key === 'T') {
-      // Cmd+Ctrl+T — new pane, works in all modes. Not a browser-reserved chord.
-      if (e.metaKey && e.ctrlKey) {
-        e.preventDefault();
-        actions.newPane?.();
-        return;
-      }
-      // Cmd/Ctrl+T alone — only in PWA standalone mode.
-      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && isPwa()) {
-        e.preventDefault();
-        actions.newPane?.();
       }
       return;
     }
