@@ -11,6 +11,8 @@ import { makeKeyHandler, installAppShortcuts, installCommandShortcuts, type UIAc
 import {
   CommandRegistry,
   CREATE_TAB_COMMAND,
+  DIRECTIONAL_SPLIT_COMMANDS,
+  type DirectionalSplit,
   type CommandInvocation,
 } from './lib/command-registry.js';
 import { BrowserKeybindings, type ReservedKeybinding } from './lib/browser-keybindings.js';
@@ -93,7 +95,6 @@ let _nextTempPaneId = -1;
  *  each phase lands. Stubs use () => {} to keep wiring unconditional. */
 const uiActions: UIActions = {
   openLauncher: () => window.dispatchEvent(new CustomEvent('open-launcher')),
-  split: () => {}, // wired to create-pane in connectedCallback
   maximizeRegion: () => {},
   popOut: () => {},
   nextSession: () => {}, // wired to cycleTabInGroup in connectedCallback
@@ -451,11 +452,19 @@ export class MuxApp extends LitElement {
   private _layoutMode: 'wide' | 'narrow' = currentLayoutMode();
 
   /** Public Command seam consumed by UI surfaces, shortcut dispatch, and E2E. */
-  readonly commands = new CommandRegistry([{
-    ...CREATE_TAB_COMMAND,
-    isAvailable: () => store.attached !== null && store.activePaneId > 0,
-    execute: () => this._createPaneOptimistic(),
-  }]);
+  readonly commands = new CommandRegistry([
+    {
+      ...CREATE_TAB_COMMAND,
+      isAvailable: () => store.attached !== null && store.activePaneId > 0,
+      execute: () => this._createPaneOptimistic(),
+    },
+    ...DIRECTIONAL_SPLIT_COMMANDS.map((command) => ({
+      ...command,
+      isAvailable: () =>
+        this._layoutMode === 'wide' && store.attached !== null && store.activePaneId > 0,
+      execute: () => this._createDirectionalSplit(command.direction),
+    })),
+  ]);
 
   /** Browser-local overrides for configurable registered Commands. */
   readonly keybindings = new BrowserKeybindings(this.commands, () => this._reservedKeybindings());
@@ -636,9 +645,6 @@ export class MuxApp extends LitElement {
         this._createModalName = '';
       }
     };
-    // The split shortcut creates a connection-scoped pane (create-pane);
-    // now optimistic so the provisional pane overlays instantly.
-    uiActions.split = () => this._createPaneOptimistic();
     this._socket.onPaneOutput((paneId: number, data: Uint8Array) => {
       this._routePaneOutput(paneId, data);
     });
@@ -1103,6 +1109,13 @@ export class MuxApp extends LitElement {
     this._socket?.createPane(undefined, ref);
   };
 
+  /** Create a Split beside the current Active Pane using explicit placement. */
+  private _createDirectionalSplit(direction: DirectionalSplit): void {
+    const activePaneId = store.activePaneId;
+    if (!this._dock?.prepareDirectionalSplit(direction, activePaneId)) return;
+    this._createPaneOptimistic();
+  }
+
   /** Forward a layout-command from the server (via window CustomEvent) to the dock. */
   private _onLayoutCommand = (e: Event): void => {
     const msg = (e as CustomEvent<LayoutCommand>).detail;
@@ -1337,7 +1350,6 @@ export class MuxApp extends LitElement {
       { title: 'Cycle tabs forward', chord: 'ctrl+tab' },
       { title: 'Cycle tabs backward', chord: 'ctrl+shift+tab' },
       { title: 'Next session', chord: store.config.keys.nextSession },
-      { title: 'Split pane', chord: store.config.keys.split },
       { title: 'Maximize pane', chord: store.config.keys.maximizeRegion },
       { title: 'Pop out pane', chord: store.config.keys.popOut },
       { title: 'Open launcher', chord: store.config.keys.openLauncher },

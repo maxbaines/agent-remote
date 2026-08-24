@@ -8,7 +8,13 @@ import { terminalRegistry } from '../lib/terminal-registry.js';
 import { muxLog } from '../lib/mux-log.js';
 import type { SessiondPaneInfo, LayoutCommand } from '../types.js';
 import { store } from '../state.js';
-import { CREATE_TAB_COMMAND, type CommandInvocation } from '../lib/command-registry.js';
+import {
+  CREATE_TAB_COMMAND,
+  DIRECTIONAL_SPLIT_COMMANDS,
+  type CommandId,
+  type CommandInvocation,
+  type DirectionalSplit,
+} from '../lib/command-registry.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TerminalRenderer
@@ -182,6 +188,62 @@ class HeaderButton {
   dispose(): void { this.element.remove(); }
 }
 
+/** Desktop Split trigger with one explicit menu item per directional Command. */
+class SplitHeaderMenu {
+  readonly element: HTMLElement;
+  private readonly _menu: HTMLElement;
+
+  private readonly _onOutsidePointerDown = (event: PointerEvent): void => {
+    if (!event.composedPath().includes(this.element)) this._menu.hidden = true;
+  };
+
+  constructor(onCommand: (commandId: CommandId) => void) {
+    const root = document.createElement('div');
+    root.className = 'mux-split-control';
+
+    const trigger = document.createElement('button');
+    trigger.className = 'mux-header-btn';
+    trigger.title = 'Split pane';
+    trigger.setAttribute('aria-label', 'Split pane');
+    trigger.setAttribute('aria-haspopup', 'menu');
+    trigger.innerHTML = SPLIT_ICON;
+
+    const menu = document.createElement('div');
+    menu.className = 'mux-split-menu';
+    menu.setAttribute('role', 'menu');
+    menu.hidden = true;
+    for (const command of DIRECTIONAL_SPLIT_COMMANDS) {
+      const item = document.createElement('button');
+      item.className = 'mux-split-menu-item';
+      item.dataset.commandId = command.id;
+      item.setAttribute('role', 'menuitem');
+      item.textContent = command.title;
+      item.addEventListener('click', (event) => {
+        event.stopPropagation();
+        menu.hidden = true;
+        onCommand(command.id);
+      });
+      menu.appendChild(item);
+    }
+
+    trigger.addEventListener('click', (event) => {
+      event.stopPropagation();
+      menu.hidden = !menu.hidden;
+    });
+    root.append(trigger, menu);
+    this.element = root;
+    this._menu = menu;
+    document.addEventListener('pointerdown', this._onOutsidePointerDown, { capture: true });
+  }
+
+  init(): void { /* nothing to initialise */ }
+
+  dispose(): void {
+    document.removeEventListener('pointerdown', this._onOutsidePointerDown, { capture: true });
+    this.element.remove();
+  }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // MuxDock
 // ─────────────────────────────────────────────────────────────────────────────
@@ -250,8 +312,8 @@ export class MuxDock extends LitElement {
   /**
    * Where the NEXT newly-added pane should be placed:
    *   'tab'   — a new tab in the active group (the "+" button)
-   *   'split' — a new side-by-side group split off the active panel (the
-   *             "split" button)
+   *   'split' — a new group placed in the requested direction beside the
+   *             Active Pane
    * The reconciler reads this when the real (server-assigned) pane arrives,
    * then resets it to the 'tab' default.
    */
@@ -261,33 +323,31 @@ export class MuxDock extends LitElement {
   /** ID of the panel to split from when _nextPlacement === 'split'. */
   private _splitReferenceId: string | null = null;
   /**
-   * ID of a panel in the group whose "+" / split button was clicked. The new
-   * pane is placed relative to THIS group, so clicking "+" on an inactive
-   * group adds the tab there (and activates it) — not in the active group.
+   * ID of the panel used for tab or Split placement. Clicking "+" on an
+   * inactive group adds the tab there; directional Commands set this to the
+   * globally Active Pane.
    */
   private _placementReferenceId: string | null = null;
 
   /**
-   * Record the desired placement and ask the app to create a backing pane.
-   * `group` is the dockview group whose header button was clicked; the new
-   * pane is positioned relative to it so the click target is honored.
+   * Record the desired tab group and invoke the backing create-tab Command.
    */
-  private _requestPane(placement: 'tab' | 'split', group?: DockviewGroupPanel): void {
-    this._nextPlacement = placement;
+  private _requestTab(group?: DockviewGroupPanel): void {
+    this._nextPlacement = 'tab';
     // Prefer the clicked group's active panel as the reference; fall back to
     // the globally active panel only if the group is unknown.
     this._placementReferenceId =
       group?.activePanel?.id ?? this._dv?.activePanel?.id ?? null;
-    this._splitReferenceId = placement === 'split' ? this._placementReferenceId : null;
-    if (placement === 'tab') {
-      this.dispatchEvent(new CustomEvent<CommandInvocation>('command-invoke', {
-        bubbles: true,
-        composed: true,
-        detail: { commandId: CREATE_TAB_COMMAND.id },
-      }));
-      return;
-    }
-    this.dispatchEvent(new CustomEvent('pane-create', { bubbles: true, composed: true }));
+    this._splitReferenceId = null;
+    this._invokeCommand(CREATE_TAB_COMMAND.id);
+  }
+
+  private _invokeCommand(commandId: CommandId): void {
+    this.dispatchEvent(new CustomEvent<CommandInvocation>('command-invoke', {
+      bubbles: true,
+      composed: true,
+      detail: { commandId },
+    }));
   }
 
   /**
@@ -522,6 +582,50 @@ export class MuxDock extends LitElement {
           background: color-mix(in srgb, var(--chrome-accent) 25%, transparent);
         }
 
+        mux-dock .mux-split-control {
+          position: relative;
+          display: flex;
+          align-items: center;
+          height: 100%;
+        }
+
+        mux-dock .mux-split-menu {
+          position: absolute;
+          top: calc(100% - 1px);
+          right: 0;
+          z-index: 1500;
+          min-width: 130px;
+          padding: 4px;
+          border: 1px solid var(--chrome-border);
+          border-radius: 5px;
+          background: var(--chrome-bar);
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+        }
+
+        mux-dock .mux-split-menu[hidden] {
+          display: none;
+        }
+
+        mux-dock .mux-split-menu-item {
+          display: block;
+          width: 100%;
+          padding: 6px 10px;
+          border: 0;
+          border-radius: 3px;
+          background: transparent;
+          color: var(--chrome-text-bright);
+          font: inherit;
+          font-size: 12px;
+          text-align: left;
+          cursor: pointer;
+        }
+
+        mux-dock .mux-split-menu-item:hover,
+        mux-dock .mux-split-menu-item:focus-visible {
+          background: var(--chrome-hover);
+          outline: none;
+        }
+
         /* dockview's action containers shrink-wrap their button and sit at the
            header's top edge, so the 28px button is top-pinned in the 35px bar.
            Make the containers full-height and center their content so the
@@ -583,17 +687,18 @@ export class MuxDock extends LitElement {
       // The "left" slot therefore renders immediately after the tabs (before
       // the grow-to-fill void), and the "right" slot renders far right.
       //   "+"    → left slot  → sits just right of the tabs (new pane as a TAB)
-      //   split  → right slot → far right (split into a side-by-side group)
+      //   split  → right slot → far right (opens the directional Command menu)
       // The factory receives the dockview group its header belongs to, so the
-      // "+" / split on an INACTIVE group still targets THAT group.
+      // "+" on an INACTIVE group still targets THAT group. Split Commands use
+      // the globally Active Pane as their reference.
       createLeftHeaderActionComponent: (group) =>
-        new HeaderButton(ADD_ICON, CREATE_TAB_COMMAND.title, () => this._requestPane('tab', group)),
+        new HeaderButton(ADD_ICON, CREATE_TAB_COMMAND.title, () => this._requestTab(group)),
       // Narrow (phone) is a tab view only — no split button.
-      createRightHeaderActionComponent: (group) => {
+      createRightHeaderActionComponent: () => {
         if (this.narrow) {
           return new HeaderButton('', '', () => {});
         }
-        return new HeaderButton(SPLIT_ICON, 'Split pane', () => this._requestPane('split', group));
+        return new SplitHeaderMenu((commandId) => this._invokeCommand(commandId));
       },
     });
     this._dv.onDidLayoutChange(() => this._scheduleLayoutSave());
@@ -932,6 +1037,7 @@ export class MuxDock extends LitElement {
           this._placementReferenceId = null;
           const panel = this._dv.addPanel(opts);
           this._panels.set(pane.paneId, panel);
+          panel.api.setActive();
         }
       }
     }
@@ -1024,6 +1130,16 @@ export class MuxDock extends LitElement {
     const active = this._dv.activePanel;
     if (!active) return;
     this._dv.removePanel(active);
+  }
+
+  /** Arm the next PaneAdded for a Split relative to the current Active Pane. */
+  prepareDirectionalSplit(direction: DirectionalSplit, referencePaneId: number): boolean {
+    if (!this._dv || !this._panels.has(referencePaneId)) return false;
+    this._nextPlacement = 'split';
+    this._splitDirection = direction === 'up' ? 'above' : direction === 'down' ? 'below' : direction;
+    this._splitReferenceId = String(referencePaneId);
+    this._placementReferenceId = String(referencePaneId);
+    return true;
   }
 
   /**

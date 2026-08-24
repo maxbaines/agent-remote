@@ -6,7 +6,6 @@ export type Keys = ResolvedConfig['keys'];
 
 export interface UIActions {
   nextSession?: () => void;
-  split?: () => void;
   maximizeRegion?: () => void;
   popOut?: () => void;
   openLauncher?: () => void;
@@ -39,7 +38,6 @@ export function makeKeyHandler(
 ): (e: KeyboardEvent) => void {
   const table: [string, (() => void) | undefined][] = [
     [keys.nextSession, actions.nextSession],
-    [keys.split, actions.split],
     [keys.maximizeRegion, actions.maximizeRegion],
     [keys.popOut, actions.popOut],
     [keys.openLauncher, actions.openLauncher],

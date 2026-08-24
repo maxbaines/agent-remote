@@ -1,6 +1,16 @@
 export const CREATE_TAB_COMMAND_ID = 'pane.create-tab' as const;
+export const SPLIT_LEFT_COMMAND_ID = 'pane.split-left' as const;
+export const SPLIT_RIGHT_COMMAND_ID = 'pane.split-right' as const;
+export const SPLIT_UP_COMMAND_ID = 'pane.split-up' as const;
+export const SPLIT_DOWN_COMMAND_ID = 'pane.split-down' as const;
 
-export type CommandId = typeof CREATE_TAB_COMMAND_ID;
+export type DirectionalSplit = 'left' | 'right' | 'up' | 'down';
+export type CommandId =
+  | typeof CREATE_TAB_COMMAND_ID
+  | typeof SPLIT_LEFT_COMMAND_ID
+  | typeof SPLIT_RIGHT_COMMAND_ID
+  | typeof SPLIT_UP_COMMAND_ID
+  | typeof SPLIT_DOWN_COMMAND_ID;
 export type CommandCategory = 'Layout';
 export type CommandShortcutPlatform = 'macos' | 'other';
 export type CommandShortcutScope = 'always' | 'standalone';
@@ -34,6 +44,10 @@ export interface CommandInvocation {
   commandId: CommandId;
 }
 
+export interface DirectionalSplitCommandMetadata extends CommandMetadata {
+  direction: DirectionalSplit;
+}
+
 /**
  * The stable create-tab presentation and default Keybindings. Cmd+T remains
  * limited to the installed PWA because browsers reserve it; Cmd+Ctrl+T is the
@@ -50,6 +64,47 @@ export const CREATE_TAB_COMMAND: CommandMetadata = Object.freeze({
     Object.freeze({ chord: 'ctrl+t', label: 'Ctrl+T', platform: 'other', scope: 'standalone' }),
   ]),
 });
+
+const SPLIT_RIGHT_DEFAULT_SHORTCUTS: readonly CommandShortcut[] = Object.freeze([
+  Object.freeze({ chord: 'ctrl+shift+\\', label: 'Ctrl+Shift+\\', platform: 'macos', scope: 'always' }),
+  Object.freeze({ chord: 'ctrl+shift+\\', label: 'Ctrl+Shift+\\', platform: 'other', scope: 'always' }),
+]);
+
+/** Stable presentation and browser-local Keybinding metadata for each Split. */
+export const DIRECTIONAL_SPLIT_COMMANDS: readonly DirectionalSplitCommandMetadata[] = Object.freeze([
+  Object.freeze({
+    id: SPLIT_LEFT_COMMAND_ID,
+    title: 'Split left',
+    category: 'Layout',
+    configurable: true,
+    direction: 'left',
+    defaultShortcuts: Object.freeze([]),
+  }),
+  Object.freeze({
+    id: SPLIT_RIGHT_COMMAND_ID,
+    title: 'Split right',
+    category: 'Layout',
+    configurable: true,
+    direction: 'right',
+    defaultShortcuts: SPLIT_RIGHT_DEFAULT_SHORTCUTS,
+  }),
+  Object.freeze({
+    id: SPLIT_UP_COMMAND_ID,
+    title: 'Split up',
+    category: 'Layout',
+    configurable: true,
+    direction: 'up',
+    defaultShortcuts: Object.freeze([]),
+  }),
+  Object.freeze({
+    id: SPLIT_DOWN_COMMAND_ID,
+    title: 'Split down',
+    category: 'Layout',
+    configurable: true,
+    direction: 'down',
+    defaultShortcuts: Object.freeze([]),
+  }),
+]);
 
 /**
  * Authoritative catalogue and guarded invocation seam for user Commands.
