@@ -13,6 +13,7 @@ import {
   CREATE_TAB_COMMAND,
   type CommandInvocation,
 } from './lib/command-registry.js';
+import { BrowserKeybindings, type ReservedKeybinding } from './lib/browser-keybindings.js';
 import { applyThemeTokens, applyChromeTokens, resolvePalette } from './lib/theme.js';
 import { applyDocumentTitle, applyTitlebarColor, restoreTitlebarColor } from './lib/instance-identity.js';
 import { injectTerminalFont } from './lib/fonts.js';
@@ -27,6 +28,7 @@ injectTerminalFont();
 import './components/title-bar.js';
 import './components/mux-dock.js';
 import './components/settings-surface.js';
+import './components/keybindings-surface.js';
 import type { MuxDock } from './components/mux-dock.js';
 import type { LauncherAction } from './components/launcher-menu.js';
 import './components/mux-undo-toast.js';
@@ -102,7 +104,7 @@ const uiActions: UIActions = {
  *  config frame so new key bindings take effect immediately. */
 let disposeKeys: (() => void) | undefined;
 
-/** Disposer for fixed app-level shortcuts (Cmd+W, Cmd+T). Installed once per
+/** Disposer for fixed app-level shortcuts (Cmd+W, Ctrl+Tab). Installed once per
  *  app connection and not re-set on config changes — these are not configurable. */
 let disposeAppShortcuts: (() => void) | undefined;
 
@@ -288,7 +290,7 @@ export class MuxApp extends LitElement {
       min-height: 0;
     }
 
-    /* shortcuts / about panels rendered inline */
+    /* about panel rendered inline */
     .info-panel {
       padding: 24px 24px 32px;
     }
@@ -315,28 +317,6 @@ export class MuxApp extends LitElement {
     }
 
     .info-panel .close-btn:hover { color: var(--chrome-text-bright); background: var(--chrome-hover); }
-
-    .shortcut-grid {
-      display: grid;
-      grid-template-columns: 1fr auto;
-      gap: 0;
-    }
-
-    .shortcut-grid .sc-label {
-      padding: 8px 0;
-      border-bottom: 1px solid var(--chrome-border);
-      font-size: 13px;
-      color: var(--chrome-text-dim);
-    }
-
-    .shortcut-grid .sc-key {
-      padding: 8px 0;
-      border-bottom: 1px solid var(--chrome-border);
-      font-size: 12px;
-      color: var(--chrome-text-bright);
-      font-family: 'JetBrainsMonoNerdFont', 'SF Mono', monospace;
-      text-align: right;
-    }
 
     .about-body {
       font-size: 13px;
@@ -477,6 +457,9 @@ export class MuxApp extends LitElement {
     execute: () => this._createPaneOptimistic(),
   }]);
 
+  /** Browser-local overrides for configurable registered Commands. */
+  readonly keybindings = new BrowserKeybindings(this.commands, () => this._reservedKeybindings());
+
   /** Active grace-period timers, keyed by paneId. Presence => a deferred close
    *  is pending and a toast is shown. */
   private _pendingCloses = new Map<number, ReturnType<typeof setTimeout>>();
@@ -554,7 +537,7 @@ export class MuxApp extends LitElement {
     disposeKeys = installKeybindings(uiActions);
     // Registered defaults and interface clicks share the guarded Command path.
     disposeCommandShortcuts?.();
-    disposeCommandShortcuts = installCommandShortcuts(this.commands);
+    disposeCommandShortcuts = installCommandShortcuts(this.commands, this.keybindings);
     // Install the remaining fixed app-level shortcuts. Installed once — not
     // re-set on config changes.
     disposeAppShortcuts?.();
@@ -994,29 +977,12 @@ export class MuxApp extends LitElement {
                   @ai-status-change="${this._onAIStatusChange}"
                 ></mux-settings-surface>
               ` : this._overlayPanel === 'shortcuts' ? html`
-                <div class="info-panel">
-                  <h2>Keyboard Shortcuts
-                    <button class="close-btn" @click="${this._closeOverlayPanel}">×</button>
-                  </h2>
-                  <div class="shortcut-grid">
-                    <span class="sc-label">${createTab.title}</span>
-                    <span class="sc-key">${createTab.defaultShortcuts.map((shortcut) => shortcut.label).join(' / ')}</span>
-                    <span class="sc-label">Close pane</span>
-                    <span class="sc-key">Cmd+W / Ctrl+W</span>
-                    <span class="sc-label">Cycle tabs (forward)</span>
-                    <span class="sc-key">Ctrl+Tab</span>
-                    <span class="sc-label">Cycle tabs (backward)</span>
-                    <span class="sc-key">Ctrl+Shift+Tab</span>
-                    <span class="sc-label">Next session</span>
-                    <span class="sc-key">${store.config.keys.nextSession}</span>
-                    <span class="sc-label">Split pane</span>
-                    <span class="sc-key">${store.config.keys.split}</span>
-                    <span class="sc-label">Open launcher</span>
-                    <span class="sc-key">${store.config.keys.openLauncher}</span>
-                    <span class="sc-label">Focus driver</span>
-                    <span class="sc-key">${store.config.keys.focusDriver}</span>
-                  </div>
-                </div>
+                <mux-keybindings-surface
+                  .commands="${this.commands.list()}"
+                  .preferences="${this.keybindings}"
+                  @close="${this._closeOverlayPanel}"
+                  @keybindings-change="${this._onKeybindingsChange}"
+                ></mux-keybindings-surface>
               ` : html`
                 <div class="info-panel">
                   <h2>About Agent Remote
@@ -1359,6 +1325,25 @@ export class MuxApp extends LitElement {
   private _closeOverlayPanel = (): void => {
     this._overlayPanel = null;
   };
+
+  private _onKeybindingsChange = (): void => {
+    this.requestUpdate();
+  };
+
+  private _reservedKeybindings(): readonly ReservedKeybinding[] {
+    return [
+      { title: 'Close pane', chord: 'meta+w' },
+      { title: 'Close pane', chord: 'ctrl+w' },
+      { title: 'Cycle tabs forward', chord: 'ctrl+tab' },
+      { title: 'Cycle tabs backward', chord: 'ctrl+shift+tab' },
+      { title: 'Next session', chord: store.config.keys.nextSession },
+      { title: 'Split pane', chord: store.config.keys.split },
+      { title: 'Maximize pane', chord: store.config.keys.maximizeRegion },
+      { title: 'Pop out pane', chord: store.config.keys.popOut },
+      { title: 'Open launcher', chord: store.config.keys.openLauncher },
+      { title: 'Focus driver', chord: store.config.keys.focusDriver },
+    ];
+  }
 
   /**
    * Apply a config change from the settings surface: update the store, then

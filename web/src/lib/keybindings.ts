@@ -1,5 +1,6 @@
 import type { ResolvedConfig } from './config';
-import type { CommandRegistry, CommandShortcut } from './command-registry.js';
+import type { CommandRegistry } from './command-registry.js';
+import { isRecordingKeybinding, type BrowserKeybindings } from './browser-keybindings.js';
 
 export type Keys = ResolvedConfig['keys'];
 
@@ -22,7 +23,7 @@ function chordOf(e: KeyboardEvent): string {
   if (e.altKey) parts.push('alt');
   if (e.shiftKey) parts.push('shift');
   if (e.metaKey) parts.push('meta');
-  parts.push(e.key.toLowerCase());
+  parts.push(e.key === ' ' ? 'space' : e.key.toLowerCase());
   return parts.join('+');
 }
 
@@ -56,30 +57,19 @@ export function makeKeyHandler(
   };
 }
 
-/** Returns true when agent-remote is running as an installed PWA in standalone mode. */
-function isPwa(): boolean {
-  return window.matchMedia('(display-mode: standalone)').matches;
-}
-
-function isMacOS(): boolean {
-  return /Mac|iPhone|iPad|iPod/.test(navigator.platform);
-}
-
-function shortcutApplies(shortcut: CommandShortcut): boolean {
-  if (shortcut.platform === 'macos' && !isMacOS()) return false;
-  if (shortcut.platform === 'other' && isMacOS()) return false;
-  return shortcut.scope === 'always' || isPwa();
-}
-
 /**
  * Installs default Keybindings sourced directly from registered Command
  * metadata. Matching unavailable Commands are left unconsumed and cannot run.
  */
-export function installCommandShortcuts(registry: CommandRegistry): () => void {
+export function installCommandShortcuts(
+  registry: CommandRegistry,
+  preferences: BrowserKeybindings,
+): () => void {
   const handler = (e: KeyboardEvent): void => {
+    if (isRecordingKeybinding(e)) return;
     for (const command of registry.list()) {
-      for (const shortcut of command.defaultShortcuts) {
-        if (!shortcutApplies(shortcut) || !matchChord(shortcut.chord, e)) continue;
+      for (const shortcut of preferences.bindingsFor(command)) {
+        if (!matchChord(shortcut.chord, e)) continue;
         if (registry.invoke(command.id)) e.preventDefault();
         return;
       }
@@ -102,6 +92,7 @@ export function installAppShortcuts(
   actions: Pick<UIActions, 'closePane' | 'nextTab' | 'prevTab'>,
 ): () => void {
   const handler = (e: KeyboardEvent): void => {
+    if (isRecordingKeybinding(e)) return;
     if (e.key === 'w' || e.key === 'W') {
       if (e.metaKey || e.ctrlKey) {
         e.preventDefault();

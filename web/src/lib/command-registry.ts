@@ -17,6 +17,7 @@ export interface CommandMetadata {
   id: CommandId;
   title: string;
   category: CommandCategory;
+  configurable: boolean;
   defaultShortcuts: readonly CommandShortcut[];
 }
 
@@ -42,6 +43,7 @@ export const CREATE_TAB_COMMAND: CommandMetadata = Object.freeze({
   id: CREATE_TAB_COMMAND_ID,
   title: 'Create tab',
   category: 'Layout',
+  configurable: true,
   defaultShortcuts: Object.freeze([
     Object.freeze({ chord: 'ctrl+meta+t', label: 'Cmd+Ctrl+T', platform: 'macos', scope: 'always' }),
     Object.freeze({ chord: 'meta+t', label: 'Cmd+T', platform: 'macos', scope: 'standalone' }),
@@ -77,6 +79,7 @@ export class CommandRegistry {
       id: definition.id,
       title: definition.title,
       category: definition.category,
+      configurable: definition.configurable,
       defaultShortcuts: definition.defaultShortcuts,
       available: definition.isAvailable(),
     };
