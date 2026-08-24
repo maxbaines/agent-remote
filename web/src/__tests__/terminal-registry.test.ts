@@ -6,7 +6,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { terminalRegistry, buildTerminalConfig, configureTerminals } from '../lib/terminal-registry.js';
 import type { PaneHandlers } from '../lib/terminal-registry.js';
 import { DEFAULT_RESOLVED_CONFIG } from '../lib/config.js';
-import { resolvePalette } from '../lib/theme.js';
+import { THEME } from '../lib/theme.js';
 
 // Helper: a no-op handler set
 function handlers(): PaneHandlers {
@@ -466,13 +466,12 @@ describe('buildTerminalConfig', () => {
     expect(cfg.cursorStyle).toBe('block');
     expect(cfg.cursorBlink).toBe(true);
     expect(cfg.scrollback).toBe(10000);
-    expect(cfg.theme).toStrictEqual(resolvePalette('tokyo-night'));
+    expect(cfg.theme).toStrictEqual(THEME);
   });
 
   it('returns overrides when given a custom config', () => {
     const custom = {
       ...DEFAULT_RESOLVED_CONFIG,
-      theme: { palette: 'gruvbox' },
       font: { family: 'Iosevka', size: 18 },
       terminal: {
         ...DEFAULT_RESOLVED_CONFIG.terminal,
@@ -487,7 +486,7 @@ describe('buildTerminalConfig', () => {
     expect(cfg.cursorStyle).toBe('bar');
     expect(cfg.cursorBlink).toBe(false);
     expect(cfg.scrollback).toBe(99999);
-    expect(cfg.theme).toStrictEqual(resolvePalette('gruvbox'));
+    expect(cfg.theme).toStrictEqual(THEME);
   });
 
   it('always sets non-overridable fields (lineHeight, allowTransparency, convertEol)', () => {

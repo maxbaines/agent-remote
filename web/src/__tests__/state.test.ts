@@ -14,10 +14,10 @@ describe('MuxStore', () => {
       const listener = vi.fn();
       store.subscribe(listener);
 
-      const cfg = parseResolvedConfig({ theme: { palette: 'gruvbox' } });
+      const cfg = parseResolvedConfig({ font: { size: 15 } });
       store.setConfig(cfg);
 
-      expect(store.config.theme.palette).toBe('gruvbox');
+      expect(store.config.font.size).toBe(15);
       expect(listener).toHaveBeenCalledTimes(1);
     });
   });

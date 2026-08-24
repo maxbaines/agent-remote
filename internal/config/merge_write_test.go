@@ -16,16 +16,12 @@ import (
 func TestMergeStringFieldsApplied(t *testing.T) {
 	base := config.Defaults()
 	partial := config.Config{}
-	partial.Theme.Palette = "gruvbox"
 	partial.Font.Family = "FiraCode"
 	partial.Terminal.CursorStyle = "underline"
 	partial.Terminal.Bell = "off"
 
 	result := config.Merge(base, partial)
 
-	if result.Theme.Palette != "gruvbox" {
-		t.Errorf("Theme.Palette: got %q, want %q", result.Theme.Palette, "gruvbox")
-	}
 	if result.Font.Family != "FiraCode" {
 		t.Errorf("Font.Family: got %q, want %q", result.Font.Family, "FiraCode")
 	}
@@ -44,9 +40,6 @@ func TestMergeEmptyStringFieldsNotApplied(t *testing.T) {
 	result := config.Merge(base, partial)
 
 	defaults := config.Defaults()
-	if result.Theme.Palette != defaults.Theme.Palette {
-		t.Errorf("Theme.Palette should retain base value %q, got %q", defaults.Theme.Palette, result.Theme.Palette)
-	}
 	if result.Font.Family != defaults.Font.Family {
 		t.Errorf("Font.Family should retain base value %q, got %q", defaults.Font.Family, result.Font.Family)
 	}
@@ -103,15 +96,15 @@ func TestMergeBoolAlwaysApplied(t *testing.T) {
 
 func TestMergeDoesNotMutateBase(t *testing.T) {
 	base := config.Defaults()
-	origPalette := base.Theme.Palette
+	origFamily := base.Font.Family
 
 	partial := config.Config{}
-	partial.Theme.Palette = "solarized"
+	partial.Font.Family = "FiraCode"
 
 	_ = config.Merge(base, partial)
 
-	if base.Theme.Palette != origPalette {
-		t.Errorf("base was mutated: Theme.Palette changed from %q to %q", origPalette, base.Theme.Palette)
+	if base.Font.Family != origFamily {
+		t.Errorf("base was mutated: Font.Family changed from %q to %q", origFamily, base.Font.Family)
 	}
 }
 
@@ -152,7 +145,6 @@ func TestWriteProducesValidTOML(t *testing.T) {
 	path := filepath.Join(dir, "config.toml")
 
 	original := config.Defaults()
-	original.Theme.Palette = "solarized"
 	original.Font.Size = 18
 	original.Terminal.Bell = "audible"
 
@@ -166,9 +158,6 @@ func TestWriteProducesValidTOML(t *testing.T) {
 		t.Fatalf("written file is not valid TOML: %v", err)
 	}
 
-	if readBack.Theme.Palette != "solarized" {
-		t.Errorf("Theme.Palette: got %q, want %q", readBack.Theme.Palette, "solarized")
-	}
 	if readBack.Font.Size != 18 {
 		t.Errorf("Font.Size: got %d, want 18", readBack.Font.Size)
 	}
@@ -191,9 +180,6 @@ func TestWriteRoundTrip(t *testing.T) {
 		t.Fatalf("Load() after Write() failed: %v", err)
 	}
 
-	if loaded.Theme.Palette != original.Theme.Palette {
-		t.Errorf("round-trip Theme.Palette: got %q, want %q", loaded.Theme.Palette, original.Theme.Palette)
-	}
 	if loaded.Font.Size != original.Font.Size {
 		t.Errorf("round-trip Font.Size: got %d, want %d", loaded.Font.Size, original.Font.Size)
 	}

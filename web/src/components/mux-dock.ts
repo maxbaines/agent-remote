@@ -481,15 +481,13 @@ export class MuxDock extends LitElement {
           height: 100%;
         }
 
-        /* Dockview re-skin: all values driven by CSS custom properties so the
-           entire tab strip + panel chrome follows the selected theme. */
+        /* Dockview re-skin: every surface follows the fixed Agent Remote tokens. */
         mux-dock .dv-dockview {
           --dv-background-color: var(--chrome-body);
 
           /* Panel CONTENT background. Must equal the terminal background so the
              few sub-character pixels left when xterm can't fill the pane to an
-             exact row height don't bleed a contrasting color. --mux-bg is set
-             by applyThemeTokens() to the palette's background colour. */
+             exact row height don't bleed a contrasting color. */
           --dv-group-view-background-color: var(--mux-bg);
 
           /* Tab bar surface — same as the title bar so the chrome reads as one

@@ -18,7 +18,7 @@ export class MuxTitleBar extends LitElement {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      background: var(--mux-titlebar-bg, var(--chrome-bar));
+      background: var(--chrome-bar);
       border-bottom: 1px solid var(--chrome-border);
       height: var(--mux-dock-height, 44px);
       padding: 0 8px;

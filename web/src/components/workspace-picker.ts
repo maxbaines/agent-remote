@@ -35,8 +35,8 @@ export class MuxWorkspacePicker extends LitElement {
     }
 
     .picker {
-      background: #1e1e2e;
-      border: 1px solid #45475a;
+      background: var(--chrome-bar);
+      border: 1px solid var(--chrome-border);
       border-radius: 8px;
       padding: 8px;
       width: max-content;
@@ -49,7 +49,7 @@ export class MuxWorkspacePicker extends LitElement {
 
     h2 {
       margin: 4px 8px 8px;
-      color: #6c7086;
+      color: var(--chrome-text-dim);
       font-size: 11px;
       font-weight: 600;
       text-transform: uppercase;
@@ -71,17 +71,17 @@ export class MuxWorkspacePicker extends LitElement {
       background: transparent;
       border: none;
       border-radius: 4px;
-      color: #cdd6f4;
+      color: var(--chrome-text-bright);
       font-size: 14px;
       transition: background-color 0.12s;
     }
 
-    .ws-item:hover { background: #2a2b3c; }
-    .ws-item.sel  { background: #283457; }
-    .ws-item.errored { border-color: #f38ba8; background: #3a2230; }
+    .ws-item:hover { background: var(--chrome-hover); }
+    .ws-item.sel  { background: var(--mux-selection); }
+    .ws-item.errored { outline: 1px solid var(--mux-error); background: var(--chrome-hover); }
 
-    .ws-err-msg { color: #f38ba8; font-size: 12px; margin-right: 4px; }
-    .ws-item.errored .row-action { color: #f38ba8; }
+    .ws-err-msg { color: var(--mux-error); font-size: 12px; margin-right: 4px; }
+    .ws-item.errored .row-action { color: var(--mux-error); }
 
     .ws-sel {
       display: flex;
@@ -100,7 +100,7 @@ export class MuxWorkspacePicker extends LitElement {
     .ws-check {
       width: 16px;
       flex-shrink: 0;
-      color: #9ece6a;
+      color: var(--mux-ok);
       display: inline-flex;
       align-items: center;
       justify-content: center;
@@ -114,7 +114,7 @@ export class MuxWorkspacePicker extends LitElement {
       text-overflow: ellipsis;
     }
 
-    .ws-meta { color: #6c7086; font-size: 12px; }
+    .ws-meta { color: var(--chrome-text-dim); font-size: 12px; }
 
     .row-action {
       display: flex;
@@ -123,7 +123,7 @@ export class MuxWorkspacePicker extends LitElement {
       flex-shrink: 0;
       border: none;
       background: transparent;
-      color: #6c7086;
+      color: var(--chrome-text-dim);
       cursor: pointer;
       padding: 4px;
       border-radius: 4px;
@@ -136,7 +136,7 @@ export class MuxWorkspacePicker extends LitElement {
 
     @media (pointer: coarse) { .row-action { opacity: 1; } }
 
-    .row-action:hover { background: #45475a; color: #cdd6f4; }
+    .row-action:hover { background: var(--chrome-hover); color: var(--chrome-text-bright); }
 
     /* Inline rename edit row */
     .ws-edit-row {
@@ -148,10 +148,10 @@ export class MuxWorkspacePicker extends LitElement {
 
     .ws-edit-input {
       flex: 1;
-      background: #313244;
-      border: 1px solid #89b4fa;
+      background: var(--chrome-body);
+      border: 1px solid var(--chrome-accent);
       border-radius: 4px;
-      color: #cdd6f4;
+      color: var(--chrome-text-bright);
       font: inherit;
       font-size: 14px;
       padding: 3px 8px;
@@ -170,17 +170,17 @@ export class MuxWorkspacePicker extends LitElement {
       width: 100%;
       margin-top: 12px;
       padding: 10px 16px;
-      border: 1px dashed #45475a;
+      border: 1px dashed var(--chrome-border);
       border-radius: 6px;
       background: transparent;
-      color: #89b4fa;
+      color: var(--chrome-accent);
       cursor: pointer;
       font-size: 14px;
       font-family: inherit;
       text-align: left;
     }
 
-    .ws-new:hover { border-color: #89b4fa; background: #1f2335; }
+    .ws-new:hover { border-color: var(--chrome-accent); background: var(--chrome-hover); }
   `;
 
   @property({ attribute: false }) workspaces: SessiondWorkspaceInfo[] = [];

@@ -37,9 +37,7 @@ export class MuxSidebar extends LitElement {
       color: var(--chrome-text-bright);
       letter-spacing: 0.06em;
       border-bottom: 1px solid var(--chrome-border);
-      /* Falls back to transparent (i.e. the sidebar's own --chrome-bar shows
-         through) unless the user picked a custom title-bar color in Settings. */
-      background: var(--mux-titlebar-bg, transparent);
+      background: var(--chrome-bar);
       flex-shrink: 0;
       display: flex;
       align-items: center;
@@ -60,7 +58,7 @@ export class MuxSidebar extends LitElement {
       background: transparent;
       border: none;
       border-radius: 4px;
-      color: var(--mux-text-bright, #c0caf5);
+      color: var(--chrome-text-bright);
       cursor: pointer;
       display: flex;
       align-items: center;
@@ -70,7 +68,7 @@ export class MuxSidebar extends LitElement {
     }
 
     .launcher-btn:hover {
-      background: rgba(255, 255, 255, 0.08);
+      background: var(--chrome-hover);
     }
 
     .menu-anchor {

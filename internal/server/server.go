@@ -96,10 +96,10 @@ func New(cfg Config) *Server {
 	}
 
 	s.configPath = cfg.ConfigPath
-	// Use the supplied initial config if it looks populated (palette is never
+	// Use the supplied initial config if it looks populated (font family is never
 	// empty in a real config), otherwise fall back to hardcoded defaults.
 	s.cfg = cfg.InitialConfig
-	if s.cfg.Theme.Palette == "" {
+	if s.cfg.Font.Family == "" {
 		s.cfg = muxcfg.Defaults()
 	}
 

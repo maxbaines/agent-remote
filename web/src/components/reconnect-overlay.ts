@@ -25,7 +25,7 @@ export class MuxReconnectOverlay extends LitElement {
       width: 24px;
       height: 24px;
       border: 3px solid rgba(255, 255, 255, 0.2);
-      border-top-color: #7aa2f7;
+      border-top-color: var(--chrome-accent);
       border-radius: 50%;
       animation: spin 0.8s linear infinite;
     }
@@ -38,12 +38,12 @@ export class MuxReconnectOverlay extends LitElement {
 
     .message {
       font-size: 16px;
-      color: #e0af68;
+      color: var(--mux-error);
     }
 
     .detail {
       font-size: 13px;
-      color: #565f89;
+      color: var(--chrome-text-dim);
     }
   `;
 

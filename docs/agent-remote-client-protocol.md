@@ -22,8 +22,9 @@ Two WebSocket message kinds are used:
 
 On connect the client observes, in order:
 
-1. `config` — a serve-local envelope `{"type":"config","config":{…}}` (theme,
-   terminal options, keybindings). Not a daemon message.
+1. `config` — a serve-local envelope `{"type":"config","config":{…}}` (font,
+   terminal options, keybindings). Appearance is fixed and is not a config field.
+   Not a daemon message.
 2. `workspace-list` — `{type, workspaces:[WorkspaceInfo]}`.
 3. Client sends `attach` `{type:"attach", cid, workspaceId, breakpoint}`.
 4. `composition` — `{type, cid, workspaceId, panes:[PaneInfo], layout}`. Sent

@@ -1,177 +1,101 @@
-# muxterm — Design Document
+# Agent Remote desktop appearance
 
-**Status:** Living document. Updated as visual design decisions are made.
-**Scope:** Visual design language, design tokens, component visual states, interaction patterns.
-**Audience:** Frontend contributors. For technical architecture, see [ARCHITECTURE.md](ARCHITECTURE.md). For feature-level implementation designs, see [docs/superpowers/specs/](docs/superpowers/specs/).
+**Status:** Canonical desktop v1 reference
+**Scope:** Fixed terminal palette, browser chrome, typography, spacing, and visual states
 
----
+Agent Remote is terminal-first: terminal content carries the most visual weight and the
+surrounding controls stay quiet. Desktop v1 ships one appearance. It has no theme selector,
+theme editor, light-mode branch, custom-title-bar colour, or browser/server theme persistence.
 
-## Context and Scope
+The executable source of truth is `web/src/lib/theme.ts`; this document fixes its intended
+values and component treatments. `web/e2e/fixed-appearance.mjs` checks the same values in a real
+browser against a real Gateway and Session Owner.
 
-muxterm is a browser-based terminal multiplexer. The UI wraps terminal content — the content
-*is* the product, not the chrome. The visual design has one job: stay out of the way of the
-terminal while making workspace and pane navigation fast and legible on any device.
+## Fixed colour reference
 
-Design decisions flow from three constraints:
+### Terminal palette
 
-1. **Terminal-first** — chrome elements must not compete with terminal content for visual weight.
-2. **Palette-derived** — chrome uses colors from the active terminal palette, so the UI always
-   looks coherent regardless of which color scheme the user runs.
-3. **Touch-capable** — interactive targets must be reliably tappable on mobile without
-   sacrificing desktop density.
+| Role | Value |
+|---|---:|
+| Background / cursor accent | `#1a1b26` |
+| Foreground / white | `#a9b1d6` |
+| Cursor / bright white | `#c0caf5` |
+| Selection | `#283457` |
+| Black | `#15161e` |
+| Bright black | `#414868` |
+| Red / error | `#f7768e` |
+| Green / connected | `#9ece6a` |
+| Yellow / warning / attention | `#e0af68` |
+| Blue / focus accent | `#7aa2f7` |
+| Magenta / driver accent | `#bb9af7` |
+| Cyan | `#7dcfff` |
 
----
+### Browser chrome
 
-## Goals
+| Token | Value | Use |
+|---|---:|---|
+| `--chrome-bar` | `#16161e` | Sidebar, tab strip, headers |
+| `--chrome-body` | `#1a1b26` | Pane and settings body |
+| `--chrome-border` | `#292e42` | Hairline separators and pane dividers |
+| `--chrome-text-bright` | `#c0caf5` | Active labels and primary controls |
+| `--chrome-text-dim` | `#7f89b3` | Inactive labels and secondary copy |
+| `--chrome-accent` | `#7aa2f7` | Active tab edge, focus, selected Workspace |
+| `--chrome-driver-accent` | `#bb9af7` | Driver-specific focus |
+| `--chrome-hover` | `#1f2335` | Pointer hover surface |
+| `--chrome-danger` | `#f7768e` | Destructive hover and errors |
 
-- Document all design tokens so contributors know what variables exist and what they mean.
-- Establish consistent visual patterns for chrome elements (title bar, tabs, dock, indicators).
-- Define touch target standards.
-- Provide a token reference for new feature visual design — feature specs reference tokens from
-  here rather than hardcoding values.
+Primary and inactive text both maintain at least 4.5:1 contrast on their intended surfaces.
+Accent, connected, warning, and error colours maintain at least 3:1 contrast on the terminal
+background. Focus never relies on colour alone: the selected tab also gains a 2px top edge,
+and selected Workspace cards retain a border.
 
-## Non-Goals
+## Typography and density
 
-- Terminal rendering details (controlled by xterm.js and the user's palette).
-- Animation timings (TBD — will be added here when decisions are made).
-- Full accessibility audit (future work).
-
----
-
-## Design Tokens
-
-All tokens are CSS custom properties. They are derived from the active terminal palette by
-`paletteToVars()` in `web/src/lib/theme.ts` and applied to `:root` at startup. When the
-palette changes, all tokens update automatically and chrome re-renders with the new values.
-
-### Color tokens
-
-| Token | Semantic meaning | Default (Tokyo Night) |
-|---|---|---|
-| `--mux-bg` | Primary background for all chrome surfaces | `#1a1b26` |
-| `--mux-fg` | Primary text on chrome surfaces | `#a9b1d6` |
-| `--mux-accent` | Active / selected state highlight | `#7aa2f7` (blue) |
-| `--mux-border` | Dividers, panel borders | `#414868` (brightBlack) |
-| `--mux-ok` | Success, connected | palette green |
-| `--mux-warn` | Warning | palette yellow / amber |
-| `--mux-error` | Error, disconnected | palette red |
-| `--mux-selection` | Text selection background | palette selectionBackground |
-
-### Proposed tokens (attention management + dock redesign)
-
-These tokens do not exist yet. They will be introduced as part of the attention management
-and dock bar feature. See `docs/superpowers/specs/2026-06-07-attention-management-design.md`.
-
-| Token | Semantic meaning | Proposed value |
-|---|---|---|
-| `--mux-bell` | Bell indicator dot color | `var(--mux-warn)` |
-| `--mux-dock-height` | Height of the dock bar row (sets touch target) | `44px` |
-| `--mux-dock-item-padding` | Horizontal padding on each dock workspace item | `0 16px` |
-| `--mux-dock-font-size` | Workspace label font size in the dock | `0.85rem` |
-| `--mux-dock-active-weight` | Font weight for the active workspace label | `600` |
-| `--mux-tab-max-width` | Maximum/default pane tab width on desktop | `180px` |
-| `--mux-tab-min-width` | Minimum pane tab width before label truncates | `80px` |
-
-### Spacing and layout
-
-| Value | Usage |
-|---|---|
-| `44px` minimum | Any interactive element that must be reliably tappable on mobile |
-| `16px` | Standard horizontal item padding / gap |
-| `8px` | Internal chrome padding |
-| `4px` | Tight spacing (e.g. indicator dot + label gap) |
-
-### Typography
-
-Chrome elements use the system UI font stack. Terminal content uses the configured monospace
-font from `web/src/lib/config.ts`.
-
-| Surface | Font | Size | Weight |
+| Surface | Family | Size / line height | Weight |
 |---|---|---|---|
-| Dock workspace labels | system-ui | `--mux-dock-font-size` (0.85rem) | 400 inactive / 600 active |
-| Pane tab labels | system-ui | 0.875rem | 400 |
-| Status / utility text | system-ui | 0.8rem | 400 |
-| Terminal content | configured monospace | configured size | 400 |
+| Terminal | bundled `JetBrainsMonoNerdFont` | `13px` / `1.0` | regular; terminal-controlled bold |
+| Pane tabs | system UI | `0.875rem` | 400 |
+| Workspace and controls | system UI | `13px` | 400–600 |
+| Utility labels | system UI | `11–12px` | 400–600 |
 
----
+Spacing uses a 4px base: 4px for tight icon/label gaps, 8px inside dense chrome, 16px for
+standard horizontal padding, and 32px between settings sections. Desktop tabs are 80–180px
+wide. Controls shared with touch layouts retain a 44px minimum target; desktop-only icon
+buttons may be 26–28px.
 
-## Component Visual States
+## Component states
 
-### Pane tab
-
-| State | Treatment |
+| Surface/state | Treatment |
 |---|---|
-| Inactive | Muted `--mux-fg` |
-| Active | `--mux-accent` underline or stronger fg |
-| Bell active | `●` prefix in `--mux-bell` (amber) |
+| Terminal surface | Fixed terminal background; no contrasting sliver around xterm rows |
+| Active tab in focused group | Body background, bright text, 2px blue top edge |
+| Inactive tab | Bar background and dim text; close control appears on hover |
+| Visible tab in unfocused split | Body background and terminal foreground; no blue top edge |
+| Pane divider | One-pixel chrome border; resize sash turns blue only while dragging |
+| Workspace active | Hover surface plus blue border and active dot |
+| Workspace inactive | Transparent bar surface and dim dot; hover surface on pointer hover |
+| Keyboard focus | Blue outline or border with at least 2px visible extent |
+| Warning / attention | Yellow; pane and Workspace attention uses a visible dot prefix |
+| Error / disconnected | Red text/indicator; reconnect overlay remains above transient toasts |
+| Connected | Green status indicator |
+| Destructive hover | Red foreground, never the normal control state |
 
-### Dock bar workspace slot
+Terminal tabs, split dividers, sidebar, title bar, menus, overlays, settings, warning states,
+and error states consume these fixed semantic tokens. Components must not introduce a second
+palette or persist colour overrides.
 
-| State | Treatment |
-|---|---|
-| Inactive | Muted `--mux-fg`, generous horizontal padding for touch |
-| Active | `font-weight: var(--mux-dock-active-weight)` or `--mux-accent` tint |
-| Bell active | `●` prefix in `--mux-bell` (amber) |
+## Representative capture
 
-The dock bar has no boxes around individual items. Padding alone creates the tap target.
-Minimum touch target height is `var(--mux-dock-height)` (`44px`).
+`docs/visual-reference/agent-remote-desktop-v1.png` is the committed Chromium reference at
+1440×900. It shows the sidebar, active and inactive tabs, split groups, terminal surfaces,
+pane divider, and desktop controls. Regenerate it only from a fresh runtime with:
 
-### Connection indicator (far right of dock bar)
+```bash
+node web/e2e/fixed-appearance.mjs \
+  --url http://127.0.0.1:8313 \
+  --capture docs/visual-reference/agent-remote-desktop-v1.png
+```
 
-| State | Treatment |
-|---|---|
-| Connected | `--mux-ok` |
-| Disconnected / reconnecting | `--mux-error` |
-
----
-
-## Interaction Patterns
-
-### Touch targets
-
-All workspace-switching and pane-switching controls must be at least 44×44px. This is
-enforced via `--mux-dock-height` and `min-height` on dock items. Desktop users experience
-this as generous, comfortable click targets — no downside.
-
-### Bell / attention indicator
-
-The `●` character (U+25CF BLACK CIRCLE) is prepended to a label when that label's
-corresponding pane or workspace has an unacknowledged bell. Color: `var(--mux-bell)`.
-A `4px` gap separates the dot from the label text.
-
-Indicators clear independently:
-- **Pane tab dot** clears when the user focuses that pane.
-- **Dock workspace dot** clears when the user switches to that workspace.
-
----
-
-## Alternatives Considered
-
-**SVG icon instead of `●` for the bell indicator.** Rejected — a Unicode character is
-zero-dependency, renders predictably in both monospace and system-ui fonts, and carries no
-specific notification metaphor (the dot reads as "attention needed" without implying sound).
-
-**Storing tokens in a JS/TS constant file instead of CSS custom properties.** Rejected —
-CSS custom properties cascade naturally from the palette, can be inspected in devtools, and
-update instantly when the palette changes without any JS plumbing.
-
-**Separate `--mux-bell` color instead of aliasing `--mux-warn`.** Deferred — today both
-would resolve to the same amber. If a future palette has an unusable yellow, `--mux-bell`
-can be overridden without touching `--mux-warn`. The indirection costs nothing now.
-
----
-
-## Open Questions
-
-- Should the active dock workspace slot use `font-weight: 600` or an `--mux-accent` color
-  tint? (Both options noted above — to be decided during implementation.)
-- Should the bell dot appear instantly or fade in over ~150ms? (Animation tokens TBD.)
-
----
-
-## References
-
-- [`ARCHITECTURE.md`](ARCHITECTURE.md) — technical architecture, event taxonomy, FSMs, known bugs
-- [`web/src/lib/theme.ts`](web/src/lib/theme.ts) — palette-to-token mapping implementation
-- [`web/src/lib/config.ts`](web/src/lib/config.ts) — terminal font and bell config
-- [`docs/superpowers/specs/`](docs/superpowers/specs/) — per-feature implementation design documents
+The script also rejects a theme field in the live config API, theme/custom-colour controls in
+Settings, stale browser-local title-bar colour application, insufficient state contrast, and
+inherited product branding.

@@ -17,7 +17,7 @@ import { WebFontsAddon } from '@xterm/addon-web-fonts';
 import { ClipboardAddon } from '@xterm/addon-clipboard';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import xtermCss from '@xterm/xterm/css/xterm.css?inline';
-import { resolvePalette } from './theme.js';
+import { THEME } from './theme.js';
 import { muxLog } from './mux-log.js';
 import { TERMINAL_FONT_FAMILY } from './fonts.js';
 import { terminalPresentation } from './terminal-presentation.js';
@@ -59,7 +59,7 @@ import { store } from '../state.js';
  */
 export function buildTerminalConfig(cfg: ResolvedConfig) {
   return {
-    theme: resolvePalette(cfg.theme.palette),
+    theme: THEME,
     fontFamily: cfg.font.family,
     fontSize: cfg.font.size,
     lineHeight: 1.0, // non-overridable; matches Zellij's web client. A
@@ -79,7 +79,7 @@ let TERMINAL_CONFIG = buildTerminalConfig(DEFAULT_RESOLVED_CONFIG);
  * Reconfigure all terminals from a ResolvedConfig.
  *
  * - Updates TERMINAL_CONFIG so newly-created terminals pick up the new values.
- * - Hot-reloads every existing open terminal: applies theme, font family, font
+ * - Hot-reloads every existing open terminal: applies the fixed palette, font family, font
  *   size, cursor style, and cursor blink immediately, then re-fits so column
  *   counts stay correct after a font-size change.
  *

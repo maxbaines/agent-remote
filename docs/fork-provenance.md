@@ -19,7 +19,7 @@ Supported identities use the `agent-remote` slug: the Go module, binary, release
 Legacy `muxterm` references remain only in these provenance or compatibility locations:
 
 - Git history, the upstream copyright notice in `LICENSE`, and the pinned upstream remote identify the source project.
-- `PRD.md`, `SETUP.md`, `AGENTS.md`, the root `ARCHITECTURE.md` and `DESIGN.md`, and upstream architecture, verification, release-note, and dated design records under `docs/` describe the previously deployed muxterm environment or historical decisions.
+- `PRD.md`, `SETUP.md`, `AGENTS.md`, the root `ARCHITECTURE.md`, and upstream architecture, verification, release-note, and dated design records under `docs/` describe the previously deployed muxterm environment or historical decisions. Root `DESIGN.md` is Agent Remote's current visual reference.
 - Existing internal `mux-*` web-component names, CSS custom properties, DOM classes and test hooks, logger symbols, and proxy-message identifiers are compatibility names inherited from upstream. They are not installed package, service, configuration, or user-facing product identities; renaming them would add protocol and rendering risk to an identity-only baseline.
 
 The frozen Session Owner control-message values and binary framing are intentionally unchanged. Future upstream imports should preserve those contracts unless a separately reviewed protocol change explicitly versions them.

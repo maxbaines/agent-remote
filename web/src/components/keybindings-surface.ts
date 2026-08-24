@@ -108,7 +108,7 @@ export class MuxKeybindingsSurface extends LitElement {
     .error {
       grid-column: 1 / -1;
       margin: -2px 0 8px;
-      color: var(--mux-red, #ff6b6b);
+      color: var(--chrome-danger);
       font-size: 12px;
     }
   `;
