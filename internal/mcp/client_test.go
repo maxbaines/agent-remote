@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kenotron-ms/muxterm/internal/sessiond"
+	"github.com/maxbaines/agent-remote/internal/sessiond"
 )
 
 // startMCPTestServer starts a real sessiond daemon on a short socket path
@@ -121,7 +121,7 @@ func TestOutputBufferAccumulates(t *testing.T) {
 }
 
 // TestSendBrowserActionResolves and TestSendBrowserActionTimeout were removed
-// when browser pane support was dropped from muxterm. SendBrowserAction no
+// when browser pane support was dropped from agent-remote. SendBrowserAction no
 // longer exists on Client. See git history for the original test bodies.
 
 // TestWaitForPromptResolves verifies that WaitForPrompt returns exit code 0

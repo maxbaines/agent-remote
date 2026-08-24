@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"syscall"
 
-	"github.com/kenotron-ms/muxterm/internal/sessiond"
+	"github.com/maxbaines/agent-remote/internal/sessiond"
 )
 
 // runSessiond is the Phase-1 daemon entrypoint. It resolves the daemon's Unix
@@ -40,6 +40,6 @@ func serveSessiond(ctx context.Context, socketPath string) error {
 		return fmt.Errorf("create sessiond server: %w", err)
 	}
 
-	log.Printf("muxterm sessiond listening on %s", socketPath)
+	log.Printf("agent-remote sessiond listening on %s", socketPath)
 	return srv.ListenAndServe(ctx)
 }

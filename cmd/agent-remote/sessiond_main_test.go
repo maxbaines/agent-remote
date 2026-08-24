@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kenotron-ms/muxterm/internal/sessiond"
+	"github.com/maxbaines/agent-remote/internal/sessiond"
 )
 
 // TestServeSessiond_ListensThenShutsDown verifies the testable core of the

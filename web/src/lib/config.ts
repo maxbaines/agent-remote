@@ -93,7 +93,7 @@ export const DEFAULT_RESOLVED_CONFIG: ResolvedConfig = {
   theme: { palette: 'tokyo-night' },
   font: {
     // Default to the server-bundled JetBrains Mono Nerd Font, served from
-    // /fonts/ by the muxterm server itself. This ensures Nerd Font glyphs
+    // /fonts/ by the agent-remote server itself. This ensures Nerd Font glyphs
     // (folder icons, git symbols, etc.) render correctly in any browser,
     // regardless of what fonts are installed on the client machine.
     family: 'JetBrainsMonoNerdFont',
@@ -120,7 +120,7 @@ export const DEFAULT_RESOLVED_CONFIG: ResolvedConfig = {
   driver: {
     autostart: false,
     sharedWindowPolicy: 'follow',
-    launch: 'muxterm-agent',
+    launch: 'agent-remote-agent',
   },
 };
 

@@ -538,7 +538,7 @@ export class MuxApp extends LitElement {
     // Install keybindings with defaults immediately — mirrors applyThemeTokens.
     disposeKeys = installKeybindings(uiActions);
     // Install fixed app-level shortcuts (Cmd+W close, Cmd+T new pane). These
-    // override the browser's native tab-close / new-tab actions so muxterm
+    // override the browser's native tab-close / new-tab actions so agent-remote
     // feels like a native app. Installed once — not re-set on config changes.
     disposeAppShortcuts?.();
     disposeAppShortcuts = installAppShortcuts({
@@ -930,7 +930,7 @@ export class MuxApp extends LitElement {
         )}
       </div>
       <div class="overlay ${this._connectionStatus === 'connected' ? 'hidden' : ''}">
-        Connecting to muxterm...
+        Connecting to Agent Remote...
       </div>
 
       ${this._showCreateModal ? html`
@@ -998,14 +998,14 @@ export class MuxApp extends LitElement {
                 </div>
               ` : html`
                 <div class="info-panel">
-                  <h2>About muxterm
+                  <h2>About Agent Remote
                     <button class="close-btn" @click="${this._closeOverlayPanel}">×</button>
                   </h2>
                   <div class="about-body">
-                    <p><strong>muxterm</strong> is a browser-based terminal multiplexer. It
-                    connects to a <code>sessiond</code> daemon over WebSocket and renders
-                    panes using xterm.js inside a dockview layout.</p>
-                    <p>Config file: <strong>~/.config/muxterm/config.toml</strong></p>
+                    <p><strong>Agent Remote</strong> is a persistent browser terminal workspace. It
+                    connects to the Session Owner through the Gateway and renders Panes using
+                    xterm.js inside a dockview layout.</p>
+                    <p>Config file: <strong>~/.config/agent-remote/config.toml</strong></p>
                   </div>
                   <div class="about-sha">build ${__GIT_SHA__}</div>
                 </div>

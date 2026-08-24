@@ -1,6 +1,6 @@
-# muxterm User Journey Verification Scenario
+# agent-remote User Journey Verification Scenario
 
-This is the authoritative "works like a real user" check for muxterm.
+This is the authoritative "works like a real user" check for agent-remote.
 Walk through it agentically using `browser-tester:browser-operator` whenever verifying
 that pane operations, browser refresh, and terminal replay are all working correctly.
 
@@ -19,7 +19,7 @@ that pane operations, browser refresh, and terminal replay are all working corre
 
 ## Prerequisites
 
-- muxterm server running at **http://localhost:8311** (adjust if different)
+- agent-remote server running at **http://localhost:8311** (adjust if different)
 - Use a fresh private/incognito window to avoid stale PWA cache
 - The Go sessiond process must be running (not just the frontend dev server)
 

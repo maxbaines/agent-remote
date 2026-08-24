@@ -473,9 +473,9 @@ export const terminalRegistry = {
       // system sound when bell is set to "audible".
       if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
         try {
-          new Notification('muxterm', {
+          new Notification('Agent Remote', {
             body: `Activity in pane ${paneId}`,
-            tag: `muxterm-pane-${paneId}`,
+            tag: `agent-remote-pane-${paneId}`,
             silent: true,
           });
         } catch {
@@ -1154,8 +1154,8 @@ export const terminalRegistry = {
 };
 
 if (typeof window !== 'undefined') {
-  (window as unknown as { __muxterm?: Record<string, unknown> }).__muxterm = {
-    ...(window as unknown as { __muxterm?: Record<string, unknown> }).__muxterm,
+  (window as unknown as { __agentRemote?: Record<string, unknown> }).__agentRemote = {
+    ...(window as unknown as { __agentRemote?: Record<string, unknown> }).__agentRemote,
     snapshot: (paneId: number) => terminalRegistry.snapshot(paneId),
     isAuthoritative: (paneId: number) => terminalRegistry.isAuthoritative(paneId),
   };

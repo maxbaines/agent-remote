@@ -612,7 +612,7 @@ export class MuxSettingsSurface extends LitElement {
   @state() private _aiBusy = false;
   @state() private _aiMessage = '';
   // Per-browser (localStorage), not server config — distinguishes this
-  // machine's window/PWA from other muxterm instances. See instance-identity.ts.
+  // machine's window/PWA from other agent-remote instances. See instance-identity.ts.
   @state() private _titlebarColor: string | null = restoreTitlebarColor();
 
   override connectedCallback(): void {
@@ -677,13 +677,13 @@ export class MuxSettingsSurface extends LitElement {
 
   private _sendTestNotification(): void {
     try {
-      new Notification('muxterm', {
+      new Notification('Agent Remote', {
         body: 'Notifications are working! You\'ll see this when a terminal bell fires in a background pane.',
-        tag: 'muxterm-test',
+        tag: 'agent-remote-test',
         silent: false,
       });
     } catch (e) {
-      console.error('muxterm: test notification failed:', e);
+      console.error('agent-remote: test notification failed:', e);
     }
   }
 
@@ -916,7 +916,7 @@ export class MuxSettingsSurface extends LitElement {
       </div>
       <p class="titlebar-hint" style="margin-top:8px">
         Only affects this browser on <strong>${instanceLabel()}</strong> — handy for
-        telling multiple muxterm instances apart at a glance.
+        telling multiple Agent Remote instances apart at a glance.
       </p>
     `;
   }
@@ -930,7 +930,7 @@ export class MuxSettingsSurface extends LitElement {
       <div class="notif-block">
         <p class="section-title">Desktop Alerts</p>
         <p class="notif-description">
-          Allow muxterm to send desktop notifications when a terminal needs your attention.
+          Allow Agent Remote to send desktop notifications when a Terminal Session needs your attention.
         </p>
         ${this._renderNotifPermission()}
       </div>
@@ -1068,8 +1068,8 @@ export class MuxSettingsSurface extends LitElement {
       </div>
       ${this._aiMessage ? html`<p class="ai-message">${this._aiMessage}</p>` : ''}
       <p class="ai-note">
-        The key is stored locally at <code>$XDG_CONFIG_HOME/muxterm/anthropic_key</code>
-        (defaults to <code>~/.config/muxterm/anthropic_key</code> when
+        The key is stored locally at <code>$XDG_CONFIG_HOME/agent-remote/anthropic_key</code>
+        (defaults to <code>~/.config/agent-remote/anthropic_key</code> when
         <code>XDG_CONFIG_HOME</code> is unset) with owner-only permissions, is
         never returned by the server, and is sent only to Anthropic.
       </p>

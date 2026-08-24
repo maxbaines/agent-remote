@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kenotron-ms/muxterm/internal/sessiond"
+	"github.com/maxbaines/agent-remote/internal/sessiond"
 )
 
 // ----------------------------------------------------------------------

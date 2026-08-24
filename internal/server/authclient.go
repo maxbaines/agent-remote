@@ -10,11 +10,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kenotron-ms/muxterm/internal/authserver"
+	"github.com/maxbaines/agent-remote/internal/authserver"
 )
 
 const (
-	pkceCookieName = "muxterm_pkce"
+	pkceCookieName = "agent-remote_pkce"
 	pkceCookieTTL  = 5 * time.Minute
 )
 
@@ -24,7 +24,7 @@ type pkceState struct {
 	ReturnTo string `json:"return_to"`
 }
 
-// handleAuthLogin initiates the muxterm-web OAuth 2.1 + PKCE login flow: it
+// handleAuthLogin initiates the agent-remote-web OAuth 2.1 + PKCE login flow: it
 // generates a fresh code_verifier/state pair, stashes them (plus the
 // original return_to path) in a short-lived HttpOnly cookie, and redirects
 // the browser to /authorize. See design doc Data Flow "Browser login".
@@ -44,7 +44,7 @@ func (s *Server) handleAuthLogin(w http.ResponseWriter, r *http.Request) {
 	if returnTo == "" {
 		returnTo = "/"
 	} else if parsed, err := url.Parse(returnTo); err != nil || !strings.HasPrefix(returnTo, "/") || strings.HasPrefix(returnTo, "//") || parsed.IsAbs() || parsed.Host != "" {
-		// Only redirect within muxterm after authentication. AuthMiddleware
+		// Only redirect within agent-remote after authentication. AuthMiddleware
 		// always supplies a relative request URI, but /auth/login is public
 		// and callers can invoke it directly.
 		returnTo = "/"
@@ -134,7 +134,7 @@ func (s *Server) handleAuthCallback(w http.ResponseWriter, r *http.Request) {
 
 // handleAuthLogout revokes the current session's access token (checked as
 // a bearer header first, then the session cookie) and, ONLY on successful
-// revocation, expires the muxterm_session cookie client-side. If deletion
+// revocation, expires the agent-remote_session cookie client-side. If deletion
 // fails, the cookie is left untouched and an error is returned — never
 // report a token as revoked when the deletion did not actually succeed
 // (see design doc Error Handling, "Logout failure"). If no token/cookie is

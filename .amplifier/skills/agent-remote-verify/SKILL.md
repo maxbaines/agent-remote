@@ -1,12 +1,12 @@
 ---
-name: muxterm-verify
+name: agent-remote-verify
 description: >
-  Use when verifying muxterm works correctly end-to-end as a real user would experience it.
+  Verify Agent Remote end to end in a real browser against a real Session Owner.
   Catches garbled terminal text on reconnect, pane deletions not persisting to the server,
   selected-pane state not surviving browser refresh, split layout regressions, bell dot
   indicators on pane tabs and workspace dock slots, and mobile pane picker behavior.
   Run before merging any pane, terminal, reconnect, WebSocket, or bell/attention changes.
-  Invoke as /muxterm-verify.
+  Invoke as /agent-remote-verify.
 user-invocable: true
 disable-model-invocation: true
 context: fork
@@ -16,7 +16,7 @@ allowed-tools:
   - delegate
 ---
 
-# muxterm Verification Journey
+# Agent Remote Verification Journey
 
 Execute all user journeys defined in `SCENARIO.md` by driving a real browser via
 `browser-tester:browser-operator`. Report pass/fail tables for all 17+ checks across the
@@ -27,7 +27,7 @@ and a final PASS or FAIL verdict.
 
 ## Inputs
 
-- `<base_url>` — Base URL for muxterm (default: `http://localhost:8311`)
+- `<base_url>` — Agent Remote base URL (default: `http://localhost:8311`)
 
 ## Steps
 
@@ -36,7 +36,7 @@ and a final PASS or FAIL verdict.
 Read the full scenario document (core journey + attention management scenarios):
 
 ```
-read_file("/home/ken/workspace/muxterm/.worktrees/feat/attention-management/SCENARIO.md")
+read_file("SCENARIO.md")
 ```
 
 **Success criteria**: SCENARIO.md is loaded and all scenarios (core + attention management)

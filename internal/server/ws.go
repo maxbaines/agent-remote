@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/coder/websocket"
-	"github.com/kenotron-ms/muxterm/internal/sessiond"
+	"github.com/maxbaines/agent-remote/internal/sessiond"
 )
 
 // Client represents a connected WebSocket client. Each browser WebSocket is
@@ -389,7 +389,7 @@ type Hub struct {
 	clients        map[*Client]bool
 	mu             sync.RWMutex
 	dial           DialFunc
-	resolvedConfig any             // muxterm-owned resolved config, shipped to clients on connect
+	resolvedConfig any             // agent-remote-owned resolved config, shipped to clients on connect
 	tunnels        *TunnelRegistry // shared tunnel registry for /t/{id}/ proxy
 }
 

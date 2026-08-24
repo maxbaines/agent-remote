@@ -1,6 +1,6 @@
 package mcp
 
-// Browser tools were removed when muxterm dropped browser pane support.
+// Browser tools were removed when agent-remote dropped browser pane support.
 // This file is kept as a compilation stub per the project's no-delete policy
 // for test files. The helpers below (browserResponder, attachedMCPClient) were
 // used by the other browser test files; they are preserved so the sibling stub

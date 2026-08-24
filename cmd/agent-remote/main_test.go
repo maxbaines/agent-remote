@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kenotron-ms/muxterm/internal/server"
+	"github.com/maxbaines/agent-remote/internal/server"
 )
 
 // captureStdout runs fn and returns whatever it printed to os.Stdout.
@@ -169,7 +169,7 @@ func TestRunUninstall_PrintsConfirmation(t *testing.T) {
 			t.Skipf("service.Uninstall not available in this environment: %v", err)
 		}
 	})
-	if !strings.Contains(out, "muxterm service removed") {
+	if !strings.Contains(out, "Agent Remote service removed") {
 		t.Errorf("expected confirmation message, got %q", out)
 	}
 }

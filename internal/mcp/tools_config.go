@@ -7,7 +7,7 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/kenotron-ms/muxterm/internal/sessiond"
+	"github.com/maxbaines/agent-remote/internal/sessiond"
 )
 
 // configTools groups the MCP config tool handlers. Like tunnelTools, config
@@ -22,7 +22,7 @@ func newConfigTools() *configTools {
 	return &configTools{}
 }
 
-// getConfig returns the full resolved muxterm configuration as a JSON string.
+// getConfig returns the full resolved agent-remote configuration as a JSON string.
 func (ct *configTools) getConfig(_ map[string]any) (string, error) {
 	body, err := ct.doRequest(http.MethodGet, "/api/config", nil)
 	if err != nil {
@@ -91,7 +91,7 @@ func registerConfigTools(srv *Server) {
 
 	srv.Register(
 		"get_config",
-		"get the full resolved muxterm configuration (theme, font, terminal, keys, workspace, driver)",
+		"get the full resolved agent-remote configuration (theme, font, terminal, keys, workspace, driver)",
 		map[string]any{
 			"type":       "object",
 			"properties": map[string]any{},
@@ -101,7 +101,7 @@ func registerConfigTools(srv *Server) {
 
 	srv.Register(
 		"update_config",
-		"update muxterm configuration; accepts a partial config object, merges it, writes to disk, and broadcasts to all connected clients; example: {\"changes\": {\"theme\": {\"palette\": \"dracula\"}, \"font\": {\"size\": 15}}}",
+		"update agent-remote configuration; accepts a partial config object, merges it, writes to disk, and broadcasts to all connected clients; example: {\"changes\": {\"theme\": {\"palette\": \"dracula\"}, \"font\": {\"size\": 15}}}",
 		map[string]any{
 			"type": "object",
 			"properties": map[string]any{

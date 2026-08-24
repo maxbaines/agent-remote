@@ -1,15 +1,15 @@
 ---
 bundle:
-  name: muxterm
+  name: agent-remote
   version: 1.0.0
-  description: Amplifier bundle for managing muxterm — create panes, run commands, automate browser panes, manage workspaces
+  description: Amplifier bundle for managing Agent Remote — create Panes, run commands, automate browser Panes, manage Workspaces
 
 includes:
   - bundle: git+https://github.com/microsoft/amplifier-foundation@main
-  - bundle: muxterm:behaviors/muxterm
+  - bundle: agent-remote:behaviors/agent-remote
 ---
 
-@muxterm:context/muxterm-awareness.md
+@agent-remote:context/agent-remote-awareness.md
 
 ---
 

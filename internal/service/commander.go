@@ -11,15 +11,15 @@ type Commander interface {
 
 func SystemdUnitPath() string {
 	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".config", "systemd", "user", "muxterm.service")
+	return filepath.Join(home, ".config", "systemd", "user", "agent-remote.service")
 }
 
 func SessiondSystemdUnitPath() string {
 	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".config", "systemd", "user", "muxterm-sessiond.service")
+	return filepath.Join(home, ".config", "systemd", "user", "agent-remote-sessiond.service")
 }
 
 func LaunchdPlistPath() string {
 	home, _ := os.UserHomeDir()
-	return filepath.Join(home, "Library", "LaunchAgents", "com.muxterm.plist")
+	return filepath.Join(home, "Library", "LaunchAgents", "com.agent-remote.plist")
 }

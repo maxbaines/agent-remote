@@ -1,19 +1,19 @@
-# muxterm DEV — in-instance loopback hop for the HOST Caddy (dev instance).
+# agent-remote DEV — in-instance loopback hop for the HOST Caddy (dev instance).
 #
 # Topology:
 #   Browser
-#     -> host Caddy            (muxterm-dev.ampbox.io, see /mnt/services/muxterm-dev.caddy)
+#     -> host Caddy            (agent-remote-dev.ampbox.io, see /mnt/services/agent-remote-dev.caddy)
 #     -> THIS Caddy            (10.66.204.209:8091, instance IP — reachable by host)
-#     -> muxterm dev           (127.0.0.1:8312, loopback)
+#     -> agent-remote dev           (127.0.0.1:8312, loopback)
 #
-# Production runs on :9090 via systemd (binary: ~/.local/bin/muxterm).
-# Dev runs on :9091 via `make dev` / air (binary: ./bin/muxterm).
+# Production runs on :9090 via systemd (binary: ~/.local/bin/agent-remote).
+# Dev runs on :9091 via `make dev` / air (binary: ./bin/agent-remote).
 # The two never conflict: different binary, different port, different host URL.
 #
-# Why this hop exists: muxterm's SPA carries no auth token; it relies on the
+# Why this hop exists: agent-remote's SPA carries no auth token; it relies on the
 # server's localhost auth-bypass (internal/server/auth.go IsLocalhost). The host
 # Caddy connects from a non-loopback IP, which would force a 30s token the SPA
-# can't supply. By terminating here and dialing muxterm over 127.0.0.1, muxterm
+# can't supply. By terminating here and dialing agent-remote over 127.0.0.1, agent-remote
 # always sees a loopback peer, so remote users get in token-free. WebSocket
 # upgrades (tmux control mode) pass through reverse_proxy automatically.
 #

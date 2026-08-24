@@ -1,6 +1,6 @@
 package mcp
 
-// Browser observation tools were removed when muxterm dropped browser pane
+// Browser observation tools were removed when agent-remote dropped browser pane
 // support. This file is kept as a compilation stub per the project's no-delete
 // policy for test files.
 //

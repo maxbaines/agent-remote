@@ -1,6 +1,6 @@
-// fonts.ts — injects @font-face rules for all muxterm-bundled Nerd Fonts.
+// fonts.ts — injects @font-face rules for all agent-remote-bundled Nerd Fonts.
 //
-// WOFF2 files live in web/public/fonts/ and are served by the muxterm server
+// WOFF2 files live in web/public/fonts/ and are served by the agent-remote server
 // itself, ensuring Nerd Font glyphs render in any browser regardless of locally
 // installed fonts. Call injectTerminalFonts() once at app startup, before any
 // terminal is created. terminal-registry.ts calls WebFontsAddon.loadFonts()

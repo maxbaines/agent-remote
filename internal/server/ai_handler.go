@@ -7,7 +7,7 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/kenotron-ms/muxterm/internal/ai"
+	"github.com/maxbaines/agent-remote/internal/ai"
 )
 
 // The /api/ai/* family is deliberately one-way: the key goes IN via PUT, and

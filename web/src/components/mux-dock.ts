@@ -394,7 +394,7 @@ export class MuxDock extends LitElement {
 
     // Base = dockview's built-in "abyss" theme (for its flat STRUCTURE only:
     // zero tab radius/margin, transparent sashes). We re-skin all of its COLORS
-    // to Tokyo Night below so the tab bar matches muxterm's title bar and
+    // to Tokyo Night below so the tab bar matches agent-remote's title bar and
     // follows VS Code's tab hierarchy:
     //   • active tab background == terminal body (#1a1b26) → tab "merges" into
     //     the content, the VS Code selected-tab look,

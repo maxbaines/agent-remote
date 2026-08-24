@@ -7,9 +7,9 @@ before:
     - npm --prefix web run build
 
 builds:
-  - id: muxterm-linux
-    main: ./cmd/muxterm
-    binary: muxterm
+  - id: agent-remote-linux
+    main: ./cmd/agent-remote
+    binary: agent-remote
     env:
       # CGO_ENABLED=1 required for msteinert/pam/v2 (PAM Phase 1 auth backend)
       # which is a C binding and cannot build with CGO disabled.
@@ -23,9 +23,9 @@ builds:
     # platform backends without this constraint.
     ldflags:
       - -s -w
-  - id: muxterm-darwin
-    main: ./cmd/muxterm
-    binary: muxterm
+  - id: agent-remote-darwin
+    main: ./cmd/agent-remote
+    binary: agent-remote
     env:
       # CGO_ENABLED=0: Darwin build doesn't use C bindings (OpenDirectory PAM
       # backend arrives in Phase 4). Pure Go build for maximum portability.
@@ -65,18 +65,18 @@ changelog:
       - Merge branch
 
 brews:
-  - name: muxterm
+  - name: agent-remote
 
-    homepage: "https://github.com/kenotron-ms/muxterm"
-    description: "Web-first terminal multiplexer with MCP agent integration"
+    homepage: "https://github.com/maxbaines/agent-remote"
+    description: "Persistent browser terminal workspace"
     license: "MIT"
     repository:
-      owner: kenotron-ms
+      owner: maxbaines
       name: homebrew-tap
       branch: main
       token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
     directory: Formula
     install: |
-      bin.install "muxterm"
+      bin.install "agent-remote"
     test: |
-      system "#{bin}/muxterm", "version"
+      system "#{bin}/agent-remote", "version"

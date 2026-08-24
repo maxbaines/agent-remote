@@ -16,15 +16,15 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/kenotron-ms/muxterm/internal/authserver"
-	"github.com/kenotron-ms/muxterm/internal/authserver/loginbackend"
-	"github.com/kenotron-ms/muxterm/internal/config"
-	"github.com/kenotron-ms/muxterm/internal/deploy"
-	"github.com/kenotron-ms/muxterm/internal/mcp"
-	"github.com/kenotron-ms/muxterm/internal/server"
-	"github.com/kenotron-ms/muxterm/internal/service"
-	"github.com/kenotron-ms/muxterm/internal/sessiond"
-	webstatic "github.com/kenotron-ms/muxterm/web"
+	"github.com/maxbaines/agent-remote/internal/authserver"
+	"github.com/maxbaines/agent-remote/internal/authserver/loginbackend"
+	"github.com/maxbaines/agent-remote/internal/config"
+	"github.com/maxbaines/agent-remote/internal/deploy"
+	"github.com/maxbaines/agent-remote/internal/mcp"
+	"github.com/maxbaines/agent-remote/internal/server"
+	"github.com/maxbaines/agent-remote/internal/service"
+	"github.com/maxbaines/agent-remote/internal/sessiond"
+	webstatic "github.com/maxbaines/agent-remote/web"
 )
 
 var version = "dev"
@@ -88,18 +88,18 @@ func main() {
 			os.Exit(1)
 		}
 	case "version":
-		fmt.Printf("muxterm %s (MCP: stdio)\n", version)
+		fmt.Printf("Agent Remote %s (MCP: stdio)\n", version)
 	}
 }
 
-// runDoctor reports the status of the muxterm daemon and system service.
+// runDoctor reports the status of the agent-remote daemon and system service.
 func runDoctor() error {
 	const (
 		ok   = "\u2713" // ✓
 		fail = "\u2717" // ✗
 	)
 
-	fmt.Printf("muxterm %s\n\n", version)
+	fmt.Printf("Agent Remote %s\n\n", version)
 
 	// Daemon
 	sock, err := sessiond.SocketPath()
@@ -109,7 +109,7 @@ func runDoctor() error {
 		fmt.Printf("     socket:  %s\n", sock)
 		if _, err := os.Stat(sock); os.IsNotExist(err) {
 			fmt.Printf("  %s  daemon:  not running (socket not found)\n", fail)
-			fmt.Printf("     hint:    start with 'muxterm' or check service logs\n")
+			fmt.Printf("     hint:    start with 'agent-remote' or check service logs\n")
 		} else {
 			c, dialErr := sessiond.Dial(sock)
 			if dialErr != nil {
@@ -138,7 +138,7 @@ func runDoctor() error {
 			fmt.Printf("     plist:   %s\n", plistPath)
 		} else {
 			fmt.Printf("  %s  service: not installed\n", fail)
-			fmt.Printf("     hint:    run 'muxterm install' to auto-start on login\n")
+			fmt.Printf("     hint:    run 'agent-remote install' to auto-start on login\n")
 		}
 	default:
 		unitPath := service.SystemdUnitPath()
@@ -147,7 +147,7 @@ func runDoctor() error {
 			fmt.Printf("     unit:    %s\n", unitPath)
 		} else {
 			fmt.Printf("  %s  service: not installed\n", fail)
-			fmt.Printf("     hint:    run 'muxterm install' to auto-start on login\n")
+			fmt.Printf("     hint:    run 'agent-remote install' to auto-start on login\n")
 		}
 	}
 
@@ -194,7 +194,7 @@ func newSessiondDialer() server.DialFunc {
 // off; remove the file value instead.
 //
 // SERVE MODE ONLY. runLocal deliberately does NOT call this: bare
-// `muxterm` is loopback-only by definition and must stay that way even on
+// `agent-remote` is loopback-only by definition and must stay that way even on
 // a host whose config.toml sets behind_reverse_proxy = true (which is
 // exactly the production host). Honoring the file there would disable the
 // loopback bypass and point the local browser at the public origin,
@@ -210,8 +210,8 @@ func resolveServerConfig(cli Config, file config.ServerConfig) config.ServerConf
 	return out
 }
 
-// publicBaseURL returns the origin muxterm must use whenever it constructs
-// one of its own public-facing absolute URLs. Today that is the muxterm-web
+// publicBaseURL returns the origin agent-remote must use whenever it constructs
+// one of its own public-facing absolute URLs. Today that is the agent-remote-web
 // OAuth redirect URI; when Phase 2 (MCP-over-HTTP) adds the RFC 8414
 // authorization-server metadata and the RFC 9728 protected-resource
 // metadata / canonical /mcp resource URI, those MUST derive from this same
@@ -224,7 +224,7 @@ func resolveServerConfig(cli Config, file config.ServerConfig) config.ServerConf
 //
 // Otherwise it is the pre-existing loopback derivation from addr (the
 // server's listen address), where a "0.0.0.0" or unparseable host is
-// normalized to 127.0.0.1 because the browser reaches muxterm over
+// normalized to 127.0.0.1 because the browser reaches agent-remote over
 // loopback in that topology.
 func publicBaseURL(addr string, sc config.ServerConfig) string {
 	if sc.BehindReverseProxy {
@@ -238,7 +238,7 @@ func publicBaseURL(addr string, sc config.ServerConfig) string {
 }
 
 // webRedirectURIFor returns the exact-match redirect URI for the
-// muxterm-web OAuth client. authserver's validateRedirectURI compares this
+// agent-remote-web OAuth client. authserver's validateRedirectURI compares this
 // value byte-for-byte against the incoming redirect_uri, so it must be
 // exactly the URL the browser will actually be sent back to.
 func webRedirectURIFor(addr string, sc config.ServerConfig) string {
@@ -269,7 +269,7 @@ func newAuthServer(addr string, sc config.ServerConfig) (*authserver.AuthServer,
 	})
 }
 
-// runLocal starts muxterm in local mode: starts the HTTP server on localhost,
+// runLocal starts agent-remote in local mode: starts the HTTP server on localhost,
 // wires the per-browser sessiond dialer, opens a browser, and blocks until
 // shutdown.
 func runLocal(cfg Config) error {
@@ -281,7 +281,7 @@ func runLocal(cfg Config) error {
 	// resolution to it, and never runs its startup validation. (Those three
 	// names are deliberately not spelled out here: the C4 guard greps this
 	// function body for them, and even a mention in a comment trips it.)
-	// Bare `muxterm` on a host whose config.toml sets behind_reverse_proxy =
+	// Bare `agent-remote` on a host whose config.toml sets behind_reverse_proxy =
 	// true — i.e. the production host — must still behave exactly as it
 	// does today: loopback bypass on, loopback-derived redirect URI, no
 	// startup error. Honoring the file here would send the *local* browser
@@ -296,7 +296,7 @@ func runLocal(cfg Config) error {
 
 	authSrv, err := newAuthServer(cfg.Addr, localServerCfg)
 	if err != nil {
-		log.Printf("muxterm: login backend unavailable (%v) — non-loopback access will be denied; local access is unaffected", err)
+		log.Printf("agent-remote: login backend unavailable (%v) — non-loopback access will be denied; local access is unaffected", err)
 	}
 
 	srv := server.New(server.Config{
@@ -314,7 +314,7 @@ func runLocal(cfg Config) error {
 
 	// Publish serve-layer URL so the MCP server can discover the tunnel API.
 	if err := sessiond.WriteServerURL(cfg.Addr); err != nil {
-		log.Printf("muxterm: could not write server URL: %v", err)
+		log.Printf("agent-remote: could not write server URL: %v", err)
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -326,11 +326,11 @@ func runLocal(cfg Config) error {
 	}
 	go openBrowser("http://" + browserHost)
 
-	log.Printf("muxterm listening on %s", cfg.Addr)
+	log.Printf("agent-remote listening on %s", cfg.Addr)
 	return srv.ListenAndServe(ctx)
 }
 
-// runServe starts muxterm in serve mode, wires the per-browser sessiond dialer,
+// runServe starts agent-remote in serve mode, wires the per-browser sessiond dialer,
 // and blocks until shutdown. The daemon is ensured lazily by the dialer (per
 // browser), which is a no-op under systemd where the daemon is its own unit.
 func runServe(cfg Config) error {
@@ -347,7 +347,7 @@ func runServe(cfg Config) error {
 
 	authSrv, err := newAuthServer(cfg.Addr, srvCfg)
 	if err != nil {
-		log.Printf("muxterm: login backend unavailable (%v) — non-loopback access will be denied; local access is unaffected", err)
+		log.Printf("agent-remote: login backend unavailable (%v) — non-loopback access will be denied; local access is unaffected", err)
 	}
 
 	srv := server.New(server.Config{
@@ -365,17 +365,17 @@ func runServe(cfg Config) error {
 
 	// Publish serve-layer URL so the MCP server can discover the tunnel API.
 	if err := sessiond.WriteServerURL(cfg.Addr); err != nil {
-		log.Printf("muxterm: could not write server URL: %v", err)
+		log.Printf("agent-remote: could not write server URL: %v", err)
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	log.Printf("muxterm listening on %s", cfg.Addr)
+	log.Printf("agent-remote listening on %s", cfg.Addr)
 	return srv.ListenAndServe(ctx)
 }
 
-// runDeploy deploys muxterm to a remote host via SSH.
+// runDeploy deploys agent-remote to a remote host via SSH.
 func runDeploy(cfg Config) error {
 	d, err := deploy.New()
 	if err != nil {
@@ -384,7 +384,7 @@ func runDeploy(cfg Config) error {
 	return d.Deploy(cfg.Target)
 }
 
-// runInstall installs muxterm as a system service.
+// runInstall installs agent-remote as a system service.
 func runInstall(cfg Config) error {
 	svcCfg := service.ServiceConfig{
 		Addr:   cfg.Addr,
@@ -394,16 +394,16 @@ func runInstall(cfg Config) error {
 	if err := service.Install(svcCfg); err != nil {
 		return err
 	}
-	fmt.Printf("muxterm installed and running at http://%s\n", cfg.Addr)
+	fmt.Printf("Agent Remote installed and running at http://%s\n", cfg.Addr)
 	return nil
 }
 
-// runUninstall removes the muxterm system service.
+// runUninstall removes the agent-remote system service.
 func runUninstall() error {
 	if err := service.Uninstall(); err != nil {
 		return err
 	}
-	fmt.Println("muxterm service removed")
+	fmt.Println("Agent Remote service removed")
 	return nil
 }
 
@@ -433,12 +433,12 @@ func openBrowser(url string) {
 	}
 }
 
-// runAmplifierBundleInstall adds the muxterm Amplifier bundle as an app bundle
-// by running: amplifier bundle add --app git+https://github.com/kenotron-ms/muxterm@main#subdirectory=bundle
+// runAmplifierBundleInstall adds the agent-remote Amplifier bundle as an app bundle
+// by running: amplifier bundle add --app git+https://github.com/maxbaines/agent-remote@main#subdirectory=bundle
 // The --app flag makes the bundle active on every Amplifier session, not just
 // when explicitly selected.
 func runAmplifierBundleInstall() error {
-	const bundleURI = "git+https://github.com/kenotron-ms/muxterm@main#subdirectory=bundle"
+	const bundleURI = "git+https://github.com/maxbaines/agent-remote@main#subdirectory=bundle"
 
 	cmd := exec.Command("amplifier", "bundle", "add", "--app", bundleURI)
 	cmd.Stdout = os.Stdout

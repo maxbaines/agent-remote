@@ -4,7 +4,7 @@ import (
 	"context"
 	"sync"
 
-	"github.com/kenotron-ms/muxterm/internal/sessiond"
+	"github.com/maxbaines/agent-remote/internal/sessiond"
 )
 
 // Client wraps a sessiond.Client with output buffering and prompt-wait

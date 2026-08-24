@@ -447,10 +447,10 @@ describe('terminalRegistry', () => {
       expect(terminalRegistry.snapshot(9999)).toBeNull();
     });
 
-    it('window.__muxterm.snapshot is a function and returns null for unknown paneId', () => {
-      const muxterm = (window as unknown as { __muxterm?: Record<string, unknown> }).__muxterm;
-      expect(typeof muxterm?.snapshot).toBe('function');
-      const snapFn = muxterm!.snapshot as (paneId: number) => unknown;
+    it('window.__agentRemote.snapshot is a function and returns null for unknown paneId', () => {
+      const agentRemote = (window as unknown as { __agentRemote?: Record<string, unknown> }).__agentRemote;
+      expect(typeof agentRemote?.snapshot).toBe('function');
+      const snapFn = agentRemote!.snapshot as (paneId: number) => unknown;
       expect(snapFn(9999)).toBeNull();
     });
   });

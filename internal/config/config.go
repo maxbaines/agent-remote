@@ -1,4 +1,4 @@
-// Package config defines the muxterm configuration structure and hardcoded defaults.
+// Package config defines the agent-remote configuration structure and hardcoded defaults.
 package config
 
 import (
@@ -14,7 +14,7 @@ import (
 	"github.com/BurntSushi/toml"
 )
 
-// Config is the top-level configuration for muxterm.
+// Config is the top-level configuration for agent-remote.
 type Config struct {
 	Theme     ThemeConfig     `toml:"theme"      json:"theme"`
 	Font      FontConfig      `toml:"font"       json:"font"`
@@ -25,7 +25,7 @@ type Config struct {
 	Server    ServerConfig    `toml:"server"     json:"server"`
 }
 
-// ServerConfig holds deployment-topology settings that decide how muxterm
+// ServerConfig holds deployment-topology settings that decide how agent-remote
 // derives its own public-facing URLs and whether the loopback auth bypass
 // applies. Both fields are explicit and opt-in, and are NEVER derived from
 // request headers (X-Forwarded-Host, X-Forwarded-Proto, or anything else):
@@ -36,16 +36,16 @@ type Config struct {
 // browser-facing PATCH /api/config route — a deployment-topology and
 // security setting must not be mutable from a web request.
 type ServerConfig struct {
-	// PublicOrigin is the canonical public origin at which muxterm is
+	// PublicOrigin is the canonical public origin at which agent-remote is
 	// reachable through its fronting reverse proxy, e.g.
-	// "https://muxterm.ampbox.io". Scheme and host (with optional port)
+	// "https://agent-remote.ampbox.io". Scheme and host (with optional port)
 	// only — no path, no trailing slash. Empty by default. Ignored
 	// entirely when BehindReverseProxy is false.
 	PublicOrigin string `toml:"public_origin"        json:"public_origin"`
-	// BehindReverseProxy opts muxterm into reverse-proxy mode: every
-	// public-facing URL muxterm builds derives from PublicOrigin, and the
+	// BehindReverseProxy opts agent-remote into reverse-proxy mode: every
+	// public-facing URL agent-remote builds derives from PublicOrigin, and the
 	// IsLocalhost() auth bypass is disabled entirely. Opt-in, default
-	// false. The bypass must go, because the proxy's own hop to muxterm is
+	// false. The bypass must go, because the proxy's own hop to agent-remote is
 	// indistinguishable from a genuinely local caller at the RemoteAddr
 	// level — honoring it would silently grant unauthenticated access to
 	// genuinely remote traffic.
@@ -66,7 +66,7 @@ func (s ServerConfig) Validate() error {
 		return nil
 	}
 	if s.PublicOrigin == "" {
-		return errors.New(`config: behind_reverse_proxy is set but public_origin is empty; set public_origin (e.g. "https://muxterm.example.com") or unset behind_reverse_proxy`)
+		return errors.New(`config: behind_reverse_proxy is set but public_origin is empty; set public_origin (e.g. "https://agent-remote.example.com") or unset behind_reverse_proxy`)
 	}
 	u, err := url.Parse(s.PublicOrigin)
 	if err != nil {
@@ -109,8 +109,8 @@ type TerminalConfig struct {
 	Bell        string `toml:"bell"          json:"bell"`
 }
 
-// KeysConfig defines muxterm's own UI keybindings.
-// These are muxterm UI actions only.
+// KeysConfig defines agent-remote's own UI keybindings.
+// These are agent-remote UI actions only.
 type KeysConfig struct {
 	NextSession    string `toml:"next_session"     json:"next_session"`
 	Split          string `toml:"split"            json:"split"`
@@ -126,7 +126,7 @@ type WorkspaceConfig struct {
 	Rails               []string `toml:"rails"                json:"rails"`
 }
 
-// DriverConfig controls the muxterm-agent driver lifecycle.
+// DriverConfig controls the agent-remote-agent driver lifecycle.
 // SharedWindowPolicy is RESERVED — parsed and carried through to the client
 // but NOT acted on in Phase 5.
 type DriverConfig struct {
@@ -207,7 +207,7 @@ func Defaults() Config {
 		},
 		Font: FontConfig{
 			// Default to the server-bundled JetBrains Mono Nerd Font.
-			// The WOFF2 files are served from /fonts/ by the muxterm server,
+			// The WOFF2 files are served from /fonts/ by the agent-remote server,
 			// so Nerd Font glyphs render correctly in any browser without
 			// requiring the user to install fonts on their client machine.
 			Family: "JetBrainsMonoNerdFont",
@@ -234,7 +234,7 @@ func Defaults() Config {
 		Driver: DriverConfig{
 			Autostart:          false,
 			SharedWindowPolicy: "follow",
-			Launch:             "muxterm-agent",
+			Launch:             "agent-remote-agent",
 		},
 		// Direct/local-dev topology by default: no reverse proxy, no
 		// public origin. Stated explicitly rather than left implicit so

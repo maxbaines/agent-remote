@@ -28,7 +28,7 @@ func (m *mockRunner) Run(name string, args ...string) ([]byte, error) {
 
 func TestDeploy_SCPsBinary(t *testing.T) {
 	mock := &mockRunner{}
-	d := &Deployer{runner: mock, binaryPath: "/usr/local/bin/muxterm"}
+	d := &Deployer{runner: mock, binaryPath: "/usr/local/bin/agent-remote"}
 
 	if err := d.Deploy("root@example.com"); err != nil {
 		t.Fatalf("Deploy() error: %v", err)
@@ -43,17 +43,17 @@ func TestDeploy_SCPsBinary(t *testing.T) {
 		t.Fatalf("first command = %q, want scp", cmd.name)
 	}
 	args := strings.Join(cmd.args, " ")
-	if !strings.Contains(args, "/usr/local/bin/muxterm") {
+	if !strings.Contains(args, "/usr/local/bin/agent-remote") {
 		t.Errorf("scp args missing binary path: %v", cmd.args)
 	}
-	if !strings.Contains(args, "root@example.com:/usr/local/bin/muxterm") {
+	if !strings.Contains(args, "root@example.com:/usr/local/bin/agent-remote") {
 		t.Errorf("scp args missing target: %v", cmd.args)
 	}
 }
 
 func TestDeploy_CreatesSystemdUnit(t *testing.T) {
 	mock := &mockRunner{}
-	d := &Deployer{runner: mock, binaryPath: "/usr/local/bin/muxterm"}
+	d := &Deployer{runner: mock, binaryPath: "/usr/local/bin/agent-remote"}
 
 	if err := d.Deploy("root@example.com"); err != nil {
 		t.Fatalf("Deploy() error: %v", err)
@@ -63,20 +63,20 @@ func TestDeploy_CreatesSystemdUnit(t *testing.T) {
 	for _, cmd := range mock.commands {
 		if cmd.name == "ssh" {
 			args := strings.Join(cmd.args, " ")
-			if strings.Contains(args, "muxterm.service") && strings.Contains(args, "/etc/systemd/system/") {
+			if strings.Contains(args, "agent-remote.service") && strings.Contains(args, "/etc/systemd/system/") {
 				found = true
 				break
 			}
 		}
 	}
 	if !found {
-		t.Error("no ssh command writes muxterm.service to /etc/systemd/system/")
+		t.Error("no ssh command writes agent-remote.service to /etc/systemd/system/")
 	}
 }
 
 func TestDeploy_StartsService(t *testing.T) {
 	mock := &mockRunner{}
-	d := &Deployer{runner: mock, binaryPath: "/usr/local/bin/muxterm"}
+	d := &Deployer{runner: mock, binaryPath: "/usr/local/bin/agent-remote"}
 
 	if err := d.Deploy("root@example.com"); err != nil {
 		t.Fatalf("Deploy() error: %v", err)
@@ -99,7 +99,7 @@ func TestDeploy_StartsService(t *testing.T) {
 
 func TestDeploy_SCPFailure(t *testing.T) {
 	mock := &mockRunner{err: fmt.Errorf("connection refused")}
-	d := &Deployer{runner: mock, binaryPath: "/usr/local/bin/muxterm"}
+	d := &Deployer{runner: mock, binaryPath: "/usr/local/bin/agent-remote"}
 
 	err := d.Deploy("root@example.com")
 	if err == nil {
@@ -121,7 +121,7 @@ func TestSystemdUnit_ContainsSecret(t *testing.T) {
 	if !strings.Contains(unit, addr) {
 		t.Errorf("unit does not contain addr %q", addr)
 	}
-	if !strings.Contains(unit, "muxterm serve") {
-		t.Errorf("unit does not contain 'muxterm serve'")
+	if !strings.Contains(unit, "agent-remote serve") {
+		t.Errorf("unit does not contain 'agent-remote serve'")
 	}
 }

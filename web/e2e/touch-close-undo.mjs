@@ -2,7 +2,7 @@
 /**
  * touch-close-undo.mjs — E2E for touch-safe pane close with undo.
  *
- * Verifies three scenarios against a running muxterm server:
+ * Verifies three scenarios against a running agent-remote server:
  *   1. Touch close -> toast/pending-close appears -> Undo -> pane present + xterm buffer intact.
  *   2. Touch close -> force-expire (DEV seam) -> pane absent from server state.
  *   3. Mouse close -> undo toast appears -> undo -> pane present (same as touch).
@@ -11,7 +11,7 @@
  *
  * Exit codes: 0 = all passed, 1 = an assertion failed, 2 = setup error.
  *
- * Prereqs: playwright-cli installed globally; muxterm dev server running at --url.
+ * Prereqs: playwright-cli installed globally; agent-remote dev server running at --url.
  */
 
 import { execFileSync } from 'node:child_process';

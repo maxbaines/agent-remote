@@ -1,10 +1,10 @@
-# air config for muxterm LOCAL dev mode (this Mac only).
+# air config for agent-remote LOCAL dev mode (this Mac only).
 # Fully decoupled from .air.toml (ampbox.io remote-VM dev config) -- edits to
 # one MUST NOT be assumed to apply to the other.
 #
 # Isolation: XDG_RUNTIME_DIR must be set (by `make dev-local`) before invoking
-# air, so the sessiond this spawns uses ${TMPDIR:-/tmp}/muxterm-dev-local/
-# instead of the default $TMPDIR/muxterm-<uid>/ where the native companion
+# air, so the sessiond this spawns uses ${TMPDIR:-/tmp}/agent-remote-dev-local/
+# instead of the default $TMPDIR/agent-remote-<uid>/ where the native companion
 # app's production sessiond lives. Never run this without that env var set.
 #
 # Port 8313 -- distinct from both production (8311) and the remote-VM dev
@@ -14,9 +14,9 @@ root = "."
 tmp_dir = "tmp"
 
 [build]
-  bin = "./bin/muxterm-dev"
+  bin = "./bin/agent-remote-dev"
   args_bin = ["serve", "--addr", "127.0.0.1:8313", "--no-auth"]
-  cmd = "go build -o ./bin/muxterm-dev ./cmd/muxterm"
+  cmd = "go build -o ./bin/agent-remote-dev ./cmd/agent-remote"
   delay = 200
   stop_on_error = false
 

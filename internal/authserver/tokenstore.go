@@ -13,7 +13,7 @@ import (
 )
 
 // fileTokenStore is a mutex-guarded, file-persisted implementation of
-// oauth2.TokenStore, sized for muxterm's actual load (a single OS account,
+// oauth2.TokenStore, sized for agent-remote's actual load (a single OS account,
 // occasional logins) — not a high-throughput token store.
 //
 // Atomic authorization-code consumption: GetByCode removes the code from
@@ -141,7 +141,7 @@ func (s *fileTokenStore) RemoveByAccess(_ context.Context, access string) error 
 	return s.saveLocked()
 }
 
-// RemoveByRefresh is a no-op: muxterm never issues refresh tokens (see
+// RemoveByRefresh is a no-op: agent-remote never issues refresh tokens (see
 // design doc's deliberate no-refresh-token model). Implemented to satisfy
 // the TokenStore interface.
 func (s *fileTokenStore) RemoveByRefresh(_ context.Context, _ string) error {
@@ -181,7 +181,7 @@ func (s *fileTokenStore) GetByAccess(_ context.Context, access string) (oauth2.T
 	return tok, nil
 }
 
-// GetByRefresh always returns nil: muxterm never issues refresh tokens.
+// GetByRefresh always returns nil: agent-remote never issues refresh tokens.
 func (s *fileTokenStore) GetByRefresh(_ context.Context, _ string) (oauth2.TokenInfo, error) {
 	return nil, nil
 }

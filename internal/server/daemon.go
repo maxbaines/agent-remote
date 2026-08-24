@@ -3,13 +3,13 @@ package server
 import (
 	"encoding/json"
 
-	"github.com/kenotron-ms/muxterm/internal/sessiond"
+	"github.com/maxbaines/agent-remote/internal/sessiond"
 )
 
 // DaemonConn is the serve-side seam over a single sessiond connection. One
 // DaemonConn backs exactly one browser WebSocket: the serve layer dials a fresh
 // connection per browser and drives it through this interface. *sessiond.Client
-// satisfies it; tests fake it. Exporting the seam lets cmd/muxterm name it when
+// satisfies it; tests fake it. Exporting the seam lets cmd/agent-remote name it when
 // wiring a DialFunc.
 type DaemonConn interface {
 	ListWorkspaces() ([]sessiond.WorkspaceInfo, error)

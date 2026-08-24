@@ -15,14 +15,14 @@ import (
 
 // socketDir resolves the directory that holds the daemon's Unix socket and
 // log file. It follows the XDG Base Directory spec for the runtime dir:
-//   - If XDG_RUNTIME_DIR is set, uses $XDG_RUNTIME_DIR/muxterm.
+//   - If XDG_RUNTIME_DIR is set, uses $XDG_RUNTIME_DIR/agent-remote.
 //   - Otherwise falls back to a uid-scoped directory under the system temp
-//     dir (e.g. /tmp/muxterm-1000) so two users never collide.
+//     dir (e.g. /tmp/agent-remote-1000) so two users never collide.
 func socketDir() string {
 	if base := os.Getenv("XDG_RUNTIME_DIR"); base != "" {
-		return filepath.Join(base, "muxterm")
+		return filepath.Join(base, "agent-remote")
 	}
-	return filepath.Join(os.TempDir(), fmt.Sprintf("muxterm-%d", os.Getuid()))
+	return filepath.Join(os.TempDir(), fmt.Sprintf("agent-remote-%d", os.Getuid()))
 }
 
 // SocketPath returns the path to the daemon's Unix socket.
@@ -90,7 +90,7 @@ func Spawn(logPath string) (*os.Process, error) {
 // Order of operations:
 //  1. systemd gate. When running under systemd, INVOCATION_ID is set for every
 //     unit it starts. There the daemon runs as its own unit
-//     (muxterm-sessiond.service) in its own cgroup, so auto-spawning a second
+//     (agent-remote-sessiond.service) in its own cgroup, so auto-spawning a second
 //     copy inside the web unit's cgroup would double-spawn and race. Bail out.
 //  2. If a daemon is already live, there is nothing to do.
 //  3. Otherwise clear any stale socket file left by a crashed daemon so the new
@@ -152,13 +152,13 @@ func WriteServerURL(addr string) error {
 	return os.WriteFile(serverURLPath(), []byte("http://localhost:"+port), 0o600)
 }
 
-// ServerURL returns the HTTP base URL of the running muxterm serve layer. It
+// ServerURL returns the HTTP base URL of the running agent-remote serve layer. It
 // reads the URL written by WriteServerURL at serve startup. Returns an error
 // when the file does not exist (serve process not running) or cannot be read.
 func ServerURL() (string, error) {
 	data, err := os.ReadFile(serverURLPath())
 	if err != nil {
-		return "", fmt.Errorf("server URL file (%s): %w (is muxterm serve running?)", serverURLPath(), err)
+		return "", fmt.Errorf("server URL file (%s): %w (is agent-remote serve running?)", serverURLPath(), err)
 	}
 	return strings.TrimSpace(string(data)), nil
 }

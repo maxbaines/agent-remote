@@ -24,7 +24,7 @@ Continues in the same browser session as Task 12 (two regions docked,
 
 ## Background — Two-Clock Model
 
-Resize in muxterm uses two clocks:
+Resize in agent-remote uses two clocks:
 
 | Clock | Trigger | Purpose |
 |-------|---------|---------|
@@ -43,7 +43,7 @@ Record the xterm grid dimensions for pane 2 **and** the tmux-reported window
 size before any drag occurs.
 
 ```bash
-playwright-cli --raw eval "JSON.stringify({cols: window.__muxterm.snapshot(2).cols, rows: window.__muxterm.snapshot(2).rows})" > /tmp/before.json
+playwright-cli --raw eval "JSON.stringify({cols: window.__agentRemote.snapshot(2).cols, rows: window.__agentRemote.snapshot(2).rows})" > /tmp/before.json
 tmux display-message -p -t '@2' '#{window_width}x#{window_height}' > /tmp/tmux_before.txt
 cat /tmp/before.json /tmp/tmux_before.txt
 ```
@@ -105,7 +105,7 @@ Capture the new xterm dimensions and tmux-reported size, then verify:
 2. **tmux window width equals new `cols`** — `refresh-client` reached tmux.
 
 ```bash
-playwright-cli --raw eval "JSON.stringify({cols: window.__muxterm.snapshot(2).cols, rows: window.__muxterm.snapshot(2).rows})" > /tmp/after.json
+playwright-cli --raw eval "JSON.stringify({cols: window.__agentRemote.snapshot(2).cols, rows: window.__agentRemote.snapshot(2).rows})" > /tmp/after.json
 tmux display-message -p -t '@2' '#{window_width}x#{window_height}' > /tmp/tmux_after.txt
 echo "BEFORE:"; cat /tmp/before.json; echo "AFTER:"; cat /tmp/after.json
 echo "TMUX before/after:"; cat /tmp/tmux_before.txt /tmp/tmux_after.txt

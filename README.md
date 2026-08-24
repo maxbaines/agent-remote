@@ -1,23 +1,25 @@
-# muxterm
+# Agent Remote
 
-A web-first terminal multiplexer. Persistent sessions, split panes, and a browser UI — backed by a custom Go session daemon.
+A web-first terminal workspace. Persistent sessions, split panes, and a browser UI — backed by a custom Go Session Owner.
+
+Agent Remote is an upstream-aware fork of muxterm. See [fork provenance](docs/fork-provenance.md) for the pinned source revision, compatibility boundaries, and update policy.
 
 ## Install
 
 ### macOS — Homebrew
 ```bash
-brew install kenotron-ms/tap/muxterm
+brew install maxbaines/tap/agent-remote
 ```
 
 ### Linux
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/kenotron-ms/muxterm/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/maxbaines/agent-remote/main/install.sh | bash
 ```
 
 Or review first:
 ```bash
-curl -fsSL https://raw.githubusercontent.com/kenotron-ms/muxterm/main/install.sh -o install.sh
+curl -fsSL https://raw.githubusercontent.com/maxbaines/agent-remote/main/install.sh -o install.sh
 less install.sh
 bash install.sh
 ```
@@ -26,24 +28,24 @@ bash install.sh
 
 **To run as a background service** (persists across reboots):
 ```bash
-muxterm install
+agent-remote install
 # Optionally, to keep running even when logged out:
 sudo loginctl enable-linger $USER
 ```
 
 **To upgrade:**
 ```bash
-curl -fsSL https://raw.githubusercontent.com/kenotron-ms/muxterm/main/install.sh | bash
-muxterm install  # restarts the service with the new binary
+curl -fsSL https://raw.githubusercontent.com/maxbaines/agent-remote/main/install.sh | bash
+agent-remote install  # restarts the service with the new binary
 ```
 
 ### Windows — Scoop (coming soon)
 
-Pre-built binaries for each platform are attached to every [GitHub Release](https://github.com/kenotron-ms/muxterm/releases).
+Pre-built binaries for each platform are attached to every [GitHub Release](https://github.com/maxbaines/agent-remote/releases).
 
 ## What is this?
 
-muxterm is a terminal multiplexer where the UI lives in a browser. Open splits, create workspaces, resize panes — all standard multiplexer behavior, except it's HTML and xterm.js instead of ncurses, and it runs as a web app you install once and connect to from anywhere.
+Agent Remote is a terminal workspace where the UI lives in a browser. Open splits, create Workspaces, and resize Panes in HTML and xterm.js, then reconnect from another Remote Client without tying Terminal Session lifetime to the browser.
 
 The session daemon is a standalone Go process that owns your PTYs directly. It survives HTTP server restarts. When you reconnect, it replays a clean screen state — not a raw byte stream — so full-screen apps like vim and htop come back correctly at whatever size your window happens to be.
 
@@ -64,16 +66,16 @@ your shells
 make build
 
 # Run locally (opens browser, connects to local sessiond)
-./bin/muxterm
+./bin/agent-remote
 
 # Run as a service (remote access, with token auth)
-./bin/muxterm serve --addr 0.0.0.0:8080
+./bin/agent-remote serve --addr 0.0.0.0:8080
 
 # Install as a system service (survives reboots)
-./bin/muxterm install
+./bin/agent-remote install
 
 # Push to a remote server
-./bin/muxterm deploy user@myserver.com
+./bin/agent-remote deploy user@myserver.com
 ```
 
 ## Features
@@ -87,13 +89,13 @@ make build
 - **Session persistence** — the sessiond daemon detaches from the HTTP server; your shells survive server restarts, deploys, and reboots
 - **Single binary** — Go binary with embedded frontend; no external runtime besides a shell
 - **Auth** — HMAC token-based auth with localhost bypass
-- **Service install** — `muxterm install` sets up systemd (Linux) or launchd (macOS)
-- **Push deploy** — `muxterm deploy user@host` copies the binary and installs remotely
+- **Service install** — `agent-remote install` sets up systemd (Linux) or launchd (macOS)
+- **Push deploy** — `agent-remote deploy user@host` copies the binary and installs remotely
 - **Agent integration (MCP)** — connect any MCP-compatible AI agent to drive workspaces, terminals, and browser panes
 
 ## Agent integration (MCP)
 
-`muxterm mcp` exposes a [Model Context Protocol](https://modelcontextprotocol.io) server that lets any MCP-compatible AI agent drive workspaces, terminals, and browser panes. The server speaks JSON-RPC 2.0 over stdio and requires a running `muxterm` or `muxterm serve` instance to connect to.
+`agent-remote mcp` exposes a [Model Context Protocol](https://modelcontextprotocol.io) server that lets any MCP-compatible AI agent drive workspaces, terminals, and browser panes. The server speaks JSON-RPC 2.0 over stdio and requires a running `agent-remote` or `agent-remote serve` instance to connect to.
 
 **25 tools** across 6 categories: workspace management, pane layout (with ASCII diagram for spatial awareness), terminal control (OSC 133 shell completion), browser navigation, browser interaction, and browser observation.
 
@@ -104,8 +106,8 @@ Add to `.amplifier/mcp.json` (project) or `~/.amplifier/mcp.json` (global):
 ```json
 {
   "mcpServers": {
-    "muxterm": {
-      "command": "muxterm",
+    "agent-remote": {
+      "command": "agent-remote",
       "args": ["mcp"]
     }
   }
@@ -115,7 +117,7 @@ Add to `.amplifier/mcp.json` (project) or `~/.amplifier/mcp.json` (global):
 ### Claude Code
 
 ```bash
-claude mcp add muxterm -- muxterm mcp
+claude mcp add agent-remote -- agent-remote mcp
 ```
 
 Or add to `.mcp.json` in your project root:
@@ -123,8 +125,8 @@ Or add to `.mcp.json` in your project root:
 ```json
 {
   "mcpServers": {
-    "muxterm": {
-      "command": "muxterm",
+    "agent-remote": {
+      "command": "agent-remote",
       "args": ["mcp"]
     }
   }
@@ -139,9 +141,9 @@ Add to `opencode.json` in your project root:
 {
   "$schema": "https://opencode.ai/config.json",
   "mcp": {
-    "muxterm": {
+    "agent-remote": {
       "type": "local",
-      "command": ["muxterm", "mcp"]
+      "command": ["agent-remote", "mcp"]
     }
   }
 }
@@ -151,7 +153,7 @@ Add to `opencode.json` in your project root:
 
 | Component | Role |
 |-----------|------|
-| `cmd/muxterm/` | CLI — serve, install, uninstall, deploy, sessiond, doctor |
+| `cmd/agent-remote/` | CLI — serve, install, uninstall, deploy, sessiond, doctor |
 | `internal/sessiond/` | PTY daemon — workspace/pane registry, VT emulation, reconnect replay |
 | `internal/server/` | HTTP + WebSocket relay, auth, browser-pane proxy |
 | `internal/service/` | Cross-platform service install (systemd/launchd) |
@@ -170,7 +172,7 @@ One WebSocket per browser tab, backed by one Unix socket connection to `sessiond
 
 ## Requirements
 
-- **Go** 1.22+
+- **Go** 1.24.2+ (the pinned toolchain is Go 1.24.4)
 - **Node.js** 18+
 
 ## Development

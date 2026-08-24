@@ -10,7 +10,7 @@ import (
 
 func TestRenderSystemdUnit_ContainsBinaryPath(t *testing.T) {
 	cfg := ServiceConfig{
-		BinaryPath: "/usr/local/bin/muxterm",
+		BinaryPath: "/usr/local/bin/agent-remote",
 		Addr:       "localhost:8080",
 		Secret:     "abc123",
 		SafePATH:   "/usr/bin:/usr/local/bin",
@@ -19,14 +19,14 @@ func TestRenderSystemdUnit_ContainsBinaryPath(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RenderSystemdUnit() error: %v", err)
 	}
-	if !contains(out, "/usr/local/bin/muxterm") {
+	if !contains(out, "/usr/local/bin/agent-remote") {
 		t.Error("output missing binary path")
 	}
 }
 
 func TestRenderSystemdUnit_ContainsServeCommand(t *testing.T) {
 	cfg := ServiceConfig{
-		BinaryPath: "/usr/local/bin/muxterm",
+		BinaryPath: "/usr/local/bin/agent-remote",
 		Addr:       "0.0.0.0:8311",
 		Secret:     "secret123",
 		SafePATH:   "/usr/bin",
@@ -35,14 +35,14 @@ func TestRenderSystemdUnit_ContainsServeCommand(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RenderSystemdUnit() error: %v", err)
 	}
-	if !contains(out, "muxterm serve --addr 0.0.0.0:8311 --secret secret123") {
+	if !contains(out, "agent-remote serve --addr 0.0.0.0:8311 --secret secret123") {
 		t.Errorf("output missing serve command with flags, got:\n%s", out)
 	}
 }
 
 func TestRenderSystemdUnit_ContainsPATH(t *testing.T) {
 	cfg := ServiceConfig{
-		BinaryPath: "/usr/local/bin/muxterm",
+		BinaryPath: "/usr/local/bin/agent-remote",
 		Addr:       "localhost:8080",
 		Secret:     "s",
 		SafePATH:   "/usr/bin:/usr/local/bin:/home/user/.local/bin",
@@ -58,7 +58,7 @@ func TestRenderSystemdUnit_ContainsPATH(t *testing.T) {
 
 func TestRenderSystemdUnit_HasRequiredSections(t *testing.T) {
 	cfg := ServiceConfig{
-		BinaryPath: "/bin/muxterm",
+		BinaryPath: "/bin/agent-remote",
 		Addr:       "localhost:8080",
 		Secret:     "s",
 		SafePATH:   "/usr/bin",
@@ -107,7 +107,7 @@ func TestServiceConfig_Defaults(t *testing.T) {
 
 func TestRenderLaunchdPlist_ContainsBinaryPath(t *testing.T) {
 	cfg := ServiceConfig{
-		BinaryPath: "/usr/local/bin/muxterm",
+		BinaryPath: "/usr/local/bin/agent-remote",
 		Addr:       "localhost:8080",
 		Secret:     "abc123",
 		SafePATH:   "/usr/bin:/usr/local/bin",
@@ -116,14 +116,14 @@ func TestRenderLaunchdPlist_ContainsBinaryPath(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RenderLaunchdPlist() error: %v", err)
 	}
-	if !contains(out, "<string>/usr/local/bin/muxterm</string>") {
+	if !contains(out, "<string>/usr/local/bin/agent-remote</string>") {
 		t.Error("output missing binary path")
 	}
 }
 
 func TestRenderLaunchdPlist_ContainsLabel(t *testing.T) {
 	cfg := ServiceConfig{
-		BinaryPath: "/usr/local/bin/muxterm",
+		BinaryPath: "/usr/local/bin/agent-remote",
 		Addr:       "localhost:8080",
 		Secret:     "abc123",
 		SafePATH:   "/usr/bin:/usr/local/bin",
@@ -132,14 +132,14 @@ func TestRenderLaunchdPlist_ContainsLabel(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RenderLaunchdPlist() error: %v", err)
 	}
-	if !contains(out, "<string>com.muxterm</string>") {
-		t.Error("output missing label com.muxterm")
+	if !contains(out, "<string>com.agent-remote</string>") {
+		t.Error("output missing label com.agent-remote")
 	}
 }
 
 func TestRenderLaunchdPlist_ContainsServeArgs(t *testing.T) {
 	cfg := ServiceConfig{
-		BinaryPath: "/usr/local/bin/muxterm",
+		BinaryPath: "/usr/local/bin/agent-remote",
 		Addr:       "0.0.0.0:8311",
 		Secret:     "secret123",
 		SafePATH:   "/usr/bin",
@@ -163,7 +163,7 @@ func TestRenderLaunchdPlist_ContainsServeArgs(t *testing.T) {
 
 func TestRenderLaunchdPlist_ContainsPATH(t *testing.T) {
 	cfg := ServiceConfig{
-		BinaryPath: "/usr/local/bin/muxterm",
+		BinaryPath: "/usr/local/bin/agent-remote",
 		Addr:       "localhost:8080",
 		Secret:     "s",
 		SafePATH:   "/usr/bin:/usr/local/bin:/home/user/.local/bin",
@@ -179,7 +179,7 @@ func TestRenderLaunchdPlist_ContainsPATH(t *testing.T) {
 
 func TestRenderLaunchdPlist_IsValidXML(t *testing.T) {
 	cfg := ServiceConfig{
-		BinaryPath: "/usr/local/bin/muxterm",
+		BinaryPath: "/usr/local/bin/agent-remote",
 		Addr:       "localhost:8080",
 		Secret:     "abc123",
 		SafePATH:   "/usr/bin:/usr/local/bin",
@@ -206,7 +206,7 @@ func TestSystemdUnitPath_UsesHomeDir(t *testing.T) {
 		t.Skipf("cannot determine home dir: %v", err)
 	}
 	got := SystemdUnitPath()
-	want := home + "/.config/systemd/user/muxterm.service"
+	want := home + "/.config/systemd/user/agent-remote.service"
 	if got != want {
 		t.Errorf("SystemdUnitPath() = %q, want %q", got, want)
 	}
@@ -214,7 +214,7 @@ func TestSystemdUnitPath_UsesHomeDir(t *testing.T) {
 
 func TestRenderSessiondSystemdUnit_ContainsSessiondCommand(t *testing.T) {
 	cfg := ServiceConfig{
-		BinaryPath: "/usr/local/bin/muxterm",
+		BinaryPath: "/usr/local/bin/agent-remote",
 		Addr:       "localhost:8080",
 		Secret:     "abc123",
 		SafePATH:   "/usr/bin:/usr/local/bin",
@@ -223,7 +223,7 @@ func TestRenderSessiondSystemdUnit_ContainsSessiondCommand(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RenderSessiondSystemdUnit() error: %v", err)
 	}
-	if !contains(out, "/usr/local/bin/muxterm sessiond") {
+	if !contains(out, "/usr/local/bin/agent-remote sessiond") {
 		t.Errorf("output missing sessiond command, got:\n%s", out)
 	}
 	if !contains(out, "Restart=on-failure") {
@@ -238,7 +238,7 @@ func TestRenderSessiondSystemdUnit_ContainsSessiondCommand(t *testing.T) {
 
 func TestRenderSessiondSystemdUnit_ContainsPATH(t *testing.T) {
 	cfg := ServiceConfig{
-		BinaryPath: "/usr/local/bin/muxterm",
+		BinaryPath: "/usr/local/bin/agent-remote",
 		Addr:       "localhost:8080",
 		Secret:     "s",
 		SafePATH:   "/usr/bin:/usr/local/bin",
@@ -254,7 +254,7 @@ func TestRenderSessiondSystemdUnit_ContainsPATH(t *testing.T) {
 
 func TestRenderSystemdUnit_WebUnitDependsOnSessiond(t *testing.T) {
 	cfg := ServiceConfig{
-		BinaryPath: "/usr/local/bin/muxterm",
+		BinaryPath: "/usr/local/bin/agent-remote",
 		Addr:       "localhost:8080",
 		Secret:     "s",
 		SafePATH:   "/usr/bin",
@@ -263,11 +263,11 @@ func TestRenderSystemdUnit_WebUnitDependsOnSessiond(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RenderSystemdUnit() error: %v", err)
 	}
-	if !contains(out, "Wants=muxterm-sessiond.service") {
-		t.Errorf("web unit missing Wants=muxterm-sessiond.service, got:\n%s", out)
+	if !contains(out, "Wants=agent-remote-sessiond.service") {
+		t.Errorf("web unit missing Wants=agent-remote-sessiond.service, got:\n%s", out)
 	}
-	if !contains(out, "After=muxterm-sessiond.service") {
-		t.Errorf("web unit missing After=muxterm-sessiond.service, got:\n%s", out)
+	if !contains(out, "After=agent-remote-sessiond.service") {
+		t.Errorf("web unit missing After=agent-remote-sessiond.service, got:\n%s", out)
 	}
 }
 
@@ -277,7 +277,7 @@ func TestSessiondSystemdUnitPath_UsesHomeDir(t *testing.T) {
 		t.Skipf("cannot determine home dir: %v", err)
 	}
 	got := SessiondSystemdUnitPath()
-	want := home + "/.config/systemd/user/muxterm-sessiond.service"
+	want := home + "/.config/systemd/user/agent-remote-sessiond.service"
 	if got != want {
 		t.Errorf("SessiondSystemdUnitPath() = %q, want %q", got, want)
 	}
@@ -289,7 +289,7 @@ func TestLaunchdPlistPath_UsesHomeDir(t *testing.T) {
 		t.Skipf("cannot determine home dir: %v", err)
 	}
 	got := LaunchdPlistPath()
-	want := home + "/Library/LaunchAgents/com.muxterm.plist"
+	want := home + "/Library/LaunchAgents/com.agent-remote.plist"
 	if got != want {
 		t.Errorf("LaunchdPlistPath() = %q, want %q", got, want)
 	}

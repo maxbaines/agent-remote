@@ -17,7 +17,7 @@ import (
 	"github.com/go-oauth2/oauth2/v4/manage"
 	oaserver "github.com/go-oauth2/oauth2/v4/server"
 
-	"github.com/kenotron-ms/muxterm/internal/authserver/loginbackend"
+	"github.com/maxbaines/agent-remote/internal/authserver/loginbackend"
 )
 
 // AccessTokenTTL is the deliberate, documented deviation from the MCP
@@ -33,11 +33,11 @@ const AuthorizeCodeTTL = 10 * time.Minute
 
 // Config configures a new AuthServer.
 type Config struct {
-	// WebRedirectURI is the exact-match redirect URI for the muxterm-web
+	// WebRedirectURI is the exact-match redirect URI for the agent-remote-web
 	// client. In direct/local-dev mode it is loopback-derived (e.g.
 	// "http://127.0.0.1:8311/auth/callback"); when the operator sets
 	// behind_reverse_proxy it is "<public_origin>/auth/callback". Both are
-	// produced by cmd/muxterm's webRedirectURIFor, which is the single
+	// produced by cmd/agent-remote's webRedirectURIFor, which is the single
 	// derivation seam — this package never derives it, and never inspects
 	// a request header to guess it.
 	WebRedirectURI string
@@ -51,7 +51,7 @@ type Config struct {
 	RateLimiter *RateLimiter
 }
 
-// AuthServer wraps go-oauth2/oauth2 with muxterm's hardening
+// AuthServer wraps go-oauth2/oauth2 with agent-remote's hardening
 // configuration, hardcoded clients, file-backed token store, and
 // PAM-backed login form.
 type AuthServer struct {
@@ -65,7 +65,7 @@ type AuthServer struct {
 // New wires a Manager (PKCE S256-only, authorization-code-grant-only, no
 // refresh tokens, 30-day access-token TTL) with the hardcoded ClientStore,
 // the file-backed TokenStore, and the loopback-port-wildcard redirect URI
-// exception bounded to muxterm-mcp.
+// exception bounded to agent-remote-mcp.
 func New(cfg Config) (*AuthServer, error) {
 	if cfg.LoginBackend == nil {
 		return nil, errors.New("authserver: LoginBackend is required")
@@ -225,9 +225,9 @@ func (a *AuthServer) renderLoginPage(w http.ResponseWriter, r *http.Request, err
 }
 
 const loginPageHTML = `<!DOCTYPE html>
-<html><head><title>muxterm login</title></head>
+<html><head><title>Agent Remote login</title></head>
 <body>
-<h1>muxterm</h1>
+<h1>Agent Remote</h1>
 {{if .Error}}<p style="color:red">{{.Error}}</p>{{end}}
 <form method="POST">
 {{range $k, $v := .Hidden}}<input type="hidden" name="{{$k}}" value="{{$v}}">

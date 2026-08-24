@@ -19,7 +19,7 @@ func TestSocketPath_UsesXDGRuntimeDir(t *testing.T) {
 	if err != nil {
 		t.Fatalf("SocketPath returned error: %v", err)
 	}
-	want := "/run/user/1234/muxterm/sessiond.sock"
+	want := "/run/user/1234/agent-remote/sessiond.sock"
 	if got != want {
 		t.Fatalf("SocketPath = %q, want %q", got, want)
 	}
@@ -31,7 +31,7 @@ func TestSocketPath_FallbackWhenXDGUnset(t *testing.T) {
 	if err != nil {
 		t.Fatalf("SocketPath returned error: %v", err)
 	}
-	want := filepath.Join(os.TempDir(), fmt.Sprintf("muxterm-%d", os.Getuid()), "sessiond.sock")
+	want := filepath.Join(os.TempDir(), fmt.Sprintf("agent-remote-%d", os.Getuid()), "sessiond.sock")
 	if got != want {
 		t.Fatalf("SocketPath = %q, want %q", got, want)
 	}
@@ -96,15 +96,15 @@ func TestSpawnCommand_StartsInNewSession(t *testing.T) {
 
 // TestSpawn_SurvivesParentExit verifies that a process launched via SpawnCommand
 // outlives the process that launched it. The test re-execs its own binary as an
-// intermediate launcher (MUXTERM_SPAWN_HELPER=1); that launcher spawns a detached
+// intermediate launcher (AGENT_REMOTE_SPAWN_HELPER=1); that launcher spawns a detached
 // grandchild which sleeps 1s and then touches the marker file before exiting. The
 // launcher itself exits immediately, so the marker only appears if the grandchild
 // reparented to init and survived.
 func TestSpawn_SurvivesParentExit(t *testing.T) {
-	if os.Getenv("MUXTERM_SPAWN_HELPER") == "1" {
+	if os.Getenv("AGENT_REMOTE_SPAWN_HELPER") == "1" {
 		// Running as the intermediate launcher.
-		marker := os.Getenv("MUXTERM_SPAWN_MARKER")
-		logPath := os.Getenv("MUXTERM_SPAWN_LOG")
+		marker := os.Getenv("AGENT_REMOTE_SPAWN_MARKER")
+		logPath := os.Getenv("AGENT_REMOTE_SPAWN_LOG")
 		_, err := SpawnCommand("sh", []string{"-c", fmt.Sprintf("sleep 1; touch %q", marker)}, logPath)
 		if err != nil {
 			os.Exit(2)
@@ -119,9 +119,9 @@ func TestSpawn_SurvivesParentExit(t *testing.T) {
 
 	cmd := exec.Command(os.Args[0], "-test.run", "TestSpawn_SurvivesParentExit")
 	cmd.Env = append(os.Environ(),
-		"MUXTERM_SPAWN_HELPER=1",
-		"MUXTERM_SPAWN_MARKER="+marker,
-		"MUXTERM_SPAWN_LOG="+logPath,
+		"AGENT_REMOTE_SPAWN_HELPER=1",
+		"AGENT_REMOTE_SPAWN_MARKER="+marker,
+		"AGENT_REMOTE_SPAWN_LOG="+logPath,
 	)
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("launcher process failed: %v", err)
@@ -177,7 +177,7 @@ func TestDefaultLogPath_SitsBesideSocket(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DefaultLogPath returned error: %v", err)
 	}
-	want := "/run/user/1234/muxterm/sessiond.log"
+	want := "/run/user/1234/agent-remote/sessiond.log"
 	if got != want {
 		t.Fatalf("DefaultLogPath = %q, want %q", got, want)
 	}

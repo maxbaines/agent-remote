@@ -46,9 +46,9 @@ export default defineConfig({
         'icons/icon-maskable.svg',
       ],
       manifest: {
-        name: 'muxterm',
-        short_name: 'muxterm',
-        description: 'A terminal multiplexer in your browser.',
+        name: 'Agent Remote',
+        short_name: 'Agent Remote',
+        description: 'Persistent terminal workspaces in your browser.',
         id: '/',
         start_url: '/',
         scope: '/',

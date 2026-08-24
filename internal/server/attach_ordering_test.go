@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kenotron-ms/muxterm/internal/sessiond"
+	"github.com/maxbaines/agent-remote/internal/sessiond"
 )
 
 // orderRecorder captures the relative order in which composition (text) and

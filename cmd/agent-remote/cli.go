@@ -32,20 +32,20 @@ type Config struct {
 
 // printUsage writes top-level help to w.
 func printUsage(w io.Writer) {
-	fmt.Fprintln(w, "muxterm — browser-based terminal multiplexer")
+	fmt.Fprintln(w, "Agent Remote — persistent browser terminal workspace")
 	fmt.Fprintln(w, "")
 	fmt.Fprintln(w, "Usage:")
-	fmt.Fprintln(w, "  muxterm                     Open in browser (127.0.0.1:8311, default)")
-	fmt.Fprintln(w, "  muxterm serve [flags]       Start server for remote access")
-	fmt.Fprintln(w, "  muxterm install [flags]     Install as a system service")
-	fmt.Fprintln(w, "  muxterm uninstall           Remove system service")
-	fmt.Fprintln(w, "  muxterm deploy <host>       Deploy to a remote host via SSH")
-	fmt.Fprintln(w, "  muxterm doctor              Check daemon and service status")
-	fmt.Fprintln(w, "  muxterm mcp [flags]         Start MCP server (stdio transport)")
-	fmt.Fprintln(w, "  muxterm amplifier install   Install muxterm bundle into Amplifier")
-	fmt.Fprintln(w, "  muxterm version             Print version")
+	fmt.Fprintln(w, "  agent-remote                     Open in browser (127.0.0.1:8311, default)")
+	fmt.Fprintln(w, "  agent-remote serve [flags]       Start server for remote access")
+	fmt.Fprintln(w, "  agent-remote install [flags]     Install as a system service")
+	fmt.Fprintln(w, "  agent-remote uninstall           Remove system service")
+	fmt.Fprintln(w, "  agent-remote deploy <host>       Deploy to a remote host via SSH")
+	fmt.Fprintln(w, "  agent-remote doctor              Check daemon and service status")
+	fmt.Fprintln(w, "  agent-remote mcp [flags]         Start MCP server (stdio transport)")
+	fmt.Fprintln(w, "  agent-remote amplifier install   Install agent-remote bundle into Amplifier")
+	fmt.Fprintln(w, "  agent-remote version             Print version")
 	fmt.Fprintln(w, "")
-	fmt.Fprintln(w, "Run 'muxterm <command> --help' for command-specific flags.")
+	fmt.Fprintln(w, "Run 'agent-remote <command> --help' for command-specific flags.")
 }
 
 // ParseArgs parses command-line arguments and returns a Config.
@@ -80,23 +80,23 @@ func ParseArgs(args []string) (Config, error) {
 	case "amplifier":
 		return parseAmplifier(args[1:])
 	default:
-		return Config{}, fmt.Errorf("unknown command %q\n\nRun 'muxterm --help' for usage.", args[0])
+		return Config{}, fmt.Errorf("unknown command %q\n\nRun 'agent-remote --help' for usage.", args[0])
 	}
 }
 
 func parseAmplifier(args []string) (Config, error) {
 	if len(args) == 0 || args[0] == "--help" || args[0] == "-h" {
-		fmt.Fprintln(os.Stdout, "Usage: muxterm amplifier <command>")
+		fmt.Fprintln(os.Stdout, "Usage: agent-remote amplifier <command>")
 		fmt.Fprintln(os.Stdout, "")
 		fmt.Fprintln(os.Stdout, "Commands:")
-		fmt.Fprintln(os.Stdout, "  install    Add the muxterm bundle to Amplifier as an app bundle")
+		fmt.Fprintln(os.Stdout, "  install    Add the Agent Remote bundle to Amplifier as an app bundle")
 		return Config{Mode: "help"}, nil
 	}
 	switch args[0] {
 	case "install":
 		return Config{Mode: "amplifier-install"}, nil
 	default:
-		return Config{}, fmt.Errorf("unknown amplifier command %q\n\nRun 'muxterm amplifier --help' for usage.", args[0])
+		return Config{}, fmt.Errorf("unknown amplifier command %q\n\nRun 'agent-remote amplifier --help' for usage.", args[0])
 	}
 }
 
@@ -106,7 +106,7 @@ func parseMCP(args []string) (Config, error) {
 	transport := fs.String("transport", "stdio", "MCP transport type (only 'stdio' supported; SSE arrives in Phase 5)")
 	port := fs.Int("port", 9092, "MCP SSE port (Phase 5, parsed but rejected for now)")
 	fs.Usage = func() {
-		fmt.Fprintln(os.Stdout, "Usage: muxterm mcp [flags]")
+		fmt.Fprintln(os.Stdout, "Usage: agent-remote mcp [flags]")
 		fmt.Fprintln(os.Stdout, "")
 		fmt.Fprintln(os.Stdout, "Start MCP server using stdio transport (JSON-RPC 2.0 over stdin/stdout).")
 		fmt.Fprintln(os.Stdout, "stdout is the JSON-RPC transport; all logging goes to stderr.")
@@ -131,12 +131,12 @@ func parseServe(args []string) (Config, error) {
 	addr := fs.String("addr", "127.0.0.1:8311", "listen address")
 	secret := fs.String("secret", "", "auth secret (auto-generated if empty)")
 	noAuth := fs.Bool("no-auth", false, "skip WebSocket auth check (dev only — never use in production)")
-	publicOrigin := fs.String("public-origin", "", "canonical public origin when behind a reverse proxy (e.g. https://muxterm.example.com); required with --behind-reverse-proxy")
+	publicOrigin := fs.String("public-origin", "", "canonical public origin when behind a reverse proxy (e.g. https://agent-remote.example.com); required with --behind-reverse-proxy")
 	behindProxy := fs.Bool("behind-reverse-proxy", false, "run behind a reverse proxy: derive public URLs from --public-origin and disable the loopback auth bypass")
 	fs.Usage = func() {
-		fmt.Fprintln(os.Stdout, "Usage: muxterm serve [flags]")
+		fmt.Fprintln(os.Stdout, "Usage: agent-remote serve [flags]")
 		fmt.Fprintln(os.Stdout, "")
-		fmt.Fprintln(os.Stdout, "Start muxterm server for remote/shared access with optional authentication.")
+		fmt.Fprintln(os.Stdout, "Start the Agent Remote Gateway for remote/shared access with optional authentication.")
 		fmt.Fprintln(os.Stdout, "")
 		fmt.Fprintln(os.Stdout, "Flags:")
 		fs.PrintDefaults()
@@ -158,9 +158,9 @@ func parseDeploy(args []string) (Config, error) {
 	fs := flag.NewFlagSet("deploy", flag.ContinueOnError)
 	fs.SetOutput(os.Stdout)
 	fs.Usage = func() {
-		fmt.Fprintln(os.Stdout, "Usage: muxterm deploy <host>")
+		fmt.Fprintln(os.Stdout, "Usage: agent-remote deploy <host>")
 		fmt.Fprintln(os.Stdout, "")
-		fmt.Fprintln(os.Stdout, "Deploy muxterm to a remote host via SSH.")
+		fmt.Fprintln(os.Stdout, "Deploy Agent Remote to a remote Host via SSH.")
 		fmt.Fprintln(os.Stdout, "")
 		fmt.Fprintln(os.Stdout, "Arguments:")
 		fmt.Fprintln(os.Stdout, "  <host>    SSH target (e.g. user@hostname)")
@@ -184,9 +184,9 @@ func parseInstall(args []string) (Config, error) {
 	secret := fs.String("secret", "", "auth secret (auto-generated if empty)")
 	force := fs.Bool("force", false, "stop and overwrite an existing installation")
 	fs.Usage = func() {
-		fmt.Fprintln(os.Stdout, "Usage: muxterm install [flags]")
+		fmt.Fprintln(os.Stdout, "Usage: agent-remote install [flags]")
 		fmt.Fprintln(os.Stdout, "")
-		fmt.Fprintln(os.Stdout, "Install muxterm as a system service (systemd on Linux, launchd on macOS).")
+		fmt.Fprintln(os.Stdout, "Install Agent Remote as a system service (systemd on Linux, launchd on macOS).")
 		fmt.Fprintln(os.Stdout, "Use --force to stop and overwrite an existing installation.")
 		fmt.Fprintln(os.Stdout, "")
 		fmt.Fprintln(os.Stdout, "Flags:")

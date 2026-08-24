@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/BurntSushi/toml"
-	"github.com/kenotron-ms/muxterm/internal/config"
+	"github.com/maxbaines/agent-remote/internal/config"
 )
 
 // ---------------------------------------------------------------------------

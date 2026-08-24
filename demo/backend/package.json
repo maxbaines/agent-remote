@@ -1,7 +1,7 @@
 {
-  "name": "muxterm-demo-backend",
+  "name": "agent-remote-demo-backend",
   "version": "1.0.0",
-  "description": "Demo backend for muxterm browser pane — Express + WebSocket on port 9002",
+  "description": "Demo backend for agent-remote browser pane — Express + WebSocket on port 9002",
   "type": "module",
   "main": "server.mjs",
   "scripts": {

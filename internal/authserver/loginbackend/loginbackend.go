@@ -1,6 +1,6 @@
 // Package loginbackend authenticates a password against the current OS
 // user's own credentials. There is no username parameter: sessiond (and
-// therefore muxterm) always runs as exactly one OS user, so identity is
+// therefore agent-remote) always runs as exactly one OS user, so identity is
 // implicit — the only question is "is this the right password for the
 // account this process is already running as?"
 package loginbackend

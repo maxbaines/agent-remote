@@ -5,7 +5,7 @@ import (
 	"log"
 	"net/http"
 
-	muxcfg "github.com/kenotron-ms/muxterm/internal/config"
+	muxcfg "github.com/maxbaines/agent-remote/internal/config"
 )
 
 // handleGetConfig returns the current resolved configuration as JSON.

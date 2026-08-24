@@ -20,7 +20,7 @@ import (
 // This covers the first page load BEFORE the service worker is active.
 // The SW handles subsequent loads as belt-and-suspenders.
 const shimScript = `<script>
-/* muxterm proxy shim (auto-injected) */
+/* agent-remote proxy shim (auto-injected) */
 (function() {
   'use strict';
 
@@ -42,7 +42,7 @@ const shimScript = `<script>
       var urlStr = (typeof input === 'string') ? input : input.url;
       var rewritten = rewriteHTTP(new URL(urlStr));
       if (rewritten) {
-        console.debug('[muxterm shim] fetch', urlStr, '->', rewritten);
+        console.debug('[agent-remote shim] fetch', urlStr, '->', rewritten);
         input = (typeof input === 'string') ? rewritten : new Request(rewritten, input);
       }
     } catch(e) {}
@@ -55,7 +55,7 @@ const shimScript = `<script>
     try {
       var rewritten = rewriteHTTP(new URL(String(url), location.href));
       if (rewritten) {
-        console.debug('[muxterm shim] XHR', url, '->', rewritten);
+        console.debug('[agent-remote shim] XHR', url, '->', rewritten);
         arguments[1] = rewritten;
       }
     } catch(e) {}
@@ -64,34 +64,34 @@ const shimScript = `<script>
 
   /* WebSocket */
   var _WS = window.WebSocket;
-  function MuxtermWS(url, protocols) {
+  function AgentRemoteWS(url, protocols) {
     try {
       var rewritten = rewriteWS(new URL(url));
       if (rewritten) {
-        console.debug('[muxterm shim] WebSocket', url, '->', rewritten);
+        console.debug('[agent-remote shim] WebSocket', url, '->', rewritten);
         url = rewritten;
       }
     } catch(e) {}
     return protocols !== undefined ? new _WS(url, protocols) : new _WS(url);
   }
-  MuxtermWS.prototype = _WS.prototype;
-  MuxtermWS.CONNECTING = _WS.CONNECTING;
-  MuxtermWS.OPEN       = _WS.OPEN;
-  MuxtermWS.CLOSING    = _WS.CLOSING;
-  MuxtermWS.CLOSED     = _WS.CLOSED;
-  window.WebSocket = MuxtermWS;
+  AgentRemoteWS.prototype = _WS.prototype;
+  AgentRemoteWS.CONNECTING = _WS.CONNECTING;
+  AgentRemoteWS.OPEN       = _WS.OPEN;
+  AgentRemoteWS.CLOSING    = _WS.CLOSING;
+  AgentRemoteWS.CLOSED     = _WS.CLOSED;
+  window.WebSocket = AgentRemoteWS;
 
   /* service worker (belt-and-suspenders: handles fetch on second+ load) */
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/p/sw.js', {scope: '/p/'})
-      .then(function(r) { console.debug('[muxterm shim] SW registered, scope:', r.scope); })
-      .catch(function(e) { console.warn('[muxterm shim] SW registration failed:', e); });
+      .then(function(r) { console.debug('[agent-remote shim] SW registered, scope:', r.scope); })
+      .catch(function(e) { console.warn('[agent-remote shim] SW registration failed:', e); });
   }
 
-  console.debug('[muxterm shim] active — fetch + XHR + WebSocket covered');
+  console.debug('[agent-remote shim] active — fetch + XHR + WebSocket covered');
 })();
 
-/* muxterm agent bridge — postMessage command interface */
+/* agent-remote agent bridge — postMessage command interface */
 (function() {
   'use strict';
 
@@ -358,7 +358,7 @@ self.addEventListener('fetch', event => {
 
   const port = url.port || '80';
   const newURL = self.location.origin + '/p/' + port + url.pathname + url.search;
-  console.debug('[muxterm SW] intercepted', event.request.url, '->', newURL);
+  console.debug('[agent-remote SW] intercepted', event.request.url, '->', newURL);
 
   const method = event.request.method;
   event.respondWith(
@@ -389,7 +389,7 @@ self.addEventListener('fetch', e => {
 `
 
 // ServeAgentServiceWorker serves /p/sw.js — the agent-scoped service worker.
-// Scoped to /p/ so embedded proxied pages are isolated from muxterm's own origin surface.
+// Scoped to /p/ so embedded proxied pages are isolated from agent-remote's own origin surface.
 func ServeAgentServiceWorker(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
@@ -642,7 +642,7 @@ func injectShim(html []byte) []byte {
 
 // injectBase inserts <base href="/x/{hostPath}/"> immediately after the
 // opening <head> tag so relative URLs in proxied external pages resolve
-// through the /x/ proxy route rather than to the muxterm origin root.
+// through the /x/ proxy route rather than to the agent-remote origin root.
 // Only an HTML element — no JavaScript is injected.
 func injectBase(html []byte, hostPath string) []byte {
 	tag := []byte(fmt.Sprintf(`<base href="/x/%s/">`, hostPath))

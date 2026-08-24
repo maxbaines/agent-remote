@@ -22,7 +22,7 @@ func (e *execRunner) Run(name string, args ...string) ([]byte, error) {
 	return exec.Command(name, args...).CombinedOutput()
 }
 
-// Deployer handles deploying muxterm to a remote host via SSH.
+// Deployer handles deploying agent-remote to a remote host via SSH.
 type Deployer struct {
 	runner     Runner
 	binaryPath string
@@ -40,16 +40,16 @@ func New() (*Deployer, error) {
 	}, nil
 }
 
-// Deploy copies the muxterm binary to the target host, sets up a systemd
+// Deploy copies the agent-remote binary to the target host, sets up a systemd
 // service, and starts it.
 func (d *Deployer) Deploy(target string) error {
-	// 1. SCP binary to target:/usr/local/bin/muxterm
-	if _, err := d.runner.Run("scp", d.binaryPath, target+":/usr/local/bin/muxterm"); err != nil {
+	// 1. SCP binary to target:/usr/local/bin/agent-remote
+	if _, err := d.runner.Run("scp", d.binaryPath, target+":/usr/local/bin/agent-remote"); err != nil {
 		return fmt.Errorf("copy binary: %w", err)
 	}
 
 	// 2. SSH chmod +x the binary
-	if _, err := d.runner.Run("ssh", target, "chmod", "+x", "/usr/local/bin/muxterm"); err != nil {
+	if _, err := d.runner.Run("ssh", target, "chmod", "+x", "/usr/local/bin/agent-remote"); err != nil {
 		return fmt.Errorf("chmod binary: %w", err)
 	}
 
@@ -61,13 +61,13 @@ func (d *Deployer) Deploy(target string) error {
 
 	// 4. SSH write systemd unit
 	unit := systemdUnit(secret, "0.0.0.0:8080")
-	writeCmd := fmt.Sprintf("cat > /etc/systemd/system/muxterm.service << 'EOF'\n%s\nEOF", unit)
+	writeCmd := fmt.Sprintf("cat > /etc/systemd/system/agent-remote.service << 'EOF'\n%s\nEOF", unit)
 	if _, err := d.runner.Run("ssh", target, writeCmd); err != nil {
 		return fmt.Errorf("write systemd unit: %w", err)
 	}
 
-	// 5. SSH systemctl daemon-reload && systemctl enable --now muxterm.service
-	if _, err := d.runner.Run("ssh", target, "systemctl daemon-reload && systemctl enable --now muxterm.service"); err != nil {
+	// 5. SSH systemctl daemon-reload && systemctl enable --now agent-remote.service
+	if _, err := d.runner.Run("ssh", target, "systemctl daemon-reload && systemctl enable --now agent-remote.service"); err != nil {
 		return fmt.Errorf("start service: %w", err)
 	}
 
@@ -77,21 +77,21 @@ func (d *Deployer) Deploy(target string) error {
 		hostname = parts[1]
 	}
 
-	log.Printf("muxterm deployed to %s", target)
+	log.Printf("agent-remote deployed to %s", target)
 	log.Printf("URL: http://%s:8080", hostname)
 	log.Printf("secret: %s", secret)
 
 	return nil
 }
 
-// systemdUnit generates a systemd unit file for the muxterm service.
+// systemdUnit generates a systemd unit file for the agent-remote service.
 func systemdUnit(secret, addr string) string {
 	return fmt.Sprintf(`[Unit]
-Description=muxterm remote terminal
+Description=agent-remote remote terminal
 After=network.target
 
 [Service]
-ExecStart=/usr/local/bin/muxterm serve --addr %s --secret %s
+ExecStart=/usr/local/bin/agent-remote serve --addr %s --secret %s
 Restart=on-failure
 RestartSec=5
 

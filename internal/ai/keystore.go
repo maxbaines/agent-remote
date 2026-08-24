@@ -8,23 +8,23 @@ import (
 	"strings"
 )
 
-// KeyFileName is the name of the file (within the muxterm config directory)
+// KeyFileName is the name of the file (within the agent-remote config directory)
 // that stores the Anthropic API key.
 const KeyFileName = "anthropic_key"
 
 // DefaultKeyPath returns the default location of the Anthropic key file:
-// $XDG_CONFIG_HOME/muxterm/anthropic_key, falling back to
-// $HOME/.config/muxterm/anthropic_key when XDG_CONFIG_HOME is unset.
+// $XDG_CONFIG_HOME/agent-remote/anthropic_key, falling back to
+// $HOME/.config/agent-remote/anthropic_key when XDG_CONFIG_HOME is unset.
 func DefaultKeyPath() string {
 	base := os.Getenv("XDG_CONFIG_HOME")
 	if base == "" {
 		base = filepath.Join(os.Getenv("HOME"), ".config")
 	}
-	return filepath.Join(base, "muxterm", KeyFileName)
+	return filepath.Join(base, "agent-remote", KeyFileName)
 }
 
 // keyStore is a file-backed store for the Anthropic API key, sized for
-// muxterm's actual load (a single OS account, occasional key changes) --
+// agent-remote's actual load (a single OS account, occasional key changes) --
 // not a high-throughput secret store. Modeled on
 // internal/authserver/tokenstore.go's atomic-write conventions.
 type keyStore struct {

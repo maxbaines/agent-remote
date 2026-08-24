@@ -1,0 +1,27 @@
+bundle:
+  name: agent-remote-behavior
+  version: 1.0.0
+  description: Wires the Agent Remote MCP server as a tool source and registers the Agent Remote expert agent
+
+tools:
+  - module: tool-mcp
+    source: git+https://github.com/microsoft/amplifier-module-tool-mcp@main
+    config:
+      servers:
+        agent-remote:
+          command: agent-remote
+          args: ["mcp"]
+          # agent-remote mcp connects to the running agent-remote server via WebSocket.
+          # By default it targets localhost:8080. Override with AGENT_REMOTE_ADDR env var
+          # if your agent-remote server is running on a different address.
+          #
+          # env:
+          #   AGENT_REMOTE_ADDR: "localhost:8311"
+
+agents:
+  include:
+    - agent-remote:agents/agent-remote-expert
+
+context:
+  include:
+    - agent-remote:context/agent-remote-awareness.md

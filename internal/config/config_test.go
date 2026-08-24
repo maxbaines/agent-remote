@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/kenotron-ms/muxterm/internal/config"
+	"github.com/maxbaines/agent-remote/internal/config"
 )
 
 // writeTempConfig writes contents to a config.toml file inside t.TempDir()
@@ -85,8 +85,8 @@ func TestDefaults(t *testing.T) {
 	if cfg.Driver.SharedWindowPolicy != "follow" {
 		t.Errorf("Driver.SharedWindowPolicy: got %q, want %q", cfg.Driver.SharedWindowPolicy, "follow")
 	}
-	if cfg.Driver.Launch != "muxterm-agent" {
-		t.Errorf("Driver.Launch: got %q, want %q", cfg.Driver.Launch, "muxterm-agent")
+	if cfg.Driver.Launch != "agent-remote-agent" {
+		t.Errorf("Driver.Launch: got %q, want %q", cfg.Driver.Launch, "agent-remote-agent")
 	}
 }
 

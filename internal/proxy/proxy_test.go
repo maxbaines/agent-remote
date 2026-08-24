@@ -121,7 +121,7 @@ func TestWorks_HTTPProxyForwardsRequest(t *testing.T) {
 	}
 }
 
-// TestWorks_ShimInjectedFirstInHead verifies that 'muxterm proxy shim' appears
+// TestWorks_ShimInjectedFirstInHead verifies that 'agent-remote proxy shim' appears
 // in the proxied HTML before the <title> element.
 func TestWorks_ShimInjectedFirstInHead(t *testing.T) {
 	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -143,10 +143,10 @@ func TestWorks_ShimInjectedFirstInHead(t *testing.T) {
 	body, _ := io.ReadAll(resp.Body)
 	s := string(body)
 
-	shimIdx := strings.Index(s, "muxterm proxy shim")
+	shimIdx := strings.Index(s, "agent-remote proxy shim")
 	titleIdx := strings.Index(s, "<title>")
 	if shimIdx == -1 {
-		t.Error("body does not contain 'muxterm proxy shim'")
+		t.Error("body does not contain 'agent-remote proxy shim'")
 	}
 	if titleIdx == -1 {
 		t.Error("body does not contain '<title>'")
@@ -265,7 +265,7 @@ func TestFix_GzipNotCorruptedByShimInjection(t *testing.T) {
 	}
 	body, _ := io.ReadAll(resp.Body)
 	s := string(body)
-	if !strings.Contains(s, "muxterm proxy shim") {
+	if !strings.Contains(s, "agent-remote proxy shim") {
 		t.Error("body should contain shim after proxy decompresses gzip")
 	}
 	if !strings.Contains(s, "original content") {
@@ -335,7 +335,7 @@ func TestFix_XHRCoveredByShim(t *testing.T) {
 	defer resp.Body.Close()
 
 	body, _ := io.ReadAll(resp.Body)
-	if !strings.Contains(string(body), "muxterm proxy shim") {
+	if !strings.Contains(string(body), "agent-remote proxy shim") {
 		t.Error("proxied HTML body should contain shim")
 	}
 }

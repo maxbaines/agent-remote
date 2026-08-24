@@ -20,8 +20,8 @@ func Uninstall() error {
 }
 
 func uninstallLinux(webUnitPath, sessiondUnitPath string, cmd Commander) error {
-	cmd.Run("systemctl", "--user", "disable", "--now", "muxterm.service")
-	cmd.Run("systemctl", "--user", "disable", "--now", "muxterm-sessiond.service")
+	cmd.Run("systemctl", "--user", "disable", "--now", "agent-remote.service")
+	cmd.Run("systemctl", "--user", "disable", "--now", "agent-remote-sessiond.service")
 	cmd.Run("systemctl", "--user", "daemon-reload")
 	if err := os.Remove(webUnitPath); err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("remove unit file: %w", err)

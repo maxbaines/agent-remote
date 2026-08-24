@@ -1,4 +1,4 @@
-module github.com/kenotron-ms/muxterm
+module github.com/maxbaines/agent-remote
 
 go 1.24.2
 

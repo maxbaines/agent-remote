@@ -28,7 +28,7 @@ function newItem() {
 // Express app
 const app = express();
 
-// CORS middleware — allow the Vite dev server (port 5173) and the muxterm proxy
+// CORS middleware — allow the Vite dev server (port 5173) and the agent-remote proxy
 app.use((_req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   next();

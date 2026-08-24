@@ -31,7 +31,7 @@ func Install(cfg ServiceConfig) error {
 	case "darwin":
 		return installDarwin(cfg, LaunchdPlistPath(), cmd)
 	case "windows":
-		return fmt.Errorf("Windows service installation is not yet supported. Run 'muxterm serve' manually instead")
+		return fmt.Errorf("Windows service installation is not yet supported. Run 'agent-remote serve' manually instead")
 	default:
 		return fmt.Errorf("unsupported platform: %s", DetectPlatform())
 	}
@@ -43,8 +43,8 @@ func installLinux(cfg ServiceConfig, webUnitPath, sessiondUnitPath string, cmd C
 	// may keep the old ExecStart in memory until the next reboot.
 	if cfg.Force {
 		// Ignore errors — services may not be running yet on a first install.
-		_, _ = cmd.Run("systemctl", "--user", "stop", "muxterm.service")
-		_, _ = cmd.Run("systemctl", "--user", "stop", "muxterm-sessiond.service")
+		_, _ = cmd.Run("systemctl", "--user", "stop", "agent-remote.service")
+		_, _ = cmd.Run("systemctl", "--user", "stop", "agent-remote-sessiond.service")
 	}
 
 	// Render and write the sessiond unit FIRST so it is in place before the web unit,
@@ -75,18 +75,18 @@ func installLinux(cfg ServiceConfig, webUnitPath, sessiondUnitPath string, cmd C
 		return fmt.Errorf("systemctl daemon-reload: %w", err)
 	}
 	// Enable sessiond before the web unit so it is up first.
-	if _, err := cmd.Run("systemctl", "--user", "enable", "--now", "muxterm-sessiond.service"); err != nil {
+	if _, err := cmd.Run("systemctl", "--user", "enable", "--now", "agent-remote-sessiond.service"); err != nil {
 		return fmt.Errorf("systemctl enable sessiond: %w", err)
 	}
-	if _, err := cmd.Run("systemctl", "--user", "enable", "--now", "muxterm.service"); err != nil {
+	if _, err := cmd.Run("systemctl", "--user", "enable", "--now", "agent-remote.service"); err != nil {
 		return fmt.Errorf("systemctl enable: %w", err)
 	}
 
 	// Enable user lingering so systemd starts the user service at boot, even before the user logs in.
-	// Without this, muxterm.service only runs during active login sessions.
+	// Without this, agent-remote.service only runs during active login sessions.
 	if _, err := cmd.Run("loginctl", "enable-linger"); err != nil {
 		// Print warning but don't fail — loginctl might require root on some systems.
-		fmt.Printf("Warning: could not enable lingering for user service. muxterm may not survive reboots: %v\n", err)
+		fmt.Printf("Warning: could not enable lingering for user service. agent-remote may not survive reboots: %v\n", err)
 	}
 
 	return nil

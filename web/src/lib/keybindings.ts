@@ -56,14 +56,14 @@ export function makeKeyHandler(
   };
 }
 
-/** Returns true when muxterm is running as an installed PWA in standalone mode. */
+/** Returns true when agent-remote is running as an installed PWA in standalone mode. */
 function isPwa(): boolean {
   return window.matchMedia('(display-mode: standalone)').matches;
 }
 
 /**
  * Installs fixed app-level keyboard shortcuts that override browser defaults.
- * These are not user-configurable — they make muxterm feel like a native app.
+ * These are not user-configurable — they make agent-remote feel like a native app.
  *
  *   Cmd/Ctrl+W      — close the active pane   (interceptable in all modes)
  *   Cmd+Ctrl+T      — open a new pane          (interceptable in all modes —
