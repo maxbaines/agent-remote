@@ -3,6 +3,7 @@
 //   'ghostty-web'       → setup.ts  (original)
 //   '@xterm/xterm'      → setup.ts  (exact-match RegExp in vite.config.ts)
 //   '@xterm/addon-fit'  → setup.ts  (exact-match RegExp in vite.config.ts)
+//   '@xterm/addon-web-fonts' → setup.ts  (exact-match RegExp in vite.config.ts)
 //
 // Added vs original: onBinary / _onBinaryCbs / simulateBinaryInput
 // (needed by terminal-registry which calls term.onBinary(...)).
@@ -151,5 +152,18 @@ export class FitAddon {
 
   dispose(): void {
     // noop
+  }
+}
+
+export class WebFontsAddon {
+  loadFonts(_fontFamily: string[]): Promise<void> {
+    type LoadedFont = { then(onfulfilled: () => void): LoadedFont };
+    const loaded: LoadedFont = {
+      then(onfulfilled: () => void): typeof loaded {
+        onfulfilled();
+        return loaded;
+      },
+    };
+    return loaded as unknown as Promise<void>;
   }
 }

@@ -10,12 +10,12 @@ import (
 	"time"
 )
 
-// startMCPTestServer is a copy of startTestServer that uses os.MkdirTemp("/tmp", ...)
-// to avoid macOS's 104-byte Unix socket path limit, which t.TempDir() can exceed
-// when the test name is long (e.g. TestClientOnShellPromptFires).
+// startMCPTestServer is a copy of startTestServer that uses a short directory
+// relative to the package working directory. This stays under macOS's
+// 104-byte Unix socket path limit without assuming that /tmp is mounted.
 func startMCPTestServer(t *testing.T) (srv *Server, socketPath string, cancel context.CancelFunc) {
 	t.Helper()
-	dir, err := os.MkdirTemp("/tmp", "mux")
+	dir, err := os.MkdirTemp(".", "agent-remote")
 	if err != nil {
 		t.Fatalf("MkdirTemp: %v", err)
 	}

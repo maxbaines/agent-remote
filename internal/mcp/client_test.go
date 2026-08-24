@@ -10,13 +10,12 @@ import (
 	"github.com/maxbaines/agent-remote/internal/sessiond"
 )
 
-// startMCPTestServer starts a real sessiond daemon on a short socket path
-// (under /tmp to stay under macOS's 104-byte Unix socket path limit) and
-// returns the socket path and a cancel func. The server is shut down when
-// cancel is called.
+// startMCPTestServer starts a real sessiond daemon on a short socket path in
+// the package working directory. A relative base stays under macOS's 104-byte
+// Unix socket path limit and does not assume that /tmp is mounted.
 func startMCPTestServer(t *testing.T) (string, context.CancelFunc) {
 	t.Helper()
-	dir, err := os.MkdirTemp("/tmp", "muxmcp")
+	dir, err := os.MkdirTemp(".", "agent-remote-mcp")
 	if err != nil {
 		t.Fatalf("MkdirTemp: %v", err)
 	}

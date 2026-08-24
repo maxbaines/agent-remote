@@ -698,7 +698,8 @@ func TestExternal_BaseHrefInjected(t *testing.T) {
 	handleExternalProxy(rr, req, upstream.URL+"/", "example.com")
 
 	body := rr.Body.String()
-	if !strings.Contains(body, `<base href="/x/example.com/">`) {
+	finalHost := strings.TrimPrefix(upstream.URL, "http://")
+	if !strings.Contains(body, `<base href="/x/`+finalHost+`/">`) {
 		t.Errorf("body should contain <base href> tag, got: %q", body)
 	}
 }

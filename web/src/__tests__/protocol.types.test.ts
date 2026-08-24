@@ -21,6 +21,7 @@ describe('sessiond protocol types', () => {
       CreatePane: 'create-pane',
       ClosePane: 'close-pane',
       Resize: 'resize',
+      PaneFocus: 'pane-focus',
       RenamePane: 'rename-pane',
       SaveLayout: 'save-layout',
       PaneUpdate: 'pane-update',
@@ -34,17 +35,16 @@ describe('sessiond protocol types', () => {
       WorkspaceClosed: 'workspace-closed',
       WorkspaceRenamed: 'workspace-renamed',
       PaneRenamed: 'pane-renamed',
+      PaneResized: 'pane-resized',
       Error: 'error',
       // Browser-action relay
       BrowserAction: 'browser-action',
       BrowserActionResult: 'browser-action-result',
-      // Browser CDP pane management
+      // Client-driven browser pane management
       CreateBrowserPane: 'create-browser-pane',
       CloseBrowserPane: 'close-browser-pane',
-      BrowserInput: 'browser-input',
-      BrowserURL: 'browser-url',
-      BrowserDownloadProgress: 'browser-download-progress',
-      BrowserError: 'browser-error',
+      BrowserCommand: 'browser-command',
+      BrowserResult: 'browser-result',
       // Layout / snapshot relay
       LayoutCommand: 'layout-command',
       ScreenSnapshot: 'screen-snapshot',

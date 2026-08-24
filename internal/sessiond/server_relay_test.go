@@ -4,10 +4,10 @@ import (
 	"testing"
 )
 
-// TestBrowserActionBroadcast proves that when an attached conn sends a
-// browser-action request, every subscriber to that workspace receives a
-// TypeBrowserAction event with CID == 0 and the action fields preserved.
-func TestBrowserActionBroadcast(t *testing.T) {
+// TestBrowserCommandBroadcast proves that when an attached conn sends a
+// browser-command request, every subscriber to that workspace receives a
+// TypeBrowserCommand event with its correlation ID and action fields preserved.
+func TestBrowserCommandBroadcast(t *testing.T) {
 	srv, socketPath, _, cancel := startTestServer(t)
 	defer cancel()
 
@@ -23,9 +23,9 @@ func TestBrowserActionBroadcast(t *testing.T) {
 	observer.send(&Message{Type: TypeAttach, CID: 2, WorkspaceID: wsID})
 	observer.waitCtrl(TypeComposition)
 
-	// Actor sends a browser-action with CID=99 (a request correlation id).
+	// Actor sends a browser-command with CID=99 (a request correlation id).
 	actor.send(&Message{
-		Type:        TypeBrowserAction,
+		Type:        TypeBrowserCommand,
 		CID:         99,
 		WorkspaceID: wsID,
 		PaneID:      3,
@@ -33,10 +33,10 @@ func TestBrowserActionBroadcast(t *testing.T) {
 		Ref:         "e5",
 	})
 
-	// Observer should receive a TypeBrowserAction broadcast with CID cleared to 0.
-	msg := observer.waitCtrl(TypeBrowserAction)
-	if msg.CID != 0 {
-		t.Fatalf("broadcast CID = %d, want 0 (CID must be cleared on broadcast)", msg.CID)
+	// Observer should receive a TypeBrowserCommand broadcast with CID preserved.
+	msg := observer.waitCtrl(TypeBrowserCommand)
+	if msg.CID != 99 {
+		t.Fatalf("broadcast CID = %d, want 99", msg.CID)
 	}
 	if msg.Action != "click" {
 		t.Fatalf("broadcast Action = %q, want %q", msg.Action, "click")
@@ -49,11 +49,10 @@ func TestBrowserActionBroadcast(t *testing.T) {
 	}
 }
 
-// TestBrowserActionResultBroadcast proves that when an attached conn sends a
-// browser-action-result, every subscriber to that workspace receives a
-// TypeBrowserActionResult event with CID == 0 (event fan-out; the MCP client
-// correlates by its own pending request).
-func TestBrowserActionResultBroadcast(t *testing.T) {
+// TestBrowserResultBroadcast proves that when an attached conn sends a
+// browser-result, every subscriber to that workspace receives a
+// TypeBrowserResult event with its correlation ID preserved.
+func TestBrowserResultBroadcast(t *testing.T) {
 	srv, socketPath, _, cancel := startTestServer(t)
 	defer cancel()
 
@@ -69,17 +68,17 @@ func TestBrowserActionResultBroadcast(t *testing.T) {
 	b.send(&Message{Type: TypeAttach, CID: 2, WorkspaceID: wsID})
 	b.waitCtrl(TypeComposition)
 
-	// conn A sends a browser-action-result with CID=77 (its own correlation id).
+	// conn A sends a browser-result with CID=77.
 	a.send(&Message{
-		Type:  TypeBrowserActionResult,
+		Type:  TypeBrowserResult,
 		CID:   77,
 		Error: "bridge-not-ready",
 	})
 
-	// conn B should receive a TypeBrowserActionResult broadcast with CID cleared to 0.
-	msg := b.waitCtrl(TypeBrowserActionResult)
-	if msg.CID != 0 {
-		t.Fatalf("broadcast CID = %d, want 0 (CID must be cleared on broadcast)", msg.CID)
+	// conn B should receive a TypeBrowserResult broadcast with CID preserved.
+	msg := b.waitCtrl(TypeBrowserResult)
+	if msg.CID != 77 {
+		t.Fatalf("broadcast CID = %d, want 77", msg.CID)
 	}
 }
 

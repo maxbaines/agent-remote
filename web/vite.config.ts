@@ -120,6 +120,10 @@ export default defineConfig({
         find: /^@xterm\/addon-fit$/,
         replacement: resolve(__dirname, 'src/__tests__/setup.ts'),
       },
+      {
+        find: /^@xterm\/addon-web-fonts$/,
+        replacement: resolve(__dirname, 'src/__tests__/setup.ts'),
+      },
       // CSS ?inline imports from node_modules fail in the worktree environment
       // because node_modules is a symlink to the parent workspace; Vite's
       // filesystem security rejects the resolved real path outside the project
