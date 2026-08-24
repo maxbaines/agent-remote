@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -20,7 +21,12 @@ import (
 // whole serve relay path without spawning a real PTY. Returns the socket path.
 func startEchoDaemon(t *testing.T) string {
 	t.Helper()
-	sock := filepath.Join(t.TempDir(), "echo.sock")
+	dir, err := os.MkdirTemp(".", ".agent-remote-")
+	if err != nil {
+		t.Fatalf("MkdirTemp: %v", err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(dir) })
+	sock := filepath.Join(dir, "echo.sock")
 	ln, err := net.Listen("unix", sock)
 	if err != nil {
 		t.Fatalf("listen unix: %v", err)

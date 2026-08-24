@@ -55,7 +55,7 @@ func TestIsAlive_StaleSocketFile(t *testing.T) {
 }
 
 func TestIsAlive_LiveListener(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "live.sock")
+	path := filepath.Join(shortTempDir(t), "live.sock")
 	ln, err := net.Listen("unix", path)
 	if err != nil {
 		t.Fatalf("net.Listen: %v", err)
@@ -153,7 +153,7 @@ func TestEnsureDaemon_SystemdGate_NoSpawn(t *testing.T) {
 
 func TestEnsureDaemon_AlreadyAlive_NoSpawn(t *testing.T) {
 	t.Setenv("INVOCATION_ID", "")
-	dir := t.TempDir()
+	dir := shortTempDir(t)
 	socketPath := filepath.Join(dir, "live.sock")
 	logPath := filepath.Join(dir, "sessiond.log")
 

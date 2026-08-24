@@ -33,10 +33,21 @@ func captureStdout(t *testing.T, fn func()) string {
 	return buf.String()
 }
 
+// shortSocketPath keeps Unix socket fixtures below macOS's path-length limit.
+func shortSocketPath(t *testing.T, name string) string {
+	t.Helper()
+	dir, err := os.MkdirTemp(".", ".agent-remote-")
+	if err != nil {
+		t.Fatalf("MkdirTemp: %v", err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(dir) })
+	return filepath.Join(dir, name)
+}
+
 func TestNewSessiondDialerDials(t *testing.T) {
 	// A trivial accept loop standing in for the daemon: accept one connection,
 	// keep it briefly, then close. newSessiondDialerForSocket should dial it.
-	sock := filepath.Join(t.TempDir(), "sessiond.sock")
+	sock := shortSocketPath(t, "sessiond.sock")
 	ln, err := net.Listen("unix", sock)
 	if err != nil {
 		t.Fatalf("listen: %v", err)

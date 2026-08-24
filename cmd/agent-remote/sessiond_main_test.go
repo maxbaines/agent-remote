@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -14,7 +13,7 @@ import (
 // context is cancelled, and returns nil on graceful shutdown (the nil-on-cancel
 // guarantee is load-bearing per the frozen Phase-1 contract).
 func TestServeSessiond_ListensThenShutsDown(t *testing.T) {
-	socketPath := filepath.Join(t.TempDir(), "sub", "sessiond.sock")
+	socketPath := shortSocketPath(t, "sessiond.sock")
 
 	ctx, cancel := context.WithCancel(context.Background())
 

@@ -19,7 +19,7 @@ func startTestServer(t *testing.T) (srv *Server, socketPath string, errCh <-chan
 	t.Helper()
 	// Nest the socket inside a subdir so MkdirAll/Chmod 0700 is exercised and
 	// the permissions test can observe the parent directory mode.
-	socketPath = filepath.Join(t.TempDir(), "run", "sessiond.sock")
+	socketPath = filepath.Join(shortTempDir(t), "run", "sessiond.sock")
 	srv, err := NewServer(socketPath)
 	if err != nil {
 		t.Fatalf("NewServer: %v", err)
@@ -29,6 +29,17 @@ func startTestServer(t *testing.T) (srv *Server, socketPath string, errCh <-chan
 	go func() { ec <- srv.ListenAndServe(ctx) }()
 	waitForSocket(t, socketPath)
 	return srv, socketPath, ec, cancel
+}
+
+// shortTempDir keeps Unix socket fixtures below macOS's path-length limit.
+func shortTempDir(t *testing.T) string {
+	t.Helper()
+	dir, err := os.MkdirTemp(".", ".agent-remote-")
+	if err != nil {
+		t.Fatalf("MkdirTemp: %v", err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(dir) })
+	return dir
 }
 
 // waitForSocket polls until the socket path exists or the deadline elapses.
