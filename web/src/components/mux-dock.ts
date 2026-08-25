@@ -518,11 +518,15 @@ export class MuxDock extends LitElement {
 
         /* Chrome-like tab sizing.
            Dockview DOM order: [scrollable+tabs] [left-actions (+)] [void] [right-actions (split)]
-           The void has flex-grow:1 by default — it fills the gap so split lands far right.
-           The problem was tabs had flex-shrink:1 so they compressed into whatever space the
-           void left. Fix: tabs get flex-shrink:0 so they stay 180px. When many tabs overflow
-           the scrollable, Dockview's horizontal scroll handles it. Void stays at default
-           flex-grow:1 — no override needed. */
+           Size the scrollable from the combined tab widths so sibling tabs do not stack in
+           the first tab's footprint. It may still shrink when the pane is too narrow, at
+           which point Dockview's horizontal overflow handling takes over. The void keeps its
+           default flex-grow so the split control remains pinned to the far right. */
+
+        mux-dock .dv-scrollable {
+          flex: 0 1 max-content;
+          min-width: 0;
+        }
 
         /* Tabs stay at 180px — no grow, no shrink */
         mux-dock .dv-tab {
