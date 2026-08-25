@@ -1,0 +1,11 @@
+.git
+.github
+.agents
+.codex
+bin
+tmp
+web/node_modules
+web/dist
+demo/**/node_modules
+docs/screenshots
+docs/visual-reference
