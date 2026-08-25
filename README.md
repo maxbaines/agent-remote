@@ -85,7 +85,7 @@ make build
 - **Clean reconnects** — server-side VT emulation replays a live cell-grid snapshot, not raw bytes; full-screen apps restore correctly at any window size
 - **Browser pane** — embed a running local web app (e.g. a dev server on port 3000) as a mux pane, proxied through the server
 - **PWA** — installable as a standalone desktop or mobile app; service worker for offline support
-- **Fixed terminal-first appearance** — one bundled palette keeps terminal content and browser chrome visually coherent
+- **Bundled themes** — nine coordinated dark and light palettes update existing terminals and browser chrome immediately
 - **Session persistence** — the sessiond daemon detaches from the HTTP server; your shells survive server restarts, deploys, and reboots
 - **Single binary** — Go binary with embedded frontend; no external runtime besides a shell
 - **Auth** — HMAC token-based auth with localhost bypass

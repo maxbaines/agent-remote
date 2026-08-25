@@ -22,8 +22,13 @@ func writeTempConfig(t *testing.T, contents string) string {
 func TestDefaults(t *testing.T) {
 	cfg := config.Defaults()
 
+	// Theme
+	if cfg.Theme.Palette != "tokyo-night" {
+		t.Errorf("Theme.Palette: got %q, want %q", cfg.Theme.Palette, "tokyo-night")
+	}
+
 	// Font
-	wantFamily := "JetBrainsMonoNerdFont"
+	wantFamily := "Monaco"
 	if cfg.Font.Family != wantFamily {
 		t.Errorf("Font.Family: got %q, want %q", cfg.Font.Family, wantFamily)
 	}
@@ -90,6 +95,9 @@ func TestLoadMissingFileReturnsDefaults(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load() returned unexpected error: %v", err)
 	}
+	if cfg.Theme.Palette != "tokyo-night" {
+		t.Errorf("Theme.Palette: got %q, want %q", cfg.Theme.Palette, "tokyo-night")
+	}
 	if cfg.Terminal.Scrollback != 10000 {
 		t.Errorf("Terminal.Scrollback: got %d, want 10000", cfg.Terminal.Scrollback)
 	}
@@ -97,6 +105,9 @@ func TestLoadMissingFileReturnsDefaults(t *testing.T) {
 
 func TestLoadOverridesDefaults(t *testing.T) {
 	const tomlContent = `
+[theme]
+palette = "gruvbox"
+
 [font]
 size = 16
 
@@ -118,6 +129,9 @@ default_presentation = "single"
 	}
 
 	// Overridden values must be applied.
+	if cfg.Theme.Palette != "gruvbox" {
+		t.Errorf("Theme.Palette: got %q, want %q", cfg.Theme.Palette, "gruvbox")
+	}
 	if cfg.Font.Size != 16 {
 		t.Errorf("Font.Size: got %d, want 16", cfg.Font.Size)
 	}
@@ -146,7 +160,7 @@ default_presentation = "single"
 
 func TestLoadMalformedFallsBackToDefaults(t *testing.T) {
 	// A deliberately broken TOML string (unterminated string value).
-	const malformed = "[font]\nfamily = \"unterminated"
+	const malformed = "[theme]\npalette = \"unterminated"
 	path := writeTempConfig(t, malformed)
 
 	cfg, err := config.Load(path)
@@ -155,9 +169,9 @@ func TestLoadMalformedFallsBackToDefaults(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load() returned unexpected error: %v", err)
 	}
-	// 2. Fell back to the default font.
-	if cfg.Font.Family != "JetBrainsMonoNerdFont" {
-		t.Errorf("Font.Family: got %q, want %q", cfg.Font.Family, "JetBrainsMonoNerdFont")
+	// 2. Fell back to default theme palette.
+	if cfg.Theme.Palette != "tokyo-night" {
+		t.Errorf("Theme.Palette: got %q, want %q", cfg.Theme.Palette, "tokyo-night")
 	}
 	// 3. Fully reset to defaults, not partially parsed.
 	if cfg.Terminal.Scrollback != 10000 {

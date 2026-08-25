@@ -1,45 +1,35 @@
 import { describe, it, expect } from 'vitest';
-import { THEME, CHROME, applyAppearanceTokens } from './theme';
+import { THEME, PALETTES, resolvePalette, paletteToCSSVars } from './theme';
 
-describe('fixed Agent Remote appearance', () => {
-  it('exports the canonical terminal palette', () => {
-    expect(THEME.background).toBe('#1a1b26');
-    expect(THEME.foreground).toBe('#a9b1d6');
-    expect(THEME.blue).toBe('#7aa2f7');
+describe('resolvePalette', () => {
+  it('returns THEME reference for tokyo-night', () => {
+    expect(resolvePalette('tokyo-night')).toBe(THEME);
   });
 
-  it('exports the canonical chrome palette', () => {
-    expect(CHROME.bar).toBe('#16161e');
-    expect(CHROME.body).toBe(THEME.background);
-    expect(CHROME.textDim).toBe('#7f89b3');
+  it('PALETTES gruvbox is defined and resolvePalette returns it', () => {
+    expect(PALETTES['gruvbox']).toBeDefined();
+    expect(resolvePalette('gruvbox')).toBe(PALETTES['gruvbox']);
   });
 
-  it('applies the fixed terminal tokens', () => {
-    const root = document.createElement('div');
-    applyAppearanceTokens(root);
+  it('falls back to THEME for unknown palette name', () => {
+    expect(resolvePalette('does-not-exist')).toBe(THEME);
+  });
+});
 
-    expect(root.style.getPropertyValue('--mux-bg')).toBe(THEME.background);
-    expect(root.style.getPropertyValue('--mux-accent')).toBe(THEME.blue);
-    expect(root.style.getPropertyValue('--mux-bell')).toBe('var(--mux-warn)');
+describe('paletteToCSSVars', () => {
+  it('emits --mux-* CSS variables for a palette', () => {
+    const vars = paletteToCSSVars(resolvePalette('tokyo-night'));
+    expect(vars['--mux-bg']).toBe('#1a1b26');
+    expect(vars['--mux-fg']).toBe('#a9b1d6');
+    expect(vars['--mux-accent']).toBe('#7aa2f7');
   });
 
-  it('applies the fixed chrome and layout tokens', () => {
-    const root = document.createElement('div');
-    applyAppearanceTokens(root);
-
-    expect(root.style.getPropertyValue('--chrome-bar')).toBe(CHROME.bar);
-    expect(root.style.getPropertyValue('--chrome-text-dim')).toBe('#7f89b3');
-    expect(root.style.getPropertyValue('--mux-tab-min-width')).toBe('80px');
-    expect(root.style.getPropertyValue('--mux-tab-max-width')).toBe('180px');
-  });
-
-  it('clears obsolete overrides and is idempotent', () => {
-    const root = document.createElement('div');
-    root.style.setProperty('--mux-titlebar-bg', '#ffffff');
-    applyAppearanceTokens(root);
-    applyAppearanceTokens(root);
-
-    expect(root.style.getPropertyValue('--mux-titlebar-bg')).toBe('');
-    expect(root.style.getPropertyValue('--mux-bg')).toBe(THEME.background);
+  it('emits attention management and dock design tokens', () => {
+    const vars = paletteToCSSVars(resolvePalette('tokyo-night'));
+    expect(vars['--mux-bell']).toBe('var(--mux-warn)');
+    expect(vars['--mux-dock-height']).toBe('44px');
+    expect(vars['--mux-dock-item-padding']).toBe('0 16px');
+    expect(vars['--mux-dock-font-size']).toBe('0.85rem');
+    expect(vars['--mux-dock-active-weight']).toBe('600');
   });
 });

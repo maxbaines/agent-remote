@@ -111,11 +111,11 @@ try {
     throw new Error(`Safari Command registry incomplete: ${JSON.stringify(state.commandIds)}`);
   }
   if (state.background !== '#1a1b26' || state.accent !== '#7aa2f7') {
-    throw new Error(`Safari fixed appearance unresolved: ${JSON.stringify(state)}`);
+    throw new Error(`Safari default theme unresolved: ${JSON.stringify(state)}`);
   }
 
   console.log('PASS: Safari loads Agent Remote, attaches a Pane, and reaches health');
-  console.log('PASS: Safari resolves the desktop v1 Command registry and fixed appearance');
+  console.log('PASS: Safari resolves the desktop v1 Command registry and default theme');
 } catch (error) {
   console.error(`FAIL: ${error.message}`);
   if (/Allow Remote Automation|automation session/i.test(error.message)) {

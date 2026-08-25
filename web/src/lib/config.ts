@@ -3,11 +3,14 @@
 /**
  * Converts a TypeScript camelCase ResolvedConfig back to the Go snake_case
  * format used by PATCH /api/config. Only includes user-settable fields
- * (font and terminal) — keys, workspace, and driver are not changed through
+ * (theme, font, terminal) — keys, workspace, and driver are not changed through
  * the settings UI in Phase 5.
  */
 export function configToGoJSON(cfg: ResolvedConfig): Record<string, unknown> {
   return {
+    theme: {
+      palette: cfg.theme.palette,
+    },
     font: {
       family: cfg.font.family,
       size: cfg.font.size,
@@ -36,7 +39,7 @@ let _patchTimer: ReturnType<typeof setTimeout> | null = null;
  * TypeScript names, because the server decodes a raw config.Config JSON.
  *
  * @param partial - Partial config in Go snake_case JSON format
- *   e.g. { font: { size: 15 } }
+ *   e.g. { theme: { palette: "dracula" }, font: { size: 15 } }
  */
 export function patchConfig(partial: Record<string, unknown>): void {
   if (_patchTimer !== null) {
@@ -58,6 +61,7 @@ export function patchConfig(partial: Record<string, unknown>): void {
 
 // ResolvedConfig mirrors Go internal/config.Config with camelCase keys.
 export interface ResolvedConfig {
+  theme: { palette: string };
   font: { family: string; size: number };
   terminal: {
     cursorStyle: 'block' | 'bar' | 'underline';
@@ -86,12 +90,11 @@ export interface ResolvedConfig {
 
 // DEFAULT_RESOLVED_CONFIG mirrors Go internal/config.Defaults() exactly.
 export const DEFAULT_RESOLVED_CONFIG: ResolvedConfig = {
+  theme: { palette: 'tokyo-night' },
   font: {
-    // Default to the server-bundled JetBrains Mono Nerd Font, served from
-    // /fonts/ by the agent-remote server itself. This ensures Nerd Font glyphs
-    // (folder icons, git symbols, etc.) render correctly in any browser,
-    // regardless of what fonts are installed on the client machine.
-    family: 'JetBrainsMonoNerdFont',
+    // Match cmux on macOS. Browsers without Monaco use the monospace fallback
+    // applied by resolveTerminalFontFamily().
+    family: 'Monaco',
     size: 13,
   },
   terminal: {
@@ -158,6 +161,7 @@ export function parseResolvedConfig(raw: unknown): ResolvedConfig {
 
   const r = raw as Record<string, unknown>;
 
+  const t = obj(r['theme']);
   const f = obj(r['font']);
   const term = obj(r['terminal']);
   const k = obj(r['keys']);
@@ -169,6 +173,9 @@ export function parseResolvedConfig(raw: unknown): ResolvedConfig {
     : [...d.workspace.rails];
 
   return {
+    theme: {
+      palette: str(t['palette'], d.theme.palette),
+    },
     font: {
       family: str(f['family'], d.font.family),
       size: num(f['size'], d.font.size),

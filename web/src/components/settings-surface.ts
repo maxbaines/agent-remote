@@ -1,6 +1,7 @@
 import { LitElement, html, css } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import { FONT_FAMILIES } from '../lib/fonts.js';
+import { PALETTES } from '../lib/theme.js';
+import { FONT_FAMILIES, resolveTerminalFontFamily } from '../lib/fonts.js';
 import type { ResolvedConfig } from '../lib/config.js';
 import {
   DEFAULT_AI_STATUS,
@@ -9,6 +10,26 @@ import {
   pingAI,
   type AIStatus,
 } from '../lib/ai.js';
+
+interface ThemeCard {
+  id: string;
+  label: string;
+}
+
+const DARK_THEMES: ThemeCard[] = [
+  { id: 'tokyo-night', label: 'Tokyo Night' },
+  { id: 'cmux', label: 'cmux' },
+  { id: 'catppuccin', label: 'Catppuccin' },
+  { id: 'gruvbox', label: 'Gruvbox' },
+  { id: 'dracula', label: 'Dracula' },
+  { id: 'nord', label: 'Nord' },
+];
+
+const LIGHT_THEMES: ThemeCard[] = [
+  { id: 'solarized-light', label: 'Solarized Light' },
+  { id: 'one-light', label: 'One Light' },
+  { id: 'github-light', label: 'GitHub Light' },
+];
 
 /**
  * mux-settings-surface — Phase 5 two-column settings panel.
@@ -128,6 +149,98 @@ export class MuxSettingsSurface extends LitElement {
 
     .section-gap {
       margin-top: 32px;
+    }
+
+    /* ── Theme previews ── */
+    .theme-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 4px;
+    }
+
+    .theme-card {
+      position: relative;
+      min-width: 0;
+      padding: 0;
+      overflow: hidden;
+      color: inherit;
+      background: transparent;
+      border: 2px solid transparent;
+      border-radius: 8px;
+      font: inherit;
+      text-align: left;
+      cursor: pointer;
+      transition: border-color 0.15s, transform 0.1s;
+    }
+    .theme-card:hover {
+      transform: translateY(-1px);
+    }
+    .theme-card:focus-visible {
+      outline: 2px solid var(--chrome-accent);
+      outline-offset: 2px;
+    }
+    .theme-card.active {
+      border-color: var(--chrome-accent);
+    }
+
+    .card-inner {
+      padding: 8px 9px 6px;
+      font-size: 9px;
+      font-family: 'JetBrainsMonoNerdFont', 'SF Mono', monospace;
+      line-height: 1.6;
+    }
+
+    .card-topbar {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 6px;
+    }
+    .card-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+    }
+    .dot-r { background: #ff5f57; }
+    .dot-y { background: #febc2e; }
+    .dot-g { background: #28c840; }
+
+    .card-prompt { margin-bottom: 1px; }
+    .card-files { margin-top: 1px; }
+
+    .card-terminal-content {
+      opacity: var(--theme-card-text-opacity, 1);
+    }
+
+    .card-cursor {
+      display: inline-block;
+      width: 6px;
+      height: 10px;
+      margin-top: 1px;
+      vertical-align: text-bottom;
+    }
+
+    .card-label {
+      padding: 5px 6px 6px;
+      overflow: hidden;
+      color: var(--chrome-text-dim);
+      background: var(--chrome-bar);
+      font-size: 10px;
+      text-align: center;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .theme-card.active .card-label {
+      color: var(--chrome-text-bright);
+    }
+
+    .card-check {
+      position: absolute;
+      top: 5px;
+      right: 7px;
+      color: var(--chrome-accent);
+      font-size: 10px;
+      font-weight: 700;
     }
 
     /* ── Font family radios ── */
@@ -428,6 +541,10 @@ export class MuxSettingsSurface extends LitElement {
     }));
   }
 
+  private _setTheme(palette: string): void {
+    this._emit({ theme: { palette } });
+  }
+
   private _setFontFamily(family: string): void {
     if (!this.config) return;
     this._emit({ font: { ...this.config.font, family } });
@@ -470,6 +587,60 @@ export class MuxSettingsSurface extends LitElement {
 
   // ── Render helpers ────────────────────────────────────────────────────────
 
+  private _renderThemeGroup(cards: ThemeCard[], current: string) {
+    return cards.map((card) => {
+      const palette = PALETTES[card.id];
+      if (!palette) return html``;
+      const isActive = current === card.id;
+      return html`
+        <button
+          class="theme-card ${isActive ? 'active' : ''}"
+          type="button"
+          title="${card.label}"
+          aria-pressed="${isActive}"
+          @click="${() => this._setTheme(card.id)}"
+        >
+          <div class="card-inner" style="background:${palette.background}">
+            <div class="card-topbar" aria-hidden="true">
+              <span class="card-dot dot-r"></span>
+              <span class="card-dot dot-y"></span>
+              <span class="card-dot dot-g"></span>
+            </div>
+            <div
+              class="card-terminal-content"
+              style="--theme-card-text-opacity:${palette.textOpacity ?? 1}"
+            >
+              <div class="card-prompt">
+                <span style="color:${palette.blue}">~/proj</span>
+                <span style="color:${palette.green}"> main</span>
+              </div>
+              <div class="card-files">
+                <span style="color:${palette.blue}">src/ </span><span style="color:${palette.green}">run.sh</span>
+              </div>
+              <div class="card-prompt" style="color:${palette.foreground}">$ ls</div>
+              <span class="card-cursor" style="background:${palette.cursor}"></span>
+            </div>
+          </div>
+          <div class="card-label">${card.label}</div>
+          ${isActive ? html`<div class="card-check" aria-hidden="true">✓</div>` : ''}
+        </button>
+      `;
+    });
+  }
+
+  private _renderThemeCards() {
+    const current = this.config?.theme.palette ?? 'tokyo-night';
+    return html`
+      <div class="theme-grid">
+        ${this._renderThemeGroup(DARK_THEMES, current)}
+      </div>
+      <p class="section-title" style="margin-top:16px">Light themes</p>
+      <div class="theme-grid">
+        ${this._renderThemeGroup(LIGHT_THEMES, current)}
+      </div>
+    `;
+  }
+
   private _renderFontPicker() {
     const cfg = this.config;
     if (!cfg) return html``;
@@ -486,7 +657,7 @@ export class MuxSettingsSurface extends LitElement {
               .checked="${family === f.id}"
               @change="${() => this._setFontFamily(f.id)}"
             />
-            <span class="font-radio-name" style="font-family:'${f.id}',monospace">${f.label}</span>
+            <span class="font-radio-name" style="font-family:${f.cssFamily}">${f.label}</span>
           </label>
         `)}
       </div>
@@ -505,7 +676,7 @@ export class MuxSettingsSurface extends LitElement {
       </div>
       <div
         class="font-preview"
-        style="font-family:'${family}',monospace;font-size:${size}px"
+        style="font-family:${resolveTerminalFontFamily(family)};font-size:${size}px"
       >The quick brown fox jumps $ █</div>
     `;
   }
@@ -573,8 +744,13 @@ export class MuxSettingsSurface extends LitElement {
     const cfg = this.config;
     if (!cfg) return html``;
     return html`
-      <p class="section-title">Terminal Font</p>
-      ${this._renderFontPicker()}
+      <p class="section-title">Theme</p>
+      ${this._renderThemeCards()}
+
+      <div class="section-gap">
+        <p class="section-title">Terminal Font</p>
+        ${this._renderFontPicker()}
+      </div>
     `;
   }
 

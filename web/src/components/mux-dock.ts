@@ -481,9 +481,20 @@ export class MuxDock extends LitElement {
           height: 100%;
         }
 
+        /* xterm's DOM renderer keeps glyphs (including true-colour output) in
+           this layer, separate from its opaque viewport background. A palette
+           may soften that content to evoke native terminal translucency
+           without allowing anything behind the terminal to show through. */
+        mux-dock .xterm .xterm-rows {
+          opacity: var(--mux-terminal-text-opacity, 1);
+        }
+
         /* Dockview re-skin: every surface follows the fixed Agent Remote tokens. */
         mux-dock .dv-dockview {
           --dv-background-color: var(--chrome-body);
+          --dv-tabs-and-actions-container-height: 34px;
+          --dv-tabs-and-actions-container-font-size: 13px;
+          --dv-icon-hover-background-color: var(--chrome-hover);
 
           /* Panel CONTENT background. Must equal the terminal background so the
              few sub-character pixels left when xterm can't fill the pane to an
@@ -507,9 +518,9 @@ export class MuxDock extends LitElement {
           --dv-inactivegroup-visiblepanel-tab-color: var(--mux-fg);
           --dv-inactivegroup-hiddenpanel-tab-color: var(--chrome-text-dim);
 
-          /* Hairline separators kept subtle. */
+          /* Quiet but visible hairlines give each pane and tab a crisp edge. */
           --dv-separator-border: var(--chrome-border);
-          --dv-tab-divider-color: var(--chrome-bar);
+          --dv-tab-divider-color: var(--chrome-border);
 
           /* Resize sash: invisible track, accent only while dragging. */
           --dv-sash-color: transparent;
@@ -528,15 +539,16 @@ export class MuxDock extends LitElement {
           min-width: 0;
         }
 
-        /* Tabs stay at 180px — no grow, no shrink */
+        /* cmux tabs hug their content instead of reserving a large fixed slot.
+           The min/max bounds retain usable close targets and predictable
+           truncation for long shell titles. */
         mux-dock .dv-tab {
           border-top: 2px solid transparent;
-          flex-grow: 0 !important;   /* beats dv-single-tab full-width rule */
-          flex-shrink: 0 !important; /* beats dv-tab { flex-shrink:0 } default; no compression */
-          flex-basis: var(--mux-tab-max-width, 180px);
-          padding: 0.25rem 0.5rem !important; /* restored — dv-single-tab zeros it */
-          min-width: var(--mux-tab-min-width, 80px);
-          max-width: var(--mux-tab-max-width, 180px);
+          flex: 0 0 auto !important;
+          width: max-content;
+          padding: 0 8px !important; /* beats dv-single-tab's zero padding */
+          min-width: var(--mux-tab-min-width, 76px);
+          max-width: var(--mux-tab-max-width, 168px);
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
@@ -545,9 +557,34 @@ export class MuxDock extends LitElement {
           border-top: 2px solid var(--chrome-accent) !important;
         }
 
+        mux-dock .dv-tab .dv-default-tab-content {
+          display: flex;
+          align-items: center;
+          min-width: 0;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        /* Small terminal mark mirrors cmux's pane identity cue without adding
+           another label or consuming meaningful horizontal space. */
+        mux-dock .dv-tab .dv-default-tab-content::before {
+          content: '';
+          width: 12px;
+          height: 12px;
+          margin-right: 6px;
+          flex: 0 0 12px;
+          background: currentColor;
+          -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect x='1.5' y='2.5' width='13' height='11' rx='1.5' fill='none' stroke='black' stroke-width='1.5'/%3E%3Cpath d='m4 6 2 2-2 2m4-0.25h3' fill='none' stroke='black' stroke-width='1.35' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+          mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect x='1.5' y='2.5' width='13' height='11' rx='1.5' fill='none' stroke='black' stroke-width='1.5'/%3E%3Cpath d='m4 6 2 2-2 2m4-0.25h3' fill='none' stroke='black' stroke-width='1.35' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+          opacity: 0.9;
+        }
+
         /* Close button — show on hover + always on active tab */
         mux-dock .dv-tab .dv-default-tab-action {
           opacity: 0;
+          margin-left: 2px;
+          padding: 3px !important;
+          border-radius: 3px;
           transition: opacity 0.15s;
         }
         mux-dock .dv-tab .dv-default-tab-action svg {
@@ -564,9 +601,9 @@ export class MuxDock extends LitElement {
           align-items: center;
           justify-content: center;
           align-self: center;
-          width: 28px;
-          height: 28px;
-          margin: 0 4px;
+          width: 26px;
+          height: 26px;
+          margin: 0 3px;
           padding: 0;
           border: none;
           border-radius: 4px;
@@ -1093,6 +1130,24 @@ export class MuxDock extends LitElement {
   /** Read the active xterm.js buffer kind for playwright verification. */
   getTerminalBufferType(paneId: number): 'normal' | 'alternate' | '' {
     return terminalRegistry.getTerminal(paneId)?.buffer.active.type ?? '';
+  }
+
+  /** Read live xterm appearance options for real-browser verification. */
+  getTerminalAppearance(paneId: number): {
+    background: string;
+    selectionForeground: string;
+    allowTransparency: boolean;
+    textOpacity: string;
+  } | null {
+    const term = terminalRegistry.getTerminal(paneId);
+    if (!term) return null;
+    const rows = term.element?.querySelector('.xterm-rows');
+    return {
+      background: term.options.theme?.background ?? '',
+      selectionForeground: term.options.theme?.selectionForeground ?? '',
+      allowTransparency: term.options.allowTransparency ?? false,
+      textOpacity: rows ? getComputedStyle(rows).opacity : '',
+    };
   }
 
   /**

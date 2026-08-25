@@ -123,7 +123,7 @@ for index in "${!cases[@]}"; do
   socket_path="${runtime_base}/agent-remote/sessiond.sock"
 
   echo "==> ${test_script} (${url})"
-  XDG_RUNTIME_DIR="${runtime_base}" "${binary}" serve \
+  XDG_RUNTIME_DIR="${runtime_base}" XDG_CONFIG_HOME="${runtime_base}/config" "${binary}" serve \
     --addr "${host}:${port}" --no-auth >"${log_path}" 2>&1 &
   gateway_pid="$!"
 

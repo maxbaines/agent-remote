@@ -35,7 +35,7 @@ func (ct *configTools) getConfig(_ map[string]any) (string, error) {
 // fields) and applies them to the running server via PATCH /api/config. The
 // server merges, writes to disk, and broadcasts to all connected clients.
 //
-// Example: update_config({"changes": {"font": {"size": 15}}})
+// Example: update_config({"changes": {"theme": {"palette": "dracula"}}})
 func (ct *configTools) updateConfig(args map[string]any) (string, error) {
 	changes, ok := args["changes"]
 	if !ok {
@@ -91,7 +91,7 @@ func registerConfigTools(srv *Server) {
 
 	srv.Register(
 		"get_config",
-		"get the full resolved agent-remote configuration (font, terminal, keys, workspace, driver)",
+		"get the full resolved agent-remote configuration (theme, font, terminal, keys, workspace, driver)",
 		map[string]any{
 			"type":       "object",
 			"properties": map[string]any{},
@@ -101,13 +101,13 @@ func registerConfigTools(srv *Server) {
 
 	srv.Register(
 		"update_config",
-		"update agent-remote configuration; accepts a partial config object, merges it, writes to disk, and broadcasts to all connected clients; example: {\"changes\": {\"font\": {\"size\": 15}}}",
+		"update agent-remote configuration; accepts a partial config object, merges it, writes to disk, and broadcasts to all connected clients; example: {\"changes\": {\"theme\": {\"palette\": \"dracula\"}, \"font\": {\"size\": 15}}}",
 		map[string]any{
 			"type": "object",
 			"properties": map[string]any{
 				"changes": map[string]any{
 					"type":        "object",
-					"description": "partial config object with fields to update (font, terminal, keys)",
+					"description": "partial config object with fields to update (theme, font, terminal, keys)",
 				},
 			},
 			"required": []string{"changes"},

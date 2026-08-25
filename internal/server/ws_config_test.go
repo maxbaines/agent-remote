@@ -7,6 +7,7 @@ import (
 
 func TestConfigMessageEnvelope(t *testing.T) {
 	resolved := map[string]any{
+		"theme":    map[string]any{"palette": "tokyo-night"},
 		"terminal": map[string]any{"scrollback": 10000},
 	}
 	data, err := NewServerMsg("config", resolved)

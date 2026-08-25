@@ -31,11 +31,12 @@ export class MuxSidebar extends LitElement {
     }
 
     .header {
-      padding: 10px 12px 8px;
-      font-size: 13px;
+      min-height: 36px;
+      padding: 0 10px 0 12px;
+      font-size: 13.5px;
       font-weight: 700;
       color: var(--chrome-text-bright);
-      letter-spacing: 0.06em;
+      letter-spacing: 0.045em;
       border-bottom: 1px solid var(--chrome-border);
       background: var(--chrome-bar);
       flex-shrink: 0;
@@ -88,15 +89,18 @@ export class MuxSidebar extends LitElement {
     .tab-content {
       flex: 1;
       overflow-y: auto;
-      padding: 6px 0;
+      padding: 7px 0;
+      scrollbar-width: thin;
+      scrollbar-color: color-mix(in srgb, var(--chrome-text-dim) 32%, transparent) transparent;
     }
 
     /* ---- workspace cards ---- */
 
     .ws-card {
-      padding: 7px 10px;
+      position: relative;
+      padding: 7px 10px 8px;
       margin: 2px 6px;
-      border-radius: 5px;
+      border-radius: 6px;
       cursor: pointer;
       border: 1px solid transparent;
       transition: background 0.12s, border-color 0.12s, opacity 0.2s;
@@ -107,8 +111,23 @@ export class MuxSidebar extends LitElement {
     }
 
     .ws-card.active {
-      background: var(--chrome-hover);
-      border-color: var(--chrome-accent);
+      background: color-mix(in srgb, var(--chrome-accent) 68%, var(--chrome-hover));
+      border-color: color-mix(in srgb, var(--chrome-accent) 82%, white);
+      box-shadow:
+        inset 0 1px rgba(255, 255, 255, 0.1),
+        0 1px 2px rgba(0, 0, 0, 0.18);
+    }
+
+    .ws-card.active::before {
+      content: '';
+      position: absolute;
+      top: 7px;
+      bottom: 7px;
+      left: 2px;
+      width: 2px;
+      border-radius: 2px;
+      background: var(--mux-warn);
+      box-shadow: 0 0 5px color-mix(in srgb, var(--mux-warn) 45%, transparent);
     }
 
     .ws-card.pending-close {
@@ -129,7 +148,8 @@ export class MuxSidebar extends LitElement {
     }
 
     .dot.active {
-      color: var(--chrome-accent);
+      color: white;
+      text-shadow: 0 0 4px rgba(255, 255, 255, 0.45);
     }
 
     .dot.inactive {
@@ -145,6 +165,11 @@ export class MuxSidebar extends LitElement {
       overflow: hidden;
       text-overflow: ellipsis;
       min-width: 0;
+    }
+
+    .ws-card.active .ws-name {
+      color: white;
+      font-weight: 600;
     }
 
     .ws-rename-input {
@@ -187,6 +212,15 @@ export class MuxSidebar extends LitElement {
       color: var(--chrome-danger);
     }
 
+    .ws-card.active .ws-remove-btn {
+      color: rgba(255, 255, 255, 0.72);
+    }
+
+    .ws-card.active .ws-remove-btn:hover {
+      color: white;
+      background: rgba(0, 0, 0, 0.16);
+    }
+
     .ws-hint {
       font-size: 11px;
       color: var(--chrome-text-dim);
@@ -197,13 +231,17 @@ export class MuxSidebar extends LitElement {
       text-overflow: ellipsis;
     }
 
+    .ws-card.active .ws-hint {
+      color: rgba(255, 255, 255, 0.76);
+    }
+
     .new-ws-btn {
       display: block;
       width: calc(100% - 12px);
       margin: 6px 6px 4px;
       padding: 7px 10px;
       background: transparent;
-      border: 1px dashed var(--chrome-text-dim);
+      border: 1px dashed color-mix(in srgb, var(--chrome-text-dim) 55%, transparent);
       border-radius: 5px;
       color: var(--chrome-accent);
       font: inherit;
@@ -377,12 +415,13 @@ export class MuxSidebar extends LitElement {
         const isPendingClose = this._pendingClose.has(ws.workspaceId);
         const label = workspaceLabel(ws);
 
-        // Hint row: active pane title + extra pane count (only for the attached workspace).
-        let hintText = '';
+        // Hint row: the attached workspace shows its active pane; inactive
+        // workspaces still expose useful density instead of becoming bare names.
+        let hintText = ws.paneCount === 1 ? '1 pane' : `${ws.paneCount} panes`;
         if (isActive && panes.length > 0) {
           const activePane =
             panes.find((p) => p.paneId === store.activePaneId) ?? panes[0];
-          const title = activePane.title ?? '';
+          const title = activePane.title?.trim() || `Pane ${activePane.paneId}`;
           const extra = panes.length - 1;
           hintText = extra > 0 ? `${title}  +${extra}` : title;
         }

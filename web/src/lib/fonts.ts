@@ -1,4 +1,4 @@
-// fonts.ts — injects @font-face rules for all agent-remote-bundled Nerd Fonts.
+// fonts.ts — terminal font catalog and bundled Nerd Font declarations.
 //
 // WOFF2 files live in web/public/fonts/ and are served by the agent-remote server
 // itself, ensuring Nerd Font glyphs render in any browser regardless of locally
@@ -18,8 +18,8 @@
 // web/public/fonts/. Missing files degrade gracefully: xterm falls back to the
 // configured fallback font and the preview line shows the system monospace.
 
-/** Default CSS font-family for the terminal (the bundled JetBrains Mono NF). */
-export const TERMINAL_FONT_FAMILY = 'JetBrainsMonoNerdFont';
+/** Default terminal font. Monaco is provided by macOS and matches cmux locally. */
+export const TERMINAL_FONT_FAMILY = 'Monaco';
 
 /**
  * All font families available in the settings picker.
@@ -27,13 +27,24 @@ export const TERMINAL_FONT_FAMILY = 'JetBrainsMonoNerdFont';
  * - `label`   : Human-readable display name
  * - `ligatures`: Whether this font supports programming ligatures
  */
-export const FONT_FAMILIES: Array<{ id: string; label: string; ligatures: boolean }> = [
-  { id: 'JetBrainsMonoNerdFont', label: 'JetBrains Mono', ligatures: true },
-  { id: 'FiraCodeNerdFont',       label: 'Fira Code',      ligatures: true },
-  { id: 'CascadiaCodeNF',         label: 'Cascadia Code',  ligatures: true },
-  { id: 'HackNerdFont',           label: 'Hack',           ligatures: false },
-  { id: 'IosevkaTermNerdFont',    label: 'Iosevka',        ligatures: false },
+export const FONT_FAMILIES: Array<{
+  id: string;
+  label: string;
+  ligatures: boolean;
+  cssFamily: string;
+}> = [
+  { id: 'Monaco',                  label: 'Monaco',        ligatures: false, cssFamily: "'Monaco', monospace" },
+  { id: 'JetBrainsMonoNerdFont',  label: 'JetBrains Mono', ligatures: true,  cssFamily: "'JetBrainsMonoNerdFont', monospace" },
+  { id: 'FiraCodeNerdFont',       label: 'Fira Code',      ligatures: true,  cssFamily: "'FiraCodeNerdFont', monospace" },
+  { id: 'CascadiaCodeNF',         label: 'Cascadia Code',  ligatures: true,  cssFamily: "'CascadiaCodeNF', monospace" },
+  { id: 'HackNerdFont',           label: 'Hack',           ligatures: false, cssFamily: "'HackNerdFont', monospace" },
+  { id: 'IosevkaTermNerdFont',    label: 'Iosevka',        ligatures: false, cssFamily: "'IosevkaTermNerdFont', monospace" },
 ];
+
+/** Resolve picker IDs to a safe CSS stack; preserve custom config values. */
+export function resolveTerminalFontFamily(family: string): string {
+  return FONT_FAMILIES.find((font) => font.id === family)?.cssFamily ?? family;
+}
 
 /**
  * Inject @font-face rules for all bundled Nerd Font families into document.head.
@@ -46,7 +57,7 @@ export function injectTerminalFonts(): void {
   const style = document.createElement('style');
   style.id = STYLE_ID;
   style.textContent = `
-/* ── JetBrains Mono Nerd Font (default, all 4 weights bundled) ── */
+/* ── JetBrains Mono Nerd Font (all 4 weights bundled) ── */
 @font-face {
   font-family: 'JetBrainsMonoNerdFont';
   font-style: normal;

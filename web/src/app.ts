@@ -17,7 +17,7 @@ import {
   type CommandInvocation,
 } from './lib/command-registry.js';
 import { BrowserKeybindings, type ReservedKeybinding } from './lib/browser-keybindings.js';
-import { applyAppearanceTokens } from './lib/theme.js';
+import { applyThemeTokens, applyChromeTokens, resolvePalette } from './lib/theme.js';
 import { applyDocumentTitle } from './lib/instance-identity.js';
 import { injectTerminalFont } from './lib/fonts.js';
 import { voiceInputController } from './lib/voice-input-controller.js';
@@ -542,8 +542,10 @@ export class MuxApp extends LitElement {
     // Update layout mode when the viewport crosses the 768px breakpoint.
     window.addEventListener('resize', this._onViewportResize);
     this._layoutMode = currentLayoutMode();
-    // Apply the fixed product appearance before the first rendered frame.
-    applyAppearanceTokens();
+    // Apply the default theme before the first rendered frame. The resolved
+    // server config will replace it as soon as the config envelope arrives.
+    applyThemeTokens(resolvePalette(store.config.theme.palette));
+    applyChromeTokens(store.config.theme.palette);
     // Reflect which Host this instance is running on in the browser/PWA title.
     applyDocumentTitle();
     // Install keybindings with defaults immediately.
@@ -1132,12 +1134,14 @@ export class MuxApp extends LitElement {
       this._showReconnectOverlay = true;
       this._reconnectMessage = detached.reason ?? 'Disconnected';
     }
-    // {"type":"config",...} envelope: apply configurable terminal behavior,
-    // typography, and keybindings. Product colours stay fixed.
+    // {"type":"config",...} envelope: apply theme, terminal behavior,
+    // typography, and keybindings from the Host configuration.
     if ('config' in msg) {
       const cfg = parseResolvedConfig(msg['config']);
       store.setConfig(cfg);
-      configureTerminals(cfg); // future Terminals pick up font/cursor/scrollback
+      applyThemeTokens(resolvePalette(cfg.theme.palette));
+      applyChromeTokens(cfg.theme.palette);
+      configureTerminals(cfg);
       disposeKeys?.();
       disposeKeys = installKeybindings(uiActions);
     }
@@ -1362,6 +1366,7 @@ export class MuxApp extends LitElement {
   /**
    * Apply a config change from the settings surface: update the store, then
    * re-apply the subsystems that read from config.
+   *   • theme tokens — immediate for browser chrome
    *   • terminal config — immediate for existing and future panes
    *   • keybindings  — immediate (reinstalls the global keydown handler)
    */
@@ -1369,6 +1374,8 @@ export class MuxApp extends LitElement {
     const cfg = (e as CustomEvent<{ config: ResolvedConfig }>).detail?.config;
     if (!cfg) return;
     store.setConfig(cfg);
+    applyThemeTokens(resolvePalette(cfg.theme.palette));
+    applyChromeTokens(cfg.theme.palette);
     configureTerminals(cfg);
     disposeKeys?.();
     disposeKeys = installKeybindings(uiActions);

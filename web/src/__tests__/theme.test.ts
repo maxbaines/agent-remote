@@ -11,7 +11,7 @@ describe('Tokyo Night terminal palette', () => {
   });
 });
 
-describe('Agent Remote chrome design tokens', () => {
+describe('VS Code chrome design tokens', () => {
   it('exports CHROME with all token values matching exactly', () => {
     expect(CHROME.bar).toBe('#16161e');
     expect(CHROME.body).toBe('#1a1b26');

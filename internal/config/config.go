@@ -16,6 +16,7 @@ import (
 
 // Config is the top-level configuration for agent-remote.
 type Config struct {
+	Theme     ThemeConfig     `toml:"theme"      json:"theme"`
 	Font      FontConfig      `toml:"font"       json:"font"`
 	Terminal  TerminalConfig  `toml:"terminal"   json:"terminal"`
 	Keys      KeysConfig      `toml:"keys"       json:"keys"`
@@ -88,6 +89,11 @@ func (s ServerConfig) BaseURL() string {
 	return strings.TrimRight(s.PublicOrigin, "/")
 }
 
+// ThemeConfig controls visual palette selection.
+type ThemeConfig struct {
+	Palette string `toml:"palette" json:"palette"`
+}
+
 // FontConfig controls the terminal font family and size.
 type FontConfig struct {
 	Family string `toml:"family" json:"family"`
@@ -154,6 +160,9 @@ func Load(path string) (Config, error) {
 //     partial updates cannot clear a bool back to false — document this limitation)
 func Merge(base, partial Config) Config {
 	result := base
+	if partial.Theme.Palette != "" {
+		result.Theme.Palette = partial.Theme.Palette
+	}
 	if partial.Font.Family != "" {
 		result.Font.Family = partial.Font.Family
 	}
@@ -193,12 +202,13 @@ func Write(path string, cfg Config) error {
 // Defaults returns a Config populated with hardcoded default values.
 func Defaults() Config {
 	return Config{
+		Theme: ThemeConfig{
+			Palette: "tokyo-night",
+		},
 		Font: FontConfig{
-			// Default to the server-bundled JetBrains Mono Nerd Font.
-			// The WOFF2 files are served from /fonts/ by the agent-remote server,
-			// so Nerd Font glyphs render correctly in any browser without
-			// requiring the user to install fonts on their client machine.
-			Family: "JetBrainsMonoNerdFont",
+			// Match cmux on macOS. The web client supplies a generic monospace
+			// fallback on systems where Monaco is unavailable.
+			Family: "Monaco",
 			Size:   13,
 		},
 		Terminal: TerminalConfig{

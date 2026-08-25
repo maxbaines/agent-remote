@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * fixed-appearance.mjs — real-browser coverage for Agent Remote's bundled style.
+ * fixed-appearance.mjs — real-browser coverage for Agent Remote themes.
  *
  * Usage:
  *   node web/e2e/fixed-appearance.mjs [--url http://127.0.0.1:8313]
@@ -11,6 +11,11 @@
  */
 
 import { execFileSync } from 'node:child_process';
+
+// Keep this verification isolated from other concurrently-running agents and
+// local playwright-cli work. The unnamed default session is process-global and
+// can otherwise be navigated or closed by an unrelated verification run.
+const playwrightSession = `fixed-appearance-${process.pid}`;
 
 let url = 'http://127.0.0.1:8313';
 let capture = '';
@@ -23,21 +28,21 @@ for (let i = 0; i < argv.length; i++) {
 }
 
 function pcli(...args) {
-  return execFileSync('playwright-cli', args, {
+  return execFileSync('playwright-cli', [`-s=${playwrightSession}`, ...args], {
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'inherit'],
   });
 }
 
 function peval(js) {
-  return execFileSync('playwright-cli', ['--raw', 'eval', js], {
+  return execFileSync('playwright-cli', [`-s=${playwrightSession}`, '--raw', 'eval', js], {
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'inherit'],
   });
 }
 
 function pevalJson(js) {
-  const raw = peval(`JSON.stringify(${js})`);
+  const raw = peval(`(async () => JSON.stringify(await (${js})))()`);
   const trimmed = raw.trim();
   try {
     const outer = JSON.parse(trimmed);
@@ -100,7 +105,7 @@ try {
   pcli('open', url);
   pcli('resize', '1440', '900');
   peval(`(async () => {
-    localStorage.setItem('agent-remote.titlebarColor', '#923737');
+    localStorage.removeItem('agent-remote.titlebarColor');
     const registrations = await navigator.serviceWorker.getRegistrations();
     for (const registration of registrations) await registration.unregister();
     const cacheKeys = await caches.keys();
@@ -151,7 +156,8 @@ try {
     'warning and error states use the same colour');
 
   const config = pevalJson(`fetch('/api/config').then((response) => response.json())`);
-  assert(!Object.hasOwn(config, 'theme'), `config still exposes a theme surface: ${JSON.stringify(config.theme)}`);
+  assert(config.theme?.palette === 'tokyo-night',
+    `default theme missing from config: ${JSON.stringify(config.theme)}`);
 
   pcli('eval', `(() => {
     const sidebar = ${APP}.shadowRoot.querySelector('mux-sidebar');
@@ -172,9 +178,128 @@ try {
       themeCards: root.querySelectorAll('.theme-card').length,
     };
   })()`);
-  assert(!/theme/i.test(settings.text), `Settings still exposes theme controls: ${settings.text}`);
+  assert(/theme/i.test(settings.text), `Settings does not expose theme controls: ${settings.text}`);
   assert(settings.colorInputs === 0, 'Settings still exposes a custom color editor');
-  assert(settings.themeCards === 0, 'Settings still exposes selectable palettes');
+  assert(settings.themeCards === 9, `expected 9 selectable palettes, got ${settings.themeCards}`);
+
+  const selectTheme = (title) => {
+    pcli('eval', `(() => {
+      const root = ${SETTINGS}.shadowRoot;
+      const card = [...root.querySelectorAll('.theme-card')]
+        .find((candidate) => candidate.title === ${JSON.stringify(title)});
+      if (!card) throw new Error('missing theme card: ${title}');
+      card.click();
+    })()`);
+  };
+
+  const themeState = () => pevalJson(`(() => {
+    const style = getComputedStyle(document.documentElement);
+    const terminal = ${DOCK}.getTerminalAppearance(${STORE}.activePaneId);
+    const active = ${SETTINGS}?.shadowRoot?.querySelector('.theme-card.active');
+    return {
+      muxBg: style.getPropertyValue('--mux-bg').trim(),
+      muxFg: style.getPropertyValue('--mux-fg').trim(),
+      terminalTextOpacity: style.getPropertyValue('--mux-terminal-text-opacity').trim(),
+      muxAccent: style.getPropertyValue('--mux-accent').trim(),
+      chromeBar: style.getPropertyValue('--chrome-bar').trim(),
+      chromeBody: style.getPropertyValue('--chrome-body').trim(),
+      chromeTextDim: style.getPropertyValue('--chrome-text-dim').trim(),
+      terminalBackground: terminal?.background ?? '',
+      terminalSelectionForeground: terminal?.selectionForeground ?? '',
+      terminalAllowsTransparency: terminal?.allowTransparency ?? false,
+      renderedTextOpacity: terminal?.textOpacity ?? '',
+      activeTheme: active?.title ?? '',
+    };
+  })()`);
+
+  selectTheme('Gruvbox');
+  waitFor(`getComputedStyle(document.documentElement).getPropertyValue('--mux-bg').trim() === '#282828'`);
+  sleep(750);
+  const gruvboxConfig = pevalJson(`fetch('/api/config').then((response) => response.json())`);
+  assert(gruvboxConfig.theme?.palette === 'gruvbox',
+    `Gruvbox did not persist: ${JSON.stringify(gruvboxConfig.theme)}`);
+  const gruvbox = themeState();
+  assert(gruvbox.muxBg === '#282828' && gruvbox.muxFg === '#ebdbb2',
+    `Gruvbox terminal tokens did not apply: ${JSON.stringify(gruvbox)}`);
+  assert(gruvbox.muxAccent === '#458588' && gruvbox.chromeBar === '#16161e',
+    `Gruvbox chrome tokens did not apply: ${JSON.stringify(gruvbox)}`);
+  assert(gruvbox.terminalBackground === '#282828',
+    `existing xterm did not hot-reload Gruvbox: ${JSON.stringify(gruvbox)}`);
+  assert(gruvbox.activeTheme === 'Gruvbox',
+    `Gruvbox card did not become active: ${JSON.stringify(gruvbox)}`);
+
+  selectTheme('cmux');
+  waitFor(`getComputedStyle(document.documentElement).getPropertyValue('--mux-bg').trim() === '#1e1e1e'`);
+  sleep(750);
+  const cmuxConfig = pevalJson(`fetch('/api/config').then((response) => response.json())`);
+  assert(cmuxConfig.theme?.palette === 'cmux',
+    `cmux did not persist: ${JSON.stringify(cmuxConfig.theme)}`);
+  const cmux = themeState();
+  assert(cmux.muxBg === '#1e1e1e' && cmux.muxFg === '#ffffff',
+    `cmux terminal tokens did not apply: ${JSON.stringify(cmux)}`);
+  assert(cmux.terminalTextOpacity === '0.92' && cmux.renderedTextOpacity === '0.92',
+    `cmux terminal text fade did not apply: ${JSON.stringify(cmux)}`);
+  assert(cmux.muxAccent === '#0869cb' && cmux.chromeBar === '#1a1a1a',
+    `cmux chrome tokens did not apply: ${JSON.stringify(cmux)}`);
+  assert(cmux.chromeBody === '#1e1e1e' && cmux.chromeTextDim === '#98989d',
+    `cmux native chrome did not apply: ${JSON.stringify(cmux)}`);
+  assert(cmux.terminalBackground === '#1e1e1e',
+    `existing xterm did not hot-reload opaque cmux: ${JSON.stringify(cmux)}`);
+  assert(cmux.terminalSelectionForeground === '#ffffff' && !cmux.terminalAllowsTransparency,
+    `cmux selection/opacity options did not reach xterm: ${JSON.stringify(cmux)}`);
+  assert(cmux.activeTheme === 'cmux',
+    `cmux card did not become active: ${JSON.stringify(cmux)}`);
+
+  selectTheme('GitHub Light');
+  waitFor(`getComputedStyle(document.documentElement).getPropertyValue('--mux-bg').trim() === '#ffffff'`);
+  sleep(750);
+  const githubConfig = pevalJson(`fetch('/api/config').then((response) => response.json())`);
+  assert(githubConfig.theme?.palette === 'github-light',
+    `GitHub Light did not persist: ${JSON.stringify(githubConfig.theme)}`);
+  const githubLight = themeState();
+  assert(githubLight.muxBg === '#ffffff' && githubLight.muxFg === '#1f2328',
+    `GitHub Light terminal tokens did not apply: ${JSON.stringify(githubLight)}`);
+  assert(githubLight.muxAccent === '#0969da' && githubLight.chromeBar === '#e8e8ed',
+    `light chrome did not apply: ${JSON.stringify(githubLight)}`);
+  assert(githubLight.chromeBody === '#f2f2f7' && githubLight.chromeTextDim === '#636366',
+    `accessible light chrome tokens did not apply: ${JSON.stringify(githubLight)}`);
+  assert(githubLight.terminalBackground === '#ffffff',
+    `existing xterm did not hot-reload GitHub Light: ${JSON.stringify(githubLight)}`);
+  assert(githubLight.activeTheme === 'GitHub Light',
+    `GitHub Light card did not become active: ${JSON.stringify(githubLight)}`);
+  assert(contrast(githubLight.chromeTextDim, githubLight.chromeBar) >= 4.5,
+    'light inactive chrome text does not meet 4.5:1 contrast');
+
+  // A reload must resolve the persisted Host setting before the terminal is used.
+  pcli('reload');
+  waitFor(`${DOCK} && ${STORE}?.activePaneId > 0`, 15_000);
+  waitFor(`getComputedStyle(document.documentElement).getPropertyValue('--mux-bg').trim() === '#ffffff'`);
+  const persisted = pevalJson(`fetch('/api/config').then((response) => response.json())`);
+  assert(persisted.theme?.palette === 'github-light',
+    `theme did not persist across reload: ${JSON.stringify(persisted.theme)}`);
+
+  pcli('eval', `(() => {
+    const sidebar = ${APP}.shadowRoot.querySelector('mux-sidebar');
+    sidebar.shadowRoot.querySelector('.launcher-btn').click();
+  })()`);
+  waitFor(`${APP}?.shadowRoot?.querySelector('mux-sidebar')?.shadowRoot?.querySelector('mux-launcher-menu')`);
+  pcli('eval', `(() => {
+    const sidebar = ${APP}.shadowRoot.querySelector('mux-sidebar');
+    sidebar.shadowRoot.querySelector('mux-launcher-menu').shadowRoot
+      .querySelector('[data-action="settings"]').click();
+  })()`);
+  waitFor(`${SETTINGS}`);
+  const persistedCard = pevalJson(`${SETTINGS}.shadowRoot.querySelector('.theme-card.active')?.title`);
+  assert(persistedCard === 'GitHub Light', `persisted theme card is not active: ${persistedCard}`);
+
+  // Return the fixture to the canonical default before checking desktop states
+  // and producing the optional visual reference capture.
+  selectTheme('Tokyo Night');
+  waitFor(`getComputedStyle(document.documentElement).getPropertyValue('--mux-bg').trim() === '#1a1b26'`);
+  sleep(750);
+  const restoredDefault = pevalJson(`fetch('/api/config').then((response) => response.json())`);
+  assert(restoredDefault.theme?.palette === 'tokyo-night',
+    `default theme did not persist after restoration: ${JSON.stringify(restoredDefault.theme)}`);
   pcli('eval', `${SETTINGS}.shadowRoot.querySelector('.close-btn').click()`);
   waitFor(`!${SETTINGS}`);
 
@@ -217,8 +342,8 @@ try {
 
   if (capture) pcli('screenshot', `--filename=${capture}`);
 
-  console.log('PASS: fixed terminal and chrome tokens, including contrast thresholds');
-  console.log('PASS: no server or Settings theme/custom-color surface');
+  console.log('PASS: default terminal and chrome tokens, including contrast thresholds');
+  console.log('PASS: nine Settings themes, opaque cmux text fade, dark/light switching, xterm hot reload, and persistence');
   console.log('PASS: active, inactive, focused, divider, warning, and error states');
   console.log('PASS: product-facing UI contains no inherited branding');
   if (capture) console.log(`PASS: captured representative desktop state at ${capture}`);

@@ -17,9 +17,9 @@ import { WebFontsAddon } from '@xterm/addon-web-fonts';
 import { ClipboardAddon } from '@xterm/addon-clipboard';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import xtermCss from '@xterm/xterm/css/xterm.css?inline';
-import { THEME } from './theme.js';
+import { resolveTerminalPalette } from './theme.js';
 import { muxLog } from './mux-log.js';
-import { TERMINAL_FONT_FAMILY } from './fonts.js';
+import { resolveTerminalFontFamily, TERMINAL_FONT_FAMILY } from './fonts.js';
 import { terminalPresentation } from './terminal-presentation.js';
 
 /**
@@ -59,8 +59,8 @@ import { store } from '../state.js';
  */
 export function buildTerminalConfig(cfg: ResolvedConfig) {
   return {
-    theme: THEME,
-    fontFamily: cfg.font.family,
+    theme: resolveTerminalPalette(cfg.theme.palette),
+    fontFamily: resolveTerminalFontFamily(cfg.font.family),
     fontSize: cfg.font.size,
     lineHeight: 1.0, // non-overridable; matches Zellij's web client. A
     // non-integer line height makes each row a fractional pixel tall, and the
@@ -68,18 +68,21 @@ export function buildTerminalConfig(cfg: ResolvedConfig) {
     cursorBlink: cfg.terminal.cursorBlink,
     cursorStyle: cfg.terminal.cursorStyle,
     scrollback: cfg.terminal.scrollback,
+    // Terminal backgrounds are always opaque. Palettes that evoke native
+    // translucency do so with a CSS glyph fade, never an alpha background.
     allowTransparency: false, // non-overridable
     convertEol: false, // PTY sends \r\n — don't double-convert; non-overridable
   };
 }
 
 let TERMINAL_CONFIG = buildTerminalConfig(DEFAULT_RESOLVED_CONFIG);
+let TERMINAL_FONT_TO_LOAD = TERMINAL_FONT_FAMILY;
 
 /**
  * Reconfigure all terminals from a ResolvedConfig.
  *
  * - Updates TERMINAL_CONFIG so newly-created terminals pick up the new values.
- * - Hot-reloads every existing open terminal: applies the fixed palette, font family, font
+ * - Hot-reloads every existing open terminal: applies theme, font family, font
  *   size, cursor style, and cursor blink immediately, then re-fits so column
  *   counts stay correct after a font-size change.
  *
@@ -89,6 +92,7 @@ let TERMINAL_CONFIG = buildTerminalConfig(DEFAULT_RESOLVED_CONFIG);
 export function configureTerminals(cfg: ResolvedConfig): void {
   const newConfig = buildTerminalConfig(cfg);
   TERMINAL_CONFIG = newConfig;
+  TERMINAL_FONT_TO_LOAD = cfg.font.family;
 
   for (const entry of _map.values()) {
     if (!entry.opened) continue;
@@ -698,7 +702,7 @@ export const terminalRegistry = {
         requestAnimationFrame(() => terminalRegistry._settleAndDrain(paneId));
       };
       // Fall back to opening immediately if the font fails to load (e.g. offline).
-      entry.webFontsAddon.loadFonts([TERMINAL_FONT_FAMILY]).then(openTerminal, openTerminal);
+      entry.webFontsAddon.loadFonts([TERMINAL_FONT_TO_LOAD]).then(openTerminal, openTerminal);
     } else {
       muxLog('registry attach', `re-attach pane=${paneId} focus=${focus}`,
         { pending: entry.pendingData.length, ready: entry.ready });

@@ -18,6 +18,7 @@ describe('parseResolvedConfig – degenerate inputs', () => {
 describe('parseResolvedConfig – full snake_case payload', () => {
   it('maps all snake_case keys to camelCase', () => {
     const raw = {
+      theme: { palette: 'gruvbox' },
       font: { family: 'Iosevka', size: 16 },
       terminal: {
         cursor_style: 'bar',
@@ -46,6 +47,7 @@ describe('parseResolvedConfig – full snake_case payload', () => {
 
     const result = parseResolvedConfig(raw);
 
+    expect(result.theme.palette).toBe('gruvbox');
     expect(result.font.family).toBe('Iosevka');
     expect(result.font.size).toBe(16);
     expect(result.terminal.cursorStyle).toBe('bar');
@@ -68,10 +70,10 @@ describe('parseResolvedConfig – full snake_case payload', () => {
 
 describe('parseResolvedConfig – partial payload uses defaults', () => {
   it('keeps font.size and keys.nextSession at defaults for partial input', () => {
-    const raw = { font: { family: 'Iosevka' } };
+    const raw = { theme: { palette: 'gruvbox' } };
     const result = parseResolvedConfig(raw);
 
-    expect(result.font.family).toBe('Iosevka');
+    expect(result.theme.palette).toBe('gruvbox');
     expect(result.font.size).toBe(DEFAULT_RESOLVED_CONFIG.font.size);
     expect(result.keys.nextSession).toBe(DEFAULT_RESOLVED_CONFIG.keys.nextSession);
   });

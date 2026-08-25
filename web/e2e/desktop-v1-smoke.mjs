@@ -110,7 +110,7 @@ try {
       foreground: '#a9b1d6',
       accent: '#7aa2f7',
     }),
-    `unexpected fixed appearance: ${JSON.stringify(releaseState.appearance)}`,
+    `unexpected default theme: ${JSON.stringify(releaseState.appearance)}`,
   );
 
   pcli('eval', `(() => {
