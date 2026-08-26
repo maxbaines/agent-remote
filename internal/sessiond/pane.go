@@ -379,6 +379,33 @@ func (p *Pane) Info() PaneInfo {
 	}
 }
 
+// CurrentWorkingDirectory returns the live working directory of the process
+// currently in the foreground of this Pane's PTY. The original shell process
+// is used as a fallback when the foreground process has already exited (for
+// example, after `ls` prints a link and returns to the prompt).
+//
+// This is intentionally derived from process state rather than terminal OSC
+// sequences: shell integration is optional, while the Session Owner always
+// owns the PTY and its child process.
+func (p *Pane) CurrentWorkingDirectory() (string, error) {
+	if p.ptmx == nil || p.cmd == nil || p.cmd.Process == nil {
+		return "", fmt.Errorf("sessiond: pane has no terminal process")
+	}
+
+	shellPID := p.cmd.Process.Pid
+	if foregroundPID, err := foregroundProcessID(p.ptmx); err == nil && foregroundPID > 0 {
+		if cwd, err := processWorkingDirectory(foregroundPID); err == nil {
+			return filepath.Clean(cwd), nil
+		}
+	}
+
+	cwd, err := processWorkingDirectory(shellPID)
+	if err != nil {
+		return "", fmt.Errorf("sessiond: resolve pane cwd: %w", err)
+	}
+	return filepath.Clean(cwd), nil
+}
+
 // Close kills the child (if any) and closes the PTY, which ends the read loop
 // and drives onExit. It is safe to call repeatedly.
 func (p *Pane) Close() {

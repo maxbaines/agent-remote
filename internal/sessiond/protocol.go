@@ -35,6 +35,7 @@ const (
 	TypeSaveLayout      = "save-layout"
 	TypeScreenSnapshot  = "screen-snapshot" // request: MCP → daemon, VT grid for a pane
 	TypeGetLayout       = "get-layout"      // request: MCP → daemon, ASCII layout diagram
+	TypeGetPaneCWD      = "get-pane-cwd"    // request: current working directory of a pane's foreground process
 
 	// Replies (daemon -> client, echo request cid).
 	TypeWorkspaceCreated     = "workspace-created"
@@ -44,6 +45,7 @@ const (
 	TypeOK                   = "ok"
 	TypeScreenSnapshotResult = "screen-snapshot-result"
 	TypeLayoutResult         = "layout-result"
+	TypePaneCWD              = "pane-cwd"
 
 	// Events (daemon -> all subscribers, cid=0).
 	TypePaneAdded           = "pane-added"
@@ -160,6 +162,7 @@ type Message struct {
 	Rows        int             `json:"rows,omitempty"`        //
 	Cmd         []string        `json:"cmd,omitempty"`         // argv, empty => default $SHELL
 	Title       string          `json:"title,omitempty"`       //
+	CWD         string          `json:"cwd,omitempty"`         // current working directory returned by get-pane-cwd
 	Breakpoint  string          `json:"breakpoint,omitempty"`  // responsive layout key (opaque to daemon)
 	ClientKind  string          `json:"clientKind,omitempty"`  // "interactive" (browser/human) | "agent" (MCP/automation)
 	Layout      string          `json:"layout,omitempty"`      // opaque dockview layout JSON blob

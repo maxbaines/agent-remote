@@ -337,6 +337,17 @@ func (c *Client) GetLayout() (string, error) {
 	return reply.ASCII, nil
 }
 
+// PaneCWD requests the live working directory of the foreground process in the
+// currently-attached Pane. An empty string means the platform could not resolve
+// process state; callers may fall back to an OSC-reported directory.
+func (c *Client) PaneCWD(paneID int) (string, error) {
+	reply, err := c.request(&Message{Type: TypeGetPaneCWD, PaneID: paneID})
+	if err != nil {
+		return "", err
+	}
+	return reply.CWD, nil
+}
+
 // RenamePane sets the display name of the pane identified by the
 // workspace-local paneID to name.
 func (c *Client) RenamePane(paneID int, name string) error {

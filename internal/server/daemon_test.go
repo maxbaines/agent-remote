@@ -70,6 +70,8 @@ func (f *fakeDaemonConn) PaneFocus(paneID uint32, cols, rows int) error {
 	return nil
 }
 
+func (f *fakeDaemonConn) PaneCWD(paneID int) (string, error) { return "", nil }
+
 func (f *fakeDaemonConn) BrowserActionResult(msg sessiond.Message) error { return nil }
 
 func (f *fakeDaemonConn) BrowserCommand(paneID int, cid uint64, payload json.RawMessage) error {

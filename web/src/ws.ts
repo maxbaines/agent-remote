@@ -17,6 +17,11 @@ export class MuxSocket {
   private _reconnectTimer: ReturnType<typeof setTimeout> | undefined;
   private _reconnectAttempts = 0;
   private _intentionalClose = false;
+  private _nextRequestCid = 1;
+  private _pendingPaneCWD = new Map<number, {
+    resolve: (cwd: string | undefined) => void;
+    timeout: ReturnType<typeof setTimeout>;
+  }>();
 
   onDisconnect: (() => void) | null = null;
   onReconnect: (() => void) | null = null;
@@ -61,6 +66,7 @@ export class MuxSocket {
       this._ws.close();
       this._ws = null;
     }
+    this._resolvePendingPaneCWD();
   }
 
   sendPaneInput(paneId: number, data: Uint8Array): void {
@@ -175,6 +181,23 @@ export class MuxSocket {
     this.sendSessiond({ type: SessiondType.PaneFocus, paneId, cols, rows });
   }
 
+  /** Ask the Session Owner for the Pane process's live cwd. This is the
+   * authoritative path for relative terminal links; OSC 7/1337 remains a
+   * fallback for platforms where process cwd inspection is unavailable. */
+  paneCWD(paneId: number): Promise<string | undefined> {
+    if (!this.connected) return Promise.resolve(undefined);
+
+    const cid = this._nextRequestCid++;
+    return new Promise((resolve) => {
+      const timeout = setTimeout(() => {
+        this._pendingPaneCWD.delete(cid);
+        resolve(undefined);
+      }, 3000);
+      this._pendingPaneCWD.set(cid, { resolve, timeout });
+      this.sendSessiond({ type: SessiondType.GetPaneCWD, cid, paneId });
+    });
+  }
+
   destroy(): void {
     this._intentionalClose = true;
     if (this._reconnectTimer !== undefined) {
@@ -185,6 +208,7 @@ export class MuxSocket {
       this._ws.close(1000);
       this._ws = null;
     }
+    this._resolvePendingPaneCWD();
   }
 
   get connected(): boolean {
@@ -196,6 +220,14 @@ export class MuxSocket {
     const jitter = Math.random() * JITTER_MAX;
     this._reconnectAttempts++;
     this._reconnectTimer = setTimeout(() => this._open(), delay + jitter);
+  }
+
+  private _resolvePendingPaneCWD(): void {
+    for (const pending of this._pendingPaneCWD.values()) {
+      clearTimeout(pending.timeout);
+      pending.resolve(undefined);
+    }
+    this._pendingPaneCWD.clear();
   }
 
   private _open(): void {
@@ -220,6 +252,17 @@ export class MuxSocket {
       // Text frame — JSON control message
       if (typeof ev.data === 'string') {
         const raw = JSON.parse(ev.data) as Record<string, unknown>;
+        const cid = typeof raw.cid === 'number' ? raw.cid : undefined;
+        if (cid !== undefined) {
+          const pending = this._pendingPaneCWD.get(cid);
+          if (pending) {
+            clearTimeout(pending.timeout);
+            this._pendingPaneCWD.delete(cid);
+            pending.resolve(raw.type === SessiondType.PaneCWD && typeof raw.cwd === 'string'
+              ? raw.cwd
+              : undefined);
+          }
+        }
         // Pass the raw message to control handlers (e.g. for detached/session-picker).
         // Non-typed envelopes (e.g. serve config) still flow through here.
         this._controlMessageCb?.(raw);
@@ -242,6 +285,7 @@ export class MuxSocket {
     };
 
     ws.onclose = (ev: CloseEvent) => {
+      this._resolvePendingPaneCWD();
       if (ev.code === 1000 || this._intentionalClose) {
         return;
       }

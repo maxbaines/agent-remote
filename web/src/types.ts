@@ -32,6 +32,7 @@ export const SessiondType = {
   ClosePane: 'close-pane',
   Resize: 'resize',
   PaneFocus: 'pane-focus',
+  GetPaneCWD: 'get-pane-cwd',
   RenamePane: 'rename-pane',
   SaveLayout: 'save-layout',
   PaneUpdate: 'pane-update',
@@ -41,6 +42,7 @@ export const SessiondType = {
   Composition: 'composition',
   PaneCreated: 'pane-created',
   Ok: 'ok',
+  PaneCWD: 'pane-cwd',
   // Events (server -> all clients)
   PaneAdded: 'pane-added',
   PaneClosed: 'pane-closed',
@@ -70,6 +72,7 @@ export type SessiondMessageType = (typeof SessiondType)[keyof typeof SessiondTyp
 export const SessiondErrorCode = {
   UnknownWorkspace: 'unknown-workspace',
   PaneSpawnFailed: 'pane-spawn-failed',
+  PaneNotFound: 'pane-not-found',
 } as const;
 
 export type SessiondErrorCodeValue = (typeof SessiondErrorCode)[keyof typeof SessiondErrorCode];
@@ -111,6 +114,7 @@ export interface SessiondMessage {
   rows?: number;
   cmd?: string[];
   title?: string;
+  cwd?: string;
   workspaces?: SessiondWorkspaceInfo[];
   panes?: SessiondPaneInfo[];
   code?: SessiondErrorCodeValue;

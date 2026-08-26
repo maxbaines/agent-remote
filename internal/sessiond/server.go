@@ -397,6 +397,18 @@ func (c *conn) handle(msg Message) {
 		panes := c.srv.reg.PaneInfos(c.attached)
 		ascii := ASCIILayout(layout, panes, -1)
 		c.reply(&Message{Type: TypeLayoutResult, CID: msg.CID, ASCII: ascii})
+	case TypeGetPaneCWD:
+		if c.attached == "" {
+			c.replyError(msg.CID, CodeUnknownWorkspace, "not attached to a workspace")
+			return
+		}
+		pane, ok := c.srv.reg.Pane(c.attached, msg.PaneID)
+		if !ok {
+			c.replyError(msg.CID, CodePaneNotFound, "pane not found")
+			return
+		}
+		cwd, _ := pane.CurrentWorkingDirectory()
+		c.reply(&Message{Type: TypePaneCWD, CID: msg.CID, PaneID: msg.PaneID, CWD: cwd})
 	case TypeCreateBrowserPane:
 		c.createBrowserPane(msg)
 	case TypeCloseBrowserPane:

@@ -534,8 +534,20 @@ export class MuxApp extends LitElement {
   private _onTerminalFileOpen = (event: Event): void => {
     const detail = (event as CustomEvent<TerminalFileOpenDetail>).detail;
     if (!detail?.path) return;
-    this._dock?.openFile(detail);
+    void this._openTerminalFile(detail);
   };
+
+  private async _openTerminalFile(detail: TerminalFileOpenDetail): Promise<void> {
+    // sessiond owns the PTY process and can inspect its live cwd without shell
+    // integration. Ask for that authoritative value when the path is relative;
+    // retain OSC 7/1337 as a fallback for unsupported platforms or a transient
+    // process lookup failure. Absolute and home-relative paths need no cwd.
+    const needsCWD = !/^(?:file:\/\/|\/|~\/)/.test(detail.path);
+    const cwd = needsCWD
+      ? await this._socket?.paneCWD(detail.paneId) ?? detail.cwd
+      : detail.cwd;
+    this._dock?.openFile({ ...detail, cwd });
+  }
 
   connectedCallback(): void {
     super.connectedCallback();

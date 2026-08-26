@@ -22,6 +22,7 @@ describe('sessiond protocol types', () => {
       ClosePane: 'close-pane',
       Resize: 'resize',
       PaneFocus: 'pane-focus',
+      GetPaneCWD: 'get-pane-cwd',
       RenamePane: 'rename-pane',
       SaveLayout: 'save-layout',
       PaneUpdate: 'pane-update',
@@ -30,6 +31,7 @@ describe('sessiond protocol types', () => {
       Composition: 'composition',
       PaneCreated: 'pane-created',
       Ok: 'ok',
+      PaneCWD: 'pane-cwd',
       PaneAdded: 'pane-added',
       PaneClosed: 'pane-closed',
       WorkspaceClosed: 'workspace-closed',
@@ -60,6 +62,7 @@ describe('sessiond protocol types', () => {
     expect(SessiondErrorCode).toEqual({
       UnknownWorkspace: 'unknown-workspace',
       PaneSpawnFailed: 'pane-spawn-failed',
+      PaneNotFound: 'pane-not-found',
     });
   });
 

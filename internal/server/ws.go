@@ -257,6 +257,19 @@ func (c *Client) handleTextInput(data []byte) {
 			log.Printf("handleTextInput: pane-focus error: %v", err)
 		}
 
+	case sessiond.TypeGetPaneCWD:
+		cwd, err := c.daemon.PaneCWD(msg.PaneID)
+		if err != nil {
+			c.sendError(msg.CID, msg.WorkspaceID, err)
+			return
+		}
+		c.sendMessage(&sessiond.Message{
+			Type:   sessiond.TypePaneCWD,
+			CID:    msg.CID,
+			PaneID: msg.PaneID,
+			CWD:    cwd,
+		})
+
 	case sessiond.TypeRenamePane:
 		if err := c.daemon.RenamePane(msg.PaneID, msg.Name); err != nil {
 			c.sendError(msg.CID, msg.WorkspaceID, err)
