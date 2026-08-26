@@ -44,7 +44,10 @@ export class MuxMobileKeyboardBar extends LitElement {
       box-sizing: border-box;
       border-top: 1px solid var(--chrome-border);
       background: var(--chrome-bar);
-      padding: 5px max(6px, env(safe-area-inset-right)) max(5px, env(safe-area-inset-bottom)) max(6px, env(safe-area-inset-left));
+      /* The bar only exists while the software keyboard is visible, so the
+         keyboard already owns the home-indicator safe area. Re-applying the
+         bottom inset here creates a large empty strip on iPad and iPhone. */
+      padding: 5px max(6px, env(safe-area-inset-right)) 5px max(6px, env(safe-area-inset-left));
       user-select: none;
       -webkit-user-select: none;
     }
