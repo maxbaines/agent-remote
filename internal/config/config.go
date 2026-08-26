@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/fs"
 	"log"
+	"net"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -78,7 +79,20 @@ func (s ServerConfig) Validate() error {
 	if u.Host == "" {
 		return fmt.Errorf("config: public_origin %q must include a host", s.PublicOrigin)
 	}
+	if u.User != nil || (u.Path != "" && u.Path != "/") || u.RawQuery != "" || u.Fragment != "" {
+		return fmt.Errorf("config: public_origin %q must contain only a scheme and host", s.PublicOrigin)
+	}
+	if net.ParseIP(u.Hostname()) != nil {
+		return fmt.Errorf("config: public_origin %q must use a hostname, not an IP address, for passkey support", s.PublicOrigin)
+	}
+	if u.Scheme != "https" && !isLocalOriginHost(u.Hostname()) {
+		return fmt.Errorf("config: public_origin %q must use https outside localhost", s.PublicOrigin)
+	}
 	return nil
+}
+
+func isLocalOriginHost(host string) bool {
+	return host == "localhost" || strings.HasSuffix(host, ".localhost")
 }
 
 // BaseURL returns PublicOrigin ready to have an absolute path appended

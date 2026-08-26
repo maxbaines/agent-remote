@@ -17,7 +17,6 @@ import (
 	"time"
 
 	"github.com/maxbaines/agent-remote/internal/authserver"
-	"github.com/maxbaines/agent-remote/internal/authserver/loginbackend"
 	"github.com/maxbaines/agent-remote/internal/config"
 	"github.com/maxbaines/agent-remote/internal/deploy"
 	"github.com/maxbaines/agent-remote/internal/mcp"
@@ -79,6 +78,11 @@ func main() {
 		}
 	case "mcp":
 		if err := runMCPCommand(cfg); err != nil {
+			fmt.Fprintf(os.Stderr, "error: %v\n", err)
+			os.Exit(1)
+		}
+	case "auth":
+		if err := runAuthCommand(cfg); err != nil {
 			fmt.Fprintf(os.Stderr, "error: %v\n", err)
 			os.Exit(1)
 		}
@@ -245,28 +249,94 @@ func webRedirectURIFor(addr string, sc config.ServerConfig) string {
 	return publicBaseURL(addr, sc) + "/auth/callback"
 }
 
-// newAuthServer wires the platform login backend (PAM on Linux; a
-// fail-closed stub on other platforms until Phases 4-5) into a new
-// AuthServer for addr. A non-nil error means the login backend is
-// unavailable; callers MUST still start the HTTP server (loopback access
-// is unaffected) but MUST pass the resulting nil *authserver.AuthServer
-// through to server.Config so the auth middleware fails closed for any
-// non-loopback caller — see design doc Error Handling, "Login backend
-// unavailable."
+func authDir() string {
+	return filepath.Join(filepath.Dir(config.DefaultPath()), "auth")
+}
+
+// newAuthServer wires the owner-only passkey/TOTP credential store into the
+// existing OAuth 2.1 authorization server. The browser origin is fixed at
+// startup from the same topology-aware seam as the OAuth redirect URI, so
+// WebAuthn never trusts request Host or forwarded headers.
 func newAuthServer(addr string, sc config.ServerConfig) (*authserver.AuthServer, error) {
-	backend, err := loginbackend.New()
+	credentials, err := authserver.NewCredentialStore(authDir())
 	if err != nil {
 		return nil, err
 	}
 
-	tokenDir := filepath.Join(filepath.Dir(config.DefaultPath()), "auth")
-
 	return authserver.New(authserver.Config{
-		WebRedirectURI: webRedirectURIFor(addr, sc),
-		LoginBackend:   backend,
-		TokenStoreDir:  tokenDir,
-		RateLimiter:    authserver.NewRateLimiter(5, 15*time.Minute),
+		WebRedirectURI:  webRedirectURIFor(addr, sc),
+		PublicOrigin:    publicBaseURL(addr, sc),
+		CredentialStore: credentials,
+		TokenStoreDir:   authDir(),
+		RateLimiter:     authserver.NewRateLimiter(5, 15*time.Minute),
 	})
+}
+
+func runAuthCommand(cfg Config) error {
+	dir := authDir()
+	switch cfg.AuthAction {
+	case "init":
+		resolved, _ := config.Load(config.DefaultPath())
+		setupOrigin := "http://localhost:8311"
+		if cfg.AuthOrigin != "" {
+			override := config.ServerConfig{BehindReverseProxy: true, PublicOrigin: cfg.AuthOrigin}
+			if err := override.Validate(); err != nil {
+				return err
+			}
+			setupOrigin = override.BaseURL()
+		} else if resolved.Server.BehindReverseProxy {
+			if err := resolved.Server.Validate(); err != nil {
+				return err
+			}
+			setupOrigin = resolved.Server.BaseURL()
+		}
+		store, err := authserver.NewCredentialStore(dir)
+		if err != nil {
+			return err
+		}
+		code, expires, err := store.BeginBootstrap()
+		if err != nil {
+			return err
+		}
+		fmt.Printf("Setup URL:  %s/auth/setup\n", setupOrigin)
+		fmt.Printf("Setup code: %s\n", code)
+		fmt.Printf("Expires:    %s\n", expires.Local().Format(time.RFC1123))
+		return nil
+	case "status":
+		store, err := authserver.NewCredentialStore(dir)
+		if err != nil {
+			return err
+		}
+		status, err := store.Status()
+		if err != nil {
+			return err
+		}
+		state := "not configured"
+		if status.Active {
+			state = "active"
+		} else if status.BootstrapPending {
+			state = "setup pending"
+		}
+		fmt.Printf("Authentication: %s\n", state)
+		fmt.Printf("Passkeys:      %d\n", status.PasskeyCount)
+		fmt.Printf("Recovery codes: %d remaining\n", status.RecoveryRemaining)
+		if status.BootstrapPending {
+			fmt.Printf("Setup expires: %s\n", status.BootstrapExpires.Local().Format(time.RFC1123))
+		}
+		return nil
+	case "reset":
+		if !cfg.AuthResetYes {
+			return errors.New("auth reset removes all credentials and sessions; rerun with --yes to confirm")
+		}
+		if err := authserver.ResetAuthFiles(dir); err != nil {
+			return err
+		}
+		fmt.Println("Authentication credentials and sessions removed.")
+		fmt.Println("Restart Agent Remote, then run `agent-remote auth init`.")
+		return nil
+	default:
+		return fmt.Errorf("unknown auth action %q", cfg.AuthAction)
+	}
 }
 
 // runLocal starts agent-remote in local mode: starts the HTTP server on localhost,
@@ -296,7 +366,7 @@ func runLocal(cfg Config) error {
 
 	authSrv, err := newAuthServer(cfg.Addr, localServerCfg)
 	if err != nil {
-		log.Printf("agent-remote: login backend unavailable (%v) — non-loopback access will be denied; local access is unaffected", err)
+		log.Printf("agent-remote: authentication unavailable (%v) — non-loopback access will be denied; local access is unaffected", err)
 	}
 
 	srv := server.New(server.Config{
@@ -347,7 +417,7 @@ func runServe(cfg Config) error {
 
 	authSrv, err := newAuthServer(cfg.Addr, srvCfg)
 	if err != nil {
-		log.Printf("agent-remote: login backend unavailable (%v) — non-loopback access will be denied; local access is unaffected", err)
+		log.Printf("agent-remote: authentication unavailable (%v) — non-loopback access will be denied; local access is unaffected", err)
 	}
 
 	srv := server.New(server.Config{

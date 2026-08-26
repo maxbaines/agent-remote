@@ -68,8 +68,13 @@ make build
 # Run locally (opens browser, connects to local sessiond)
 ./bin/agent-remote
 
-# Run as a service (remote access, with token auth)
-./bin/agent-remote serve --addr 0.0.0.0:8080
+# Run behind an HTTPS reverse proxy for remote access
+./bin/agent-remote serve --addr 127.0.0.1:8080 \
+  --behind-reverse-proxy \
+  --public-origin https://agent-remote.example.com
+
+# On the host, create the one-time enrollment code
+./bin/agent-remote auth init --origin https://agent-remote.example.com
 
 # Install as a system service (survives reboots)
 ./bin/agent-remote install
@@ -88,7 +93,7 @@ make build
 - **Bundled themes** — nine coordinated dark and light palettes update existing terminals and browser chrome immediately
 - **Session persistence** — the sessiond daemon detaches from the HTTP server; your shells survive server restarts, deploys, and reboots
 - **Single binary** — Go binary with embedded frontend; no external runtime besides a shell
-- **Auth** — HMAC token-based auth with localhost bypass
+- **Auth** — passkey-first remote login with TOTP-backed one-use recovery codes; no identity service or email provider
 - **Service install** — `agent-remote install` sets up systemd (Linux) or launchd (macOS)
 - **Push deploy** — `agent-remote deploy user@host` copies the binary and installs remotely
 - **Agent integration (MCP)** — connect any MCP-compatible AI agent to drive workspaces, terminals, and browser panes
@@ -148,6 +153,33 @@ Add to `opencode.json` in your project root:
   }
 }
 ```
+
+## Authentication
+
+Local loopback use keeps the zero-config bypass. Remote access uses a passkey as the normal sign-in method, with a TOTP authenticator plus one saved one-use recovery code as the fallback. Authentication is self-hosted inside the Agent Remote binary; it does not require Better Auth, Resend, an email provider, or an external database.
+
+For a remote deployment, first set the final HTTPS origin in `~/.config/agent-remote/config.toml` (or `$XDG_CONFIG_HOME/agent-remote/config.toml`):
+
+```toml
+[server]
+behind_reverse_proxy = true
+public_origin = "https://agent-remote.example.com"
+```
+
+Start or restart Agent Remote behind your TLS reverse proxy, then run this in a shell on the host:
+
+```bash
+agent-remote auth init
+```
+
+The command prints a single-use setup code and URL valid for ten minutes. Open the URL, enter the code, register a passkey, add the displayed secret to your authenticator app, and confirm a six-digit code. Save the recovery codes shown at the end; they are not displayed again.
+
+```bash
+agent-remote auth status       # non-secret enrollment status
+agent-remote auth reset --yes  # remove credentials and sessions; restart afterward
+```
+
+Changing `public_origin` changes the WebAuthn relying party. Reset and re-enroll authentication if the public hostname changes. See [Authentication](docs/authentication.md) for the complete setup and recovery model.
 
 ## Architecture
 

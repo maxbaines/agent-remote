@@ -11,13 +11,14 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/go-oauth2/oauth2/v4"
 	"github.com/go-oauth2/oauth2/v4/manage"
 	oaserver "github.com/go-oauth2/oauth2/v4/server"
-
-	"github.com/maxbaines/agent-remote/internal/authserver/loginbackend"
+	"github.com/go-webauthn/webauthn/protocol"
+	"github.com/go-webauthn/webauthn/webauthn"
 )
 
 // AccessTokenTTL is the deliberate, documented deviation from the MCP
@@ -27,8 +28,8 @@ import (
 const AccessTokenTTL = 30 * 24 * time.Hour
 
 // AuthorizeCodeTTL is the lifetime of the one-time authorization code (not
-// the access token). 10 minutes is generous for a human completing a
-// password form.
+// the access token). 10 minutes is generous for a human completing a passkey
+// ceremony or recovery flow.
 const AuthorizeCodeTTL = 10 * time.Minute
 
 // Config configures a new AuthServer.
@@ -41,9 +42,13 @@ type Config struct {
 	// derivation seam — this package never derives it, and never inspects
 	// a request header to guess it.
 	WebRedirectURI string
-	// LoginBackend performs the actual resource-owner credential check.
-	// Required.
-	LoginBackend loginbackend.LoginBackend
+	// PublicOrigin is the exact browser origin used for WebAuthn origin
+	// validation, e.g. https://agent-remote.example.com or
+	// http://127.0.0.1:8311 in direct local mode.
+	PublicOrigin string
+	// CredentialStore holds the single owner's passkeys, TOTP secret, recovery
+	// code hashes, and setup bootstrap record. Required.
+	CredentialStore *CredentialStore
 	// TokenStoreDir is the directory the file-backed token store persists
 	// into (owner-only permissions — see tokenstore.go).
 	TokenStoreDir string
@@ -53,13 +58,21 @@ type Config struct {
 
 // AuthServer wraps go-oauth2/oauth2 with agent-remote's hardening
 // configuration, hardcoded clients, file-backed token store, and
-// PAM-backed login form.
+// passkey/TOTP-backed login and setup surfaces.
 type AuthServer struct {
-	manager *manage.Manager
-	srv     *oaserver.Server
-	login   loginbackend.LoginBackend
-	limiter *RateLimiter
-	tmpl    *template.Template
+	manager       *manage.Manager
+	srv           *oaserver.Server
+	store         *CredentialStore
+	webAuthn      *webauthn.WebAuthn
+	limiter       *RateLimiter
+	tmpl          *template.Template
+	origin        string
+	secureCookies bool
+
+	flowMu        sync.Mutex
+	ceremonies    map[string]webAuthnCeremony
+	setupSessions map[string]time.Time
+	loginProofs   map[string]time.Time
 }
 
 // New wires a Manager (PKCE S256-only, authorization-code-grant-only, no
@@ -67,11 +80,35 @@ type AuthServer struct {
 // the file-backed TokenStore, and the loopback-port-wildcard redirect URI
 // exception bounded to agent-remote-mcp.
 func New(cfg Config) (*AuthServer, error) {
-	if cfg.LoginBackend == nil {
-		return nil, errors.New("authserver: LoginBackend is required")
+	if cfg.CredentialStore == nil {
+		return nil, errors.New("authserver: CredentialStore is required")
 	}
 	if cfg.RateLimiter == nil {
 		return nil, errors.New("authserver: RateLimiter is required")
+	}
+	origin, err := url.Parse(cfg.PublicOrigin)
+	if err != nil || (origin.Scheme != "http" && origin.Scheme != "https") || origin.Host == "" || origin.Path != "" || origin.User != nil || origin.RawQuery != "" || origin.Fragment != "" {
+		return nil, fmt.Errorf("authserver: PublicOrigin %q must be an http(s) origin without a path", cfg.PublicOrigin)
+	}
+	if origin.Scheme != "https" && !isLocalWebAuthnHost(origin.Hostname()) {
+		return nil, fmt.Errorf("authserver: PublicOrigin %q must use https outside localhost", cfg.PublicOrigin)
+	}
+	wa, err := webauthn.New(&webauthn.Config{
+		RPID:                  origin.Hostname(),
+		RPDisplayName:         "Agent Remote",
+		RPOrigins:             []string{cfg.PublicOrigin},
+		AttestationPreference: protocol.PreferNoAttestation,
+		AuthenticatorSelection: protocol.AuthenticatorSelection{
+			ResidentKey:      protocol.ResidentKeyRequirementRequired,
+			UserVerification: protocol.VerificationRequired,
+		},
+		Timeouts: webauthn.TimeoutsConfig{
+			Login:        webauthn.TimeoutConfig{Enforce: true, Timeout: 2 * time.Minute},
+			Registration: webauthn.TimeoutConfig{Enforce: true, Timeout: 2 * time.Minute},
+		},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("authserver: WebAuthn config: %w", err)
 	}
 
 	manager := manage.NewDefaultManager()
@@ -100,11 +137,17 @@ func New(cfg Config) (*AuthServer, error) {
 	srv.SetClientInfoHandler(oaserver.ClientFormHandler)
 
 	as := &AuthServer{
-		manager: manager,
-		srv:     srv,
-		login:   cfg.LoginBackend,
-		limiter: cfg.RateLimiter,
-		tmpl:    template.Must(template.New("login").Parse(loginPageHTML)),
+		manager:       manager,
+		srv:           srv,
+		store:         cfg.CredentialStore,
+		webAuthn:      wa,
+		limiter:       cfg.RateLimiter,
+		tmpl:          template.Must(template.New("login").Parse(loginPageHTML)),
+		origin:        cfg.PublicOrigin,
+		secureCookies: origin.Scheme == "https",
+		ceremonies:    make(map[string]webAuthnCeremony),
+		setupSessions: make(map[string]time.Time),
+		loginProofs:   make(map[string]time.Time),
 	}
 	srv.SetUserAuthorizationHandler(as.userAuthorizationHandler)
 	return as, nil
@@ -126,6 +169,9 @@ func (a *AuthServer) RevokeAccessToken(ctx context.Context, token string) error 
 
 // ServeAuthorize handles GET/POST /authorize.
 func (a *AuthServer) ServeAuthorize(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodPost {
+		r.Body = http.MaxBytesReader(w, r.Body, 16<<10)
+	}
 	if err := a.srv.HandleAuthorizeRequest(w, r); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 	}
@@ -133,6 +179,7 @@ func (a *AuthServer) ServeAuthorize(w http.ResponseWriter, r *http.Request) {
 
 // ServeToken handles POST /token.
 func (a *AuthServer) ServeToken(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, 16<<10)
 	if err := a.srv.HandleTokenRequest(w, r); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 	}
@@ -179,6 +226,10 @@ func (a *AuthServer) userAuthorizationHandler(w http.ResponseWriter, r *http.Req
 		a.renderLoginPage(w, r, "")
 		return "", nil
 	}
+	if !a.store.IsActive() {
+		a.renderLoginPage(w, r, "Authentication has not been set up on this host.")
+		return "", nil
+	}
 
 	ip := clientIP(r)
 	if !a.limiter.Reserve(ip) {
@@ -186,18 +237,23 @@ func (a *AuthServer) userAuthorizationHandler(w http.ResponseWriter, r *http.Req
 		return "", nil
 	}
 
-	password := r.FormValue("password")
-	if err := a.login.Authenticate(password); err != nil {
-		// Reserve(ip) already recorded this attempt as a failure atomically
-		// before we called Authenticate — no separate RecordFailure call.
-		a.renderLoginPage(w, r, "Invalid credentials.")
+	var authenticated bool
+	switch r.FormValue("method") {
+	case "passkey":
+		authenticated = a.consumeLoginProof(w, r)
+	case "recovery":
+		authenticated = a.store.ConsumeRecovery(r.FormValue("totp"), r.FormValue("recovery_code")) == nil
+	}
+	if !authenticated {
+		// Reserve(ip) already recorded this attempt as a failure atomically.
+		a.renderLoginPage(w, r, "Authentication failed.")
 		return "", nil
 	}
 	a.limiter.RecordSuccess(ip)
 
-	// Single OS account -> identity is implicit; "local" is a fixed,
-	// non-secret label, not a username lookup.
-	return "local", nil
+	// Single-owner system: the opaque OAuth subject is fixed and never comes
+	// from browser-controlled display data.
+	return "owner", nil
 }
 
 var hiddenFieldNames = []string{
@@ -208,6 +264,7 @@ var hiddenFieldNames = []string{
 type loginPageData struct {
 	Error  string
 	Hidden map[string]string
+	Active bool
 }
 
 func (a *AuthServer) renderLoginPage(w http.ResponseWriter, r *http.Request, errMsg string) {
@@ -215,27 +272,12 @@ func (a *AuthServer) renderLoginPage(w http.ResponseWriter, r *http.Request, err
 	for _, name := range hiddenFieldNames {
 		hidden[name] = r.FormValue(name)
 	}
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.Header().Set("Cache-Control", "no-store")
-	w.Header().Set("Pragma", "no-cache")
+	setAuthPageHeaders(w)
 	if errMsg != "" {
 		w.WriteHeader(http.StatusUnauthorized)
 	}
-	_ = a.tmpl.Execute(w, loginPageData{Error: errMsg, Hidden: hidden})
+	_ = a.tmpl.Execute(w, loginPageData{Error: errMsg, Hidden: hidden, Active: a.store.IsActive()})
 }
-
-const loginPageHTML = `<!DOCTYPE html>
-<html><head><title>Agent Remote login</title></head>
-<body>
-<h1>Agent Remote</h1>
-{{if .Error}}<p style="color:red">{{.Error}}</p>{{end}}
-<form method="POST">
-{{range $k, $v := .Hidden}}<input type="hidden" name="{{$k}}" value="{{$v}}">
-{{end}}
-<label>Password: <input type="password" name="password" autocomplete="current-password" autofocus></label>
-<button type="submit">Log in</button>
-</form>
-</body></html>`
 
 func clientIP(r *http.Request) string {
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
@@ -243,4 +285,12 @@ func clientIP(r *http.Request) string {
 		return r.RemoteAddr
 	}
 	return host
+}
+
+func isLocalWebAuthnHost(host string) bool {
+	if host == "localhost" || strings.HasSuffix(host, ".localhost") {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
 }

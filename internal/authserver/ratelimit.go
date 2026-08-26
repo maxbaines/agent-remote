@@ -5,13 +5,11 @@ import (
 	"time"
 )
 
-// RateLimiter enforces a hard cap on failed login attempts per source IP:
-// at most maxFailures within the trailing window. This is a hard
-// requirement per the design doc's Error Handling section — PAM now gates
-// a real OS password, so failed remote attempts must be throttled. State
-// is in-memory only; a server restart clears all lockout history (an
-// accepted Phase 1 limitation for a single-account personal tool, not a
-// silent gap).
+// RateLimiter enforces a hard cap on failed authentication attempts per source
+// IP: at most maxFailures within the trailing window. It protects setup codes
+// and TOTP/recovery credentials from online guessing. State is in-memory only;
+// a server restart clears lockout history, which is acceptable for this
+// single-owner personal tool.
 type RateLimiter struct {
 	mu          sync.Mutex
 	maxFailures int
@@ -37,7 +35,7 @@ func NewRateLimiter(maxFailures int, window time.Duration) *RateLimiter {
 // Allow()+RecordFailure() pair: without atomicity, concurrent callers
 // could all observe capacity before any of them recorded a failure,
 // letting more than maxFailures concurrent authentication attempts reach
-// a slow backend (e.g. real PAM) before the limiter actually engaged.
+// credential verification before the limiter actually engaged.
 //
 // Callers MUST treat a true return as "the attempt is both permitted AND
 // already recorded as a failure." If the attempt turns out to succeed,

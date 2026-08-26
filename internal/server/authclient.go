@@ -61,6 +61,7 @@ func (s *Server) handleAuthLogin(w http.ResponseWriter, r *http.Request) {
 		Value:    base64.URLEncoding.EncodeToString(raw),
 		Path:     "/auth/",
 		HttpOnly: true,
+		Secure:   strings.HasPrefix(s.webRedirectURI, "https://"),
 		SameSite: http.SameSiteLaxMode,
 		MaxAge:   int(pkceCookieTTL.Seconds()),
 	})
@@ -98,7 +99,7 @@ func (s *Server) handleAuthCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Consume the PKCE cookie immediately; it is single-use.
-	http.SetCookie(w, &http.Cookie{Name: pkceCookieName, Value: "", Path: "/auth/", MaxAge: -1})
+	http.SetCookie(w, &http.Cookie{Name: pkceCookieName, Value: "", Path: "/auth/", HttpOnly: true, Secure: strings.HasPrefix(s.webRedirectURI, "https://"), SameSite: http.SameSiteLaxMode, MaxAge: -1})
 
 	if r.URL.Query().Get("state") != ps.State {
 		http.Error(w, "state mismatch", http.StatusBadRequest)
@@ -125,6 +126,7 @@ func (s *Server) handleAuthCallback(w http.ResponseWriter, r *http.Request) {
 		Value:    accessToken,
 		Path:     "/",
 		HttpOnly: true,
+		Secure:   strings.HasPrefix(s.webRedirectURI, "https://"),
 		SameSite: http.SameSiteLaxMode,
 		MaxAge:   int(expiresIn.Seconds()),
 	})
@@ -160,6 +162,7 @@ func (s *Server) handleAuthLogout(w http.ResponseWriter, r *http.Request) {
 		Value:    "",
 		Path:     "/",
 		HttpOnly: true,
+		Secure:   strings.HasPrefix(s.webRedirectURI, "https://"),
 		SameSite: http.SameSiteLaxMode,
 		MaxAge:   -1,
 	})

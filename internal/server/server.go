@@ -41,8 +41,8 @@ type Config struct {
 	// Hub.BroadcastConfig, and MCP get_config by construction.
 	AIKeyPath string
 
-	// AuthServer is nil when the platform login backend is unavailable at
-	// startup (see cmd/agent-remote's newAuthServer) — in that case every
+	// AuthServer is nil when the credential store or WebAuthn configuration is
+	// unavailable at startup (see cmd/agent-remote's newAuthServer) — then every
 	// non-loopback request is denied (fail closed), and /authorize,
 	// /token, /auth/login, /auth/callback are not mounted at all.
 	AuthServer *authserver.AuthServer
@@ -138,6 +138,14 @@ func New(cfg Config) *Server {
 		s.mux.HandleFunc("GET /auth/login", s.handleAuthLogin)
 		s.mux.HandleFunc("GET /auth/callback", s.handleAuthCallback)
 		s.mux.HandleFunc("POST /auth/logout", s.handleAuthLogout)
+		s.mux.HandleFunc("GET /auth/setup", s.authSrv.ServeSetupPage)
+		s.mux.HandleFunc("POST /auth/setup/unlock", s.authSrv.ServeSetupUnlock)
+		s.mux.HandleFunc("POST /auth/setup/passkey/begin", s.authSrv.ServeSetupPasskeyBegin)
+		s.mux.HandleFunc("POST /auth/setup/passkey/finish", s.authSrv.ServeSetupPasskeyFinish)
+		s.mux.HandleFunc("POST /auth/setup/totp/begin", s.authSrv.ServeSetupTOTPBegin)
+		s.mux.HandleFunc("POST /auth/setup/totp/finish", s.authSrv.ServeSetupTOTPFinish)
+		s.mux.HandleFunc("POST /auth/passkey/begin", s.authSrv.ServePasskeyBegin)
+		s.mux.HandleFunc("POST /auth/passkey/finish", s.authSrv.ServePasskeyFinish)
 	}
 
 	// Protected routes: loopback bypass, else a valid session (cookie or

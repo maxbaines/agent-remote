@@ -9,14 +9,17 @@ import (
 
 // Config holds the parsed CLI configuration.
 type Config struct {
-	Mode      string // local, serve, sessiond, deploy, install, uninstall, doctor, version, mcp, amplifier-install, help
-	Addr      string // listen address
-	Secret    string // auth token for serve mode
-	NoAuth    bool   // skip WebSocket auth check (dev only — never use in production)
-	Target    string // SSH target for deploy mode
-	Force     bool   // install: overwrite existing service installation
-	Transport string // mcp mode: transport type ("stdio"); SSE arrives in Phase 5
-	MCPPort   int    // mcp mode: SSE port (Phase 5, parsed but rejected for now)
+	Mode         string // local, serve, sessiond, deploy, install, uninstall, doctor, version, mcp, auth, amplifier-install, help
+	Addr         string // listen address
+	Secret       string // auth token for serve mode
+	NoAuth       bool   // skip WebSocket auth check (dev only — never use in production)
+	Target       string // SSH target for deploy mode
+	Force        bool   // install: overwrite existing service installation
+	Transport    string // mcp mode: transport type ("stdio"); SSE arrives in Phase 5
+	MCPPort      int    // mcp mode: SSE port (Phase 5, parsed but rejected for now)
+	AuthAction   string // auth mode: init, status, or reset
+	AuthOrigin   string // auth init: optional setup URL origin override
+	AuthResetYes bool   // auth reset: explicit destructive confirmation
 
 	// PublicOrigin is the serve-mode --public-origin override for the
 	// config file's [server].public_origin. Empty means "unset — use the
@@ -42,6 +45,7 @@ func printUsage(w io.Writer) {
 	fmt.Fprintln(w, "  agent-remote deploy <host>       Deploy to a remote host via SSH")
 	fmt.Fprintln(w, "  agent-remote doctor              Check daemon and service status")
 	fmt.Fprintln(w, "  agent-remote mcp [flags]         Start MCP server (stdio transport)")
+	fmt.Fprintln(w, "  agent-remote auth <command>      Initialize or recover authentication")
 	fmt.Fprintln(w, "  agent-remote amplifier install   Install agent-remote bundle into Amplifier")
 	fmt.Fprintln(w, "  agent-remote version             Print version")
 	fmt.Fprintln(w, "")
@@ -77,10 +81,64 @@ func ParseArgs(args []string) (Config, error) {
 		return Config{Mode: "doctor"}, nil
 	case "mcp":
 		return parseMCP(args[1:])
+	case "auth":
+		return parseAuth(args[1:])
 	case "amplifier":
 		return parseAmplifier(args[1:])
 	default:
 		return Config{}, fmt.Errorf("unknown command %q\n\nRun 'agent-remote --help' for usage.", args[0])
+	}
+}
+
+func parseAuth(args []string) (Config, error) {
+	if len(args) == 0 || args[0] == "--help" || args[0] == "-h" {
+		fmt.Fprintln(os.Stdout, "Usage: agent-remote auth <command>")
+		fmt.Fprintln(os.Stdout, "")
+		fmt.Fprintln(os.Stdout, "Commands:")
+		fmt.Fprintln(os.Stdout, "  init      Create a single-use browser setup code")
+		fmt.Fprintln(os.Stdout, "  status    Show non-secret authentication status")
+		fmt.Fprintln(os.Stdout, "  reset     Remove credentials and sessions (requires --yes)")
+		return Config{Mode: "help"}, nil
+	}
+
+	switch args[0] {
+	case "init":
+		fs := flag.NewFlagSet("auth init", flag.ContinueOnError)
+		fs.SetOutput(os.Stdout)
+		origin := fs.String("origin", "", "public browser origin for the printed setup URL")
+		fs.Usage = func() {
+			fmt.Fprintln(os.Stdout, "Usage: agent-remote auth init [--origin https://agent-remote.example.com]")
+			fs.PrintDefaults()
+		}
+		if err := fs.Parse(args[1:]); err != nil {
+			return Config{}, err
+		}
+		if fs.NArg() != 0 {
+			return Config{}, fmt.Errorf("auth init does not accept positional arguments")
+		}
+		return Config{Mode: "auth", AuthAction: "init", AuthOrigin: *origin}, nil
+	case "status":
+		if len(args) != 1 {
+			return Config{}, fmt.Errorf("auth status does not accept arguments")
+		}
+		return Config{Mode: "auth", AuthAction: "status"}, nil
+	case "reset":
+		fs := flag.NewFlagSet("auth reset", flag.ContinueOnError)
+		fs.SetOutput(os.Stdout)
+		yes := fs.Bool("yes", false, "confirm removal of all passkeys, TOTP, recovery codes, and sessions")
+		fs.Usage = func() {
+			fmt.Fprintln(os.Stdout, "Usage: agent-remote auth reset --yes")
+			fs.PrintDefaults()
+		}
+		if err := fs.Parse(args[1:]); err != nil {
+			return Config{}, err
+		}
+		if fs.NArg() != 0 {
+			return Config{}, fmt.Errorf("auth reset does not accept positional arguments")
+		}
+		return Config{Mode: "auth", AuthAction: "reset", AuthResetYes: *yes}, nil
+	default:
+		return Config{}, fmt.Errorf("unknown auth command %q", args[0])
 	}
 }
 

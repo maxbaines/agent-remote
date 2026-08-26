@@ -20,7 +20,7 @@ const SessionCookieName = "agent-remote_session"
 // (all other callers) is required, validated against the AuthServer's token
 // store.
 type AuthMiddleware struct {
-	authSrv *authserver.AuthServer // nil => login backend unavailable; fail closed for non-loopback callers
+	authSrv *authserver.AuthServer // nil => auth unavailable; fail closed for non-loopback callers
 	noAuth  bool
 	// behindReverseProxy disables the IsLocalhost() bypass unconditionally.
 	// A fronting proxy's own hop to agent-remote is indistinguishable from a
@@ -34,7 +34,7 @@ type AuthMiddleware struct {
 }
 
 // NewAuthMiddleware returns a middleware wired to authSrv, which may be
-// nil if the platform login backend is unavailable at startup (see
+// nil if authentication initialization failed at startup (see
 // cmd/agent-remote's newAuthServer) — in that case every non-loopback request
 // is denied (fail closed), per the design doc's Error Handling section.
 // noAuth mirrors the existing --no-auth dev-only flag: when set, ALL
@@ -60,9 +60,7 @@ func (m *AuthMiddleware) Wrap(next http.Handler) http.Handler {
 		}
 
 		if m.authSrv == nil {
-			// Login backend unavailable at startup: fail closed. See
-			// design doc Error Handling — "Login backend unavailable ...
-			// must fail closed."
+			// Authentication unavailable at startup: fail closed.
 			m.deny(w, r)
 			return
 		}

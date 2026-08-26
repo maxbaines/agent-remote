@@ -8,9 +8,6 @@ COPY web/ ./
 RUN npm run build
 
 FROM golang:1.24.4-bookworm AS go-build
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends libpam0g-dev \
-    && rm -rf /var/lib/apt/lists/*
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
@@ -31,7 +28,6 @@ ARG YAZI_VERSION=26.1.22
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         gh \
-        libpam0g \
         procps \
         unzip \
         zsh \
