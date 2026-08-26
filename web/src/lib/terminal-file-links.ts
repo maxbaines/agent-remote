@@ -69,12 +69,18 @@ function requestFileOpen(
   value: string,
   paneId: number,
   getCWD: () => string | undefined,
+  clearSelection: () => void,
 ): boolean {
   if (!event.shiftKey) return false;
   const link = parseTerminalFileLink(value);
   if (!link) return false;
   event.preventDefault();
   event.stopPropagation();
+  // xterm treats Shift-mousedown as an incremental text selection before its
+  // linkifier activates the link on mouseup. Undo that selection only after we
+  // know this was a valid file-link activation; Shift-clicks elsewhere retain
+  // xterm's normal selection behavior.
+  clearSelection();
   window.dispatchEvent(new CustomEvent<TerminalFileOpenDetail>(TERMINAL_FILE_OPEN_EVENT, {
     detail: { paneId, cwd: getCWD(), ...link },
   }));
@@ -125,7 +131,7 @@ export function registerTerminalFileLinks(
   term.options.linkHandler = {
     allowNonHttpProtocols: true,
     activate: (event, uri) => {
-      if (requestFileOpen(event, uri, paneId, getCWD)) return;
+      if (requestFileOpen(event, uri, paneId, getCWD, () => term.clearSelection())) return;
       openWebLink(uri);
     },
     hover: (_event, uri, range) => {
@@ -169,7 +175,7 @@ export function registerTerminalFileLinks(
           range,
           decorations,
           activate: (event, activatedText) => {
-            requestFileOpen(event, activatedText, paneId, getCWD);
+            requestFileOpen(event, activatedText, paneId, getCWD, () => term.clearSelection());
           },
           hover: (event) => {
             decorations.pointerCursor = event.shiftKey;
