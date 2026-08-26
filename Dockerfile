@@ -43,6 +43,7 @@ RUN bash -lc "npm install --global \
 
 ENV XDG_RUNTIME_DIR=/var/lib/agent-remote/runtime
 ENV XDG_CONFIG_HOME=/var/lib/agent-remote/config
+ENV SHELL=/bin/bash
 ENV CODEX_HOME=/root/.codex
 ENV CLAUDE_CONFIG_DIR=/root/.claude
 ENV AGENT_REMOTE_CODEX_VERSION=${CODEX_VERSION}
