@@ -1,0 +1,122 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+: "${STARSHIP_VERSION:?STARSHIP_VERSION is required}"
+: "${DELTA_VERSION:?DELTA_VERSION is required}"
+: "${LAZYGIT_VERSION:?LAZYGIT_VERSION is required}"
+: "${YAZI_VERSION:?YAZI_VERSION is required}"
+
+case "$(dpkg --print-architecture)" in
+    amd64)
+        starship_target="x86_64-unknown-linux-musl"
+        starship_sha="00ff3c1f8ffb59b5c15d4b44c076bcca04d92cf0055c86b916248c14f3ae714a"
+        delta_target="x86_64-unknown-linux-gnu"
+        delta_sha="8e695c5f586a8c53d6c3b01be0b4a422ed218bfed2a56191caebe373a1c18ab2"
+        lazygit_target="x86_64"
+        lazygit_sha="4a9702b346283a23a6919c9424617e14788ac00e9cd3c9be266bac48cc6de8eb"
+        yazi_target="x86_64-unknown-linux-gnu"
+        yazi_sha="a136269b2d5fbb5fb43f3fac3391446e8fbc72aba1c4bb4fae6e6d1556420750"
+        ;;
+    arm64)
+        starship_target="aarch64-unknown-linux-musl"
+        starship_sha="56b9ff412bbf374d29b99e5ac09a849124cb37a0a13121e8470df32de53c1ea6"
+        delta_target="aarch64-unknown-linux-gnu"
+        delta_sha="0bfce159a5cddd5feb3d6db4a616d883ff51253ce08ac7ec11cb1d208cfaab9e"
+        lazygit_target="arm64"
+        lazygit_sha="7c3b1594fbb5ca29c17f875c0240849dd924f29bdeaf819ef26ae2107ccad84c"
+        yazi_target="aarch64-unknown-linux-gnu"
+        yazi_sha="f5a9d7062ae30b75c1e0481d3132aa54c14bacf76efb1b39b54b6d5d08b7c537"
+        ;;
+    *)
+        printf 'unsupported architecture: %s\n' "$(dpkg --print-architecture)" >&2
+        exit 1
+        ;;
+esac
+
+shell_tools_tmp="$(mktemp -d)"
+trap 'rm -rf "$shell_tools_tmp"' EXIT
+
+download_and_verify() {
+    local url="$1"
+    local sha="$2"
+    local destination="$3"
+
+    curl --fail --silent --show-error --location "$url" --output "$destination"
+    printf '%s  %s\n' "$sha" "$destination" | sha256sum --check --status
+}
+
+starship_archive="$shell_tools_tmp/starship.tar.gz"
+download_and_verify \
+    "https://github.com/starship/starship/releases/download/v${STARSHIP_VERSION}/starship-${starship_target}.tar.gz" \
+    "$starship_sha" \
+    "$starship_archive"
+mkdir "$shell_tools_tmp/starship"
+tar -xzf "$starship_archive" -C "$shell_tools_tmp/starship"
+install -m 0755 "$shell_tools_tmp/starship/starship" /usr/local/bin/starship
+
+delta_archive="$shell_tools_tmp/delta.tar.gz"
+download_and_verify \
+    "https://github.com/dandavison/delta/releases/download/${DELTA_VERSION}/delta-${DELTA_VERSION}-${delta_target}.tar.gz" \
+    "$delta_sha" \
+    "$delta_archive"
+mkdir "$shell_tools_tmp/delta"
+tar -xzf "$delta_archive" -C "$shell_tools_tmp/delta"
+install -m 0755 \
+    "$shell_tools_tmp/delta/delta-${DELTA_VERSION}-${delta_target}/delta" \
+    /usr/local/bin/delta
+
+lazygit_archive="$shell_tools_tmp/lazygit.tar.gz"
+download_and_verify \
+    "https://github.com/jesseduffield/lazygit/releases/download/v${LAZYGIT_VERSION}/lazygit_${LAZYGIT_VERSION}_linux_${lazygit_target}.tar.gz" \
+    "$lazygit_sha" \
+    "$lazygit_archive"
+mkdir "$shell_tools_tmp/lazygit"
+tar -xzf "$lazygit_archive" -C "$shell_tools_tmp/lazygit"
+install -m 0755 "$shell_tools_tmp/lazygit/lazygit" /usr/local/bin/lazygit
+
+yazi_archive="$shell_tools_tmp/yazi.zip"
+download_and_verify \
+    "https://github.com/sxyazi/yazi/releases/download/v${YAZI_VERSION}/yazi-${yazi_target}.zip" \
+    "$yazi_sha" \
+    "$yazi_archive"
+unzip -q "$yazi_archive" -d "$shell_tools_tmp/yazi"
+install -m 0755 "$shell_tools_tmp/yazi/yazi-${yazi_target}/yazi" /usr/local/bin/yazi
+install -m 0755 "$shell_tools_tmp/yazi/yazi-${yazi_target}/ya" /usr/local/bin/ya
+
+plugins_root="/root/.config/zsh/plugins"
+mkdir -p "$plugins_root"
+
+install_plugin() {
+    local repository="$1"
+    local revision="$2"
+    local destination="$3"
+
+    git init --quiet "$destination"
+    git -C "$destination" remote add origin "$repository"
+    git -C "$destination" fetch --quiet --depth 1 origin "$revision"
+    git -C "$destination" checkout --quiet --detach FETCH_HEAD
+    test "$(git -C "$destination" rev-parse HEAD)" = "$revision"
+    rm -rf "$destination/.git"
+}
+
+install_plugin \
+    https://github.com/zdharma-continuum/fast-syntax-highlighting.git \
+    3d574ccf48804b10dca52625df13da5edae7f553 \
+    "$plugins_root/fast-syntax-highlighting"
+install_plugin \
+    https://github.com/zsh-users/zsh-autosuggestions.git \
+    85919cd1ffa7d2d5412f6d3fe437ebdbeeec4fc5 \
+    "$plugins_root/zsh-autosuggestions"
+install_plugin \
+    https://github.com/zsh-users/zsh-completions.git \
+    84615f3d0b0e943d5b1de862c9552e572c8e70bb \
+    "$plugins_root/zsh-completions"
+install_plugin \
+    https://github.com/agkozak/zsh-z.git \
+    cf9225feebfae55e557e103e95ce20eca5eff270 \
+    "$plugins_root/zsh-z"
+
+starship --version
+delta --version
+lazygit --version
+yazi --version

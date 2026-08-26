@@ -1,0 +1,2 @@
+# Agent Remote's interactive shell setup.
+source "$HOME/.config/zsh/init.zsh"

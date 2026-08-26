@@ -23,13 +23,35 @@ FROM ghcr.io/openai/codex-universal:47f4f0eb5337083e2f610db0d15558932cb4901d
 
 ARG CODEX_VERSION=0.149.1
 ARG CLAUDE_CODE_VERSION=2.1.246
+ARG STARSHIP_VERSION=1.24.2
+ARG DELTA_VERSION=0.19.2
+ARG LAZYGIT_VERSION=0.61.0
+ARG YAZI_VERSION=26.1.22
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         gh \
         libpam0g \
         procps \
+        unzip \
+        zsh \
     && rm -rf /var/lib/apt/lists/*
+
+COPY docker/install-shell-tools /tmp/install-shell-tools
+RUN chmod 0755 /tmp/install-shell-tools \
+    && STARSHIP_VERSION="$STARSHIP_VERSION" \
+       DELTA_VERSION="$DELTA_VERSION" \
+       LAZYGIT_VERSION="$LAZYGIT_VERSION" \
+       YAZI_VERSION="$YAZI_VERSION" \
+       /tmp/install-shell-tools \
+    && rm /tmp/install-shell-tools
+
+COPY docker/zsh/ /root/.config/zsh/
+RUN ln -sf /root/.config/zsh/zshrc /root/.zshrc \
+    && git config --system core.pager delta \
+    && git config --system interactive.diffFilter 'delta --color-only' \
+    && git config --system delta.navigate true \
+    && git config --system merge.conflictStyle zdiff3
 
 # Keep the image self-contained so routine restarts do not depend on npm being
 # reachable. The startup wrapper below repairs either CLI if a mounted volume or
@@ -39,11 +61,14 @@ RUN bash -lc "npm install --global \
         @anthropic-ai/claude-code@${CLAUDE_CODE_VERSION} \
     && codex --version \
     && claude --version \
+    && for tool_name in node npm npx corepack pnpm yarn codex claude; do \
+         ln -sf \"\$(command -v \"\$tool_name\")\" \"/usr/local/bin/\$tool_name\"; \
+       done \
     && npm cache clean --force"
 
 ENV XDG_RUNTIME_DIR=/var/lib/agent-remote/runtime
 ENV XDG_CONFIG_HOME=/var/lib/agent-remote/config
-ENV SHELL=/bin/bash
+ENV SHELL=/usr/bin/zsh
 ENV CODEX_HOME=/root/.codex
 ENV CLAUDE_CONFIG_DIR=/root/.claude
 ENV AGENT_REMOTE_CODEX_VERSION=${CODEX_VERSION}

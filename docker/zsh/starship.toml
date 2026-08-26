@@ -1,0 +1,40 @@
+add_newline = false
+command_timeout = 10000
+format = "$directory$git_branch$git_status$python$conda$package$character"
+
+[directory]
+truncate_to_repo = true
+truncation_length = 2
+style = "bold blue"
+format = "[$path]($style)[$read_only]($read_only_style)"
+
+[character]
+success_symbol = " "
+error_symbol = " "
+format = "$symbol"
+
+[git_branch]
+format = " [$symbol$branch(:$remote_branch)]($style)"
+
+[git_status]
+format = "([$all_status$ahead_behind]($style))"
+
+[python]
+format = ' [\($virtualenv\)]($style)'
+style = 'bold green'
+python_binary = ['python3', 'python']
+detect_extensions = []
+detect_files = []
+detect_folders = []
+detect_env_vars = ['VIRTUAL_ENV']
+
+[conda]
+format = ' [\($environment\)]($style)'
+style = 'bold green'
+ignore_base = false
+
+[package]
+format = " is [$symbol$version]($style)"
+
+[aws]
+disabled = true
