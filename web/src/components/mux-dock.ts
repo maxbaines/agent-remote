@@ -9,6 +9,12 @@ import { muxLog } from '../lib/mux-log.js';
 import type { SessiondPaneInfo, LayoutCommand } from '../types.js';
 import { store } from '../state.js';
 import {
+  FileViewerRenderer,
+  basename,
+  isMarkdownPath,
+  type FileViewerRequest,
+} from '../lib/file-viewer-renderer.js';
+import {
   CREATE_TAB_COMMAND,
   DIRECTIONAL_SPLIT_COMMANDS,
   type CommandId,
@@ -274,6 +280,10 @@ export class MuxDock extends LitElement {
 
   private _dv: DockviewComponent | null = null;
   private _panels = new Map<number, IDockviewPanel>();
+  /** Client-local, read-only file panels. These are deliberately absent from
+   * sessiond's pane composition and are discarded on workspace switch. */
+  private _filePanels = new Map<string, { key: string; panel?: IDockviewPanel }>();
+  private _nextFilePanelId = 1;
   private _settingActive = false;
   /** User-defined pane names — persists across workspace switches for the session. */
   private _customTitles = new Map<number, string>();
@@ -394,6 +404,10 @@ export class MuxDock extends LitElement {
   private _scheduleLayoutSave(): void {
     if (this.narrow) return; // narrow (phone) is a tab view — no persisted layout
     if (this._restoringLayout) return; // don't echo a save while we're restoring
+    // Viewer panels are client-local and cannot be reconstructed by sessiond.
+    // Pause persistence while one is open so its component id/params never
+    // contaminate the durable terminal layout; closing the last viewer saves.
+    if (this._filePanels.size > 0) return;
     if (this._layoutSaveTimer !== undefined) clearTimeout(this._layoutSaveTimer);
     this._layoutSaveTimer = window.setTimeout(() => {
       if (!this._dv) return;
@@ -578,6 +592,10 @@ export class MuxDock extends LitElement {
           mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect x='1.5' y='2.5' width='13' height='11' rx='1.5' fill='none' stroke='black' stroke-width='1.5'/%3E%3Cpath d='m4 6 2 2-2 2m4-0.25h3' fill='none' stroke='black' stroke-width='1.35' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
           opacity: 0.9;
         }
+        mux-dock .mux-file-tab .dv-default-tab-content::before {
+          -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3 1.75h6l4 4v8.5H3z' fill='none' stroke='black' stroke-width='1.4' stroke-linejoin='round'/%3E%3Cpath d='M9 1.75v4h4' fill='none' stroke='black' stroke-width='1.4'/%3E%3C/svg%3E") center / contain no-repeat;
+          mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3 1.75h6l4 4v8.5H3z' fill='none' stroke='black' stroke-width='1.4' stroke-linejoin='round'/%3E%3Cpath d='M9 1.75v4h4' fill='none' stroke='black' stroke-width='1.4'/%3E%3C/svg%3E") center / contain no-repeat;
+        }
 
         /* Close button — show on hover + always on active tab */
         mux-dock .dv-tab .dv-default-tab-action {
@@ -697,6 +715,142 @@ export class MuxDock extends LitElement {
           font-style: normal;
         }
 
+        mux-dock .mux-file-viewer {
+          width: 100%;
+          height: 100%;
+          display: flex;
+          flex-direction: column;
+          overflow: hidden;
+          color: var(--mux-fg);
+          background: var(--chrome-body);
+        }
+        mux-dock .mux-file-viewer-toolbar {
+          height: 32px;
+          flex: 0 0 32px;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 0 10px;
+          border-bottom: 1px solid var(--chrome-border);
+          background: var(--chrome-bar);
+          color: var(--chrome-text-dim);
+          font-size: 11px;
+        }
+        mux-dock .mux-file-viewer-path {
+          flex: 1;
+          min-width: 0;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          font-family: var(--mux-terminal-font-family, monospace);
+        }
+        mux-dock .mux-file-viewer-mode {
+          color: var(--chrome-accent);
+        }
+        mux-dock .mux-file-viewer-reload,
+        mux-dock .mux-file-viewer-status button {
+          border: 1px solid var(--chrome-border);
+          border-radius: 4px;
+          padding: 3px 8px;
+          background: var(--chrome-hover);
+          color: var(--chrome-text-bright);
+          font: inherit;
+          cursor: pointer;
+        }
+        mux-dock .mux-file-viewer-scroll {
+          flex: 1;
+          min-height: 0;
+          overflow: auto;
+          outline: none;
+        }
+        mux-dock .mux-file-viewer-body {
+          min-height: 100%;
+          box-sizing: border-box;
+        }
+        mux-dock .mux-file-viewer-status {
+          margin: auto;
+          max-width: min(560px, calc(100% - 48px));
+          display: flex;
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 10px;
+          color: var(--chrome-text-dim);
+        }
+        mux-dock .mux-file-viewer-status.error strong { color: var(--mux-error); }
+        mux-dock .mux-file-viewer-status code {
+          max-width: 100%;
+          overflow-wrap: anywhere;
+          color: var(--mux-fg);
+        }
+        mux-dock .mux-text-body { padding: 12px 0 40px; }
+        mux-dock .mux-file-lines {
+          margin: 0;
+          padding: 0 0 0 60px;
+          color: var(--chrome-text-dim);
+          font: 12px/1.55 var(--mux-terminal-font-family, monospace);
+        }
+        mux-dock .mux-file-line {
+          min-height: 1.55em;
+          padding: 0 20px 0 12px;
+          white-space: pre;
+        }
+        mux-dock .mux-file-line::marker { color: color-mix(in srgb, var(--chrome-text-dim) 65%, transparent); }
+        mux-dock .mux-file-line code { color: var(--mux-fg); font: inherit; }
+        mux-dock .mux-file-line-selected {
+          background: color-mix(in srgb, var(--chrome-accent) 16%, transparent);
+          box-shadow: inset 2px 0 var(--chrome-accent);
+        }
+        mux-dock .mux-markdown-body {
+          width: min(860px, 100%);
+          margin: 0 auto;
+          padding: 34px 42px 70px;
+          font: 15px/1.65 system-ui, -apple-system, sans-serif;
+          color: var(--mux-fg);
+        }
+        mux-dock .mux-markdown-body h1,
+        mux-dock .mux-markdown-body h2,
+        mux-dock .mux-markdown-body h3,
+        mux-dock .mux-markdown-body h4 {
+          margin: 1.6em 0 0.55em;
+          line-height: 1.25;
+          color: var(--chrome-text-bright);
+        }
+        mux-dock .mux-markdown-body h1 { margin-top: 0; font-size: 2em; }
+        mux-dock .mux-markdown-body h2 { padding-bottom: 0.3em; border-bottom: 1px solid var(--chrome-border); }
+        mux-dock .mux-markdown-body p,
+        mux-dock .mux-markdown-body ul,
+        mux-dock .mux-markdown-body ol,
+        mux-dock .mux-markdown-body blockquote,
+        mux-dock .mux-markdown-body pre,
+        mux-dock .mux-markdown-body table { margin: 0 0 1em; }
+        mux-dock .mux-markdown-body ul,
+        mux-dock .mux-markdown-body ol { padding-left: 1.7em; }
+        mux-dock .mux-markdown-body a { color: var(--chrome-accent); }
+        mux-dock .mux-markdown-body blockquote {
+          padding-left: 1em;
+          border-left: 3px solid var(--chrome-accent);
+          color: var(--chrome-text-dim);
+        }
+        mux-dock .mux-markdown-body code {
+          border-radius: 3px;
+          padding: 0.15em 0.35em;
+          background: var(--chrome-bar);
+          color: var(--chrome-text-bright);
+          font: 0.9em var(--mux-terminal-font-family, monospace);
+        }
+        mux-dock .mux-markdown-body pre {
+          overflow: auto;
+          padding: 14px 16px;
+          border: 1px solid var(--chrome-border);
+          border-radius: 6px;
+          background: var(--chrome-bar);
+        }
+        mux-dock .mux-markdown-body pre code { padding: 0; background: transparent; }
+        mux-dock .mux-markdown-body table { border-collapse: collapse; }
+        mux-dock .mux-markdown-body th,
+        mux-dock .mux-markdown-body td { padding: 6px 10px; border: 1px solid var(--chrome-border); }
+        mux-dock .mux-markdown-body img { max-width: 100%; }
+
         /* Mobile: hide tab bar on narrow viewports */
         @media (max-width: 768px) {
           mux-dock .dv-tabs-and-actions-container {
@@ -720,6 +874,8 @@ export class MuxDock extends LitElement {
     this._dv = new DockviewComponent(this, {
       createComponent: (opts) => {
         if (opts.name === 'browser') return new PlaceholderRenderer(opts.id);
+        if (opts.name === 'markdown') return new FileViewerRenderer('markdown');
+        if (opts.name === 'text') return new FileViewerRenderer('text');
         return new TerminalRenderer(opts.id, (paneId) => paneId === this.activePaneId);
       },
       // dockview header DOM order is: [tabs] [left-actions] [void] [right-actions].
@@ -748,6 +904,10 @@ export class MuxDock extends LitElement {
     this._dv.onDidActivePanelChange((panel) => {
       if (this._settingActive) return;
       if (!panel) return;
+      if (this._filePanels.has(panel.id)) {
+        window.dispatchEvent(new CustomEvent('non-browser-pane-activated'));
+        return;
+      }
       const paneId = parseInt(panel.id, 10);
       store.ackPane(paneId); // clear bell indicator when tab is focused directly
       this.dispatchEvent(new CustomEvent('pane-select', { detail: { paneId }, bubbles: true, composed: true }));
@@ -778,6 +938,10 @@ export class MuxDock extends LitElement {
     });
     this._dv.onDidRemovePanel((panel) => {
       if (this._removingPanels) return;
+      if (this._filePanels.delete(panel.id)) {
+        this._scheduleLayoutSave();
+        return;
+      }
       const paneId = parseInt(panel.id, 10);
       if (this._panels.has(paneId)) {
         // Capture the tab title BEFORE deleting the panel record — the toast
@@ -822,7 +986,7 @@ export class MuxDock extends LitElement {
       // Match the found .dv-tab element to a panel.
       // panel.view.tab.element is the inner .dv-default-tab child, NOT the .dv-tab
       // container itself, so compare by containment: tabEl.contains(panelTabEl).
-      for (const [, panel] of this._panels) {
+      for (const panel of this._dv?.panels ?? []) {
         const panelTabEl = (panel as unknown as { view?: { tab?: { element?: HTMLElement } } })
           .view?.tab?.element;
         if (panelTabEl && tabEl.contains(panelTabEl)) {
@@ -850,6 +1014,7 @@ export class MuxDock extends LitElement {
     // single-click has already activated this tab, so activePanel is correct.
     const activePanel = this._dv?.activePanel;
     if (!activePanel) return;
+    if (this._filePanels.has(activePanel.id)) return;
 
     const paneId = parseInt(activePanel.id, 10);
     const currentTitle = (tabContent.textContent ?? '').replace(/^● /, '');
@@ -907,10 +1072,11 @@ export class MuxDock extends LitElement {
         // Clear locally-closed set: new workspace starts fresh.
         this._locallyClosedPanes.clear();
         // Close all existing panels
-        for (const [, panel] of this._panels) {
+        for (const panel of this._dv.panels) {
           this._dv.removePanel(panel);
         }
         this._panels.clear();
+        this._filePanels.clear();
 
         // Seed _customTitles from server-stored titles (arrive in composition panes).
         for (const pane of this.panes) {
@@ -1151,6 +1317,47 @@ export class MuxDock extends LitElement {
   }
 
   /**
+   * Open a read-only file viewer as a tab beside the terminal that originated
+   * the Shift-click. Repeated opens of the same resolved request reuse the
+   * existing tab and update its requested line rather than multiplying tabs.
+   */
+  openFile(request: FileViewerRequest): void {
+    if (!this._dv || !request.path) return;
+    const key = `${request.cwd ?? ''}\u0000${request.path}`;
+    for (const entry of this._filePanels.values()) {
+      if (entry.key !== key || !entry.panel) continue;
+      entry.panel.api.updateParameters(request);
+      entry.panel.api.setActive();
+      return;
+    }
+
+    const id = `file-${this._nextFilePanelId++}`;
+    // Seed before addPanel: dockview may synchronously announce activation
+    // while constructing the panel, and that callback must recognize this as
+    // a local viewer rather than parse its id as a numeric sessiond pane.
+    const entry: { key: string; panel?: IDockviewPanel } = { key };
+    this._filePanels.set(id, entry);
+    try {
+      const active = this._dv.activePanel;
+      const panel = this._dv.addPanel({
+        id,
+        component: isMarkdownPath(request.path) ? 'markdown' : 'text',
+        title: basename(request.path),
+        params: request,
+        ...(active ? { position: { referencePanel: active, direction: 'within' as const } } : {}),
+      });
+      entry.panel = panel;
+      const tabElement = (panel as unknown as { view?: { tab?: { element?: HTMLElement } } })
+        .view?.tab?.element;
+      tabElement?.closest('.dv-tab')?.classList.add('mux-file-tab');
+      panel.api.setActive();
+    } catch (error) {
+      this._filePanels.delete(id);
+      throw error;
+    }
+  }
+
+  /**
    * Cycle to the next (or previous) tab within the active panel's dockview
    * group. Deliberately does NOT cross split-pane group boundaries — only tabs
    * in the same visual group as the currently focused panel are considered.
@@ -1165,7 +1372,7 @@ export class MuxDock extends LitElement {
     // _panels Map insertion order (= tab creation order, used as proxy for the
     // visual tab sequence within the group).
     const sameGroup: IDockviewPanel[] = [];
-    for (const panel of this._panels.values()) {
+    for (const panel of this._dv.panels) {
       if (panel.group === active.group) sameGroup.push(panel);
     }
 

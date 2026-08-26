@@ -21,6 +21,7 @@ import { resolveTerminalPalette } from './theme.js';
 import { muxLog } from './mux-log.js';
 import { resolveTerminalFontFamily, TERMINAL_FONT_FAMILY } from './fonts.js';
 import { terminalPresentation } from './terminal-presentation.js';
+import { parseTerminalCWD, registerTerminalFileLinks } from './terminal-file-links.js';
 
 /**
  * Ensure xterm.js's stylesheet is present in the root node that actually
@@ -363,6 +364,7 @@ export const terminalRegistry = {
     hostEl.style.cssText = 'width:100%;height:100%;touch-action:none;overflow:auto;';
 
     const term = new Terminal(TERMINAL_CONFIG);
+    let currentWorkingDirectory: string | undefined;
 
     // Terminal-query response ownership (see AGENTS.md "Terminal query
     // ownership" invariant): sessiond's VTBuffer is the ONLY component
@@ -395,6 +397,21 @@ export const terminalRegistry = {
       // through so xterm.js still applies it locally.
       return data === '?';
     });
+    // Track the shell's current directory for resolving relative file links.
+    // OSC 7 is the standard form; OSC 1337 CurrentDir is emitted by iTerm2 /
+    // Ghostty-compatible shell integrations. Return false so xterm.js may
+    // continue handling these sequences normally after we observe them.
+    term.parser.registerOscHandler(7, (data: string) => {
+      currentWorkingDirectory = parseTerminalCWD(data) ?? currentWorkingDirectory;
+      return false;
+    });
+    term.parser.registerOscHandler(1337, (data: string) => {
+      if (data.startsWith('CurrentDir=')) {
+        currentWorkingDirectory = parseTerminalCWD(data) ?? currentWorkingDirectory;
+      }
+      return false;
+    });
+    registerTerminalFileLinks(term, paneId, () => currentWorkingDirectory);
 
     const fitAddon = new FitAddon();
     // WebFontsAddon: loadFonts() is called in attach() before term.open() per

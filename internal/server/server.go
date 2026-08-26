@@ -144,6 +144,7 @@ func New(cfg Config) *Server {
 	// bearer token) is required — see internal/server/authmiddleware.go.
 	s.mux.Handle("GET /api/config", protect(http.HandlerFunc(s.handleGetConfig)))
 	s.mux.Handle("PATCH /api/config", protect(http.HandlerFunc(s.handlePatchConfig)))
+	s.mux.Handle("GET /api/files", protect(http.HandlerFunc(s.handleFileRead)))
 
 	// Opt-in AI capability. Deliberately a separate route family from
 	// /api/config: the key goes in via PUT and only a derived Status comes out.

@@ -23,8 +23,10 @@
     "@xterm/addon-web-links": "^0.12.0",
     "@xterm/xterm": "^6.0.0",
     "dockview-core": "^6.6.1",
+    "dompurify": "^3.4.14",
     "lit": "^3.2.0",
     "lucide": "^1.17.0",
+    "marked": "^18.0.11",
     "split.js": "^1.6.5"
   },
   "devDependencies": {

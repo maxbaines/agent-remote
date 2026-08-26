@@ -22,6 +22,10 @@ import { applyDocumentTitle } from './lib/instance-identity.js';
 import { injectTerminalFont } from './lib/fonts.js';
 import { voiceInputController } from './lib/voice-input-controller.js';
 import { fetchAIStatus, parseAIStatus, type AIStatus } from './lib/ai.js';
+import {
+  TERMINAL_FILE_OPEN_EVENT,
+  type TerminalFileOpenDetail,
+} from './lib/terminal-file-links.js';
 
 // Inject @font-face for the server-bundled Nerd Font as early as possible so
 // the CSS rules are in place before WebFontsAddon.loadFonts() is called.
@@ -527,6 +531,12 @@ export class MuxApp extends LitElement {
     if (mode !== this._layoutMode) this._layoutMode = mode;
   };
 
+  private _onTerminalFileOpen = (event: Event): void => {
+    const detail = (event as CustomEvent<TerminalFileOpenDetail>).detail;
+    if (!detail?.path) return;
+    this._dock?.openFile(detail);
+  };
+
   connectedCallback(): void {
     super.connectedCallback();
 
@@ -539,6 +549,7 @@ export class MuxApp extends LitElement {
     window.addEventListener('open-launcher', this._onOpenLauncherAttr);
     // Layout-command relay: window CustomEvent from ws.ts → mux-dock routing.
     window.addEventListener('layout-command', this._onLayoutCommand);
+    window.addEventListener(TERMINAL_FILE_OPEN_EVENT, this._onTerminalFileOpen);
     // Update layout mode when the viewport crosses the 768px breakpoint.
     window.addEventListener('resize', this._onViewportResize);
     this._layoutMode = currentLayoutMode();
@@ -701,6 +712,7 @@ export class MuxApp extends LitElement {
     super.disconnectedCallback();
     window.removeEventListener('open-launcher', this._onOpenLauncherAttr);
     window.removeEventListener('layout-command', this._onLayoutCommand);
+    window.removeEventListener(TERMINAL_FILE_OPEN_EVENT, this._onTerminalFileOpen);
     window.removeEventListener('resize', this._onViewportResize);
     this._disposePaneFocusListeners?.();
     this._disposePaneFocusListeners = null;
