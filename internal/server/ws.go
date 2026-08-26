@@ -270,6 +270,19 @@ func (c *Client) handleTextInput(data []byte) {
 			CWD:    cwd,
 		})
 
+	case sessiond.TypePasteImage:
+		path, err := c.daemon.SaveClipboardImage(msg.PaneID, msg.MimeType, msg.Data)
+		if err != nil {
+			c.sendError(msg.CID, msg.WorkspaceID, err)
+			return
+		}
+		c.sendMessage(&sessiond.Message{
+			Type:   sessiond.TypeImageSaved,
+			CID:    msg.CID,
+			PaneID: msg.PaneID,
+			Path:   path,
+		})
+
 	case sessiond.TypeRenamePane:
 		if err := c.daemon.RenamePane(msg.PaneID, msg.Name); err != nil {
 			c.sendError(msg.CID, msg.WorkspaceID, err)
@@ -675,7 +688,10 @@ func (s *Server) handleWSImpl(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	conn.SetReadLimit(1 << 20) // 1MB
+	// Clipboard image paste uses a base64 control message. Five decoded MiB
+	// expands to roughly 6.7 MiB; leave bounded envelope headroom while keeping
+	// oversized frames from reaching the daemon.
+	conn.SetReadLimit(8 << 20)
 
 	client := newClient(s.hub, conn)
 	s.hub.Add(client)

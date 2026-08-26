@@ -36,6 +36,7 @@ const (
 	TypeScreenSnapshot  = "screen-snapshot" // request: MCP → daemon, VT grid for a pane
 	TypeGetLayout       = "get-layout"      // request: MCP → daemon, ASCII layout diagram
 	TypeGetPaneCWD      = "get-pane-cwd"    // request: current working directory of a pane's foreground process
+	TypePasteImage      = "paste-image"     // request: persist an explicit user-pasted clipboard image on the Session Owner host
 
 	// Replies (daemon -> client, echo request cid).
 	TypeWorkspaceCreated     = "workspace-created"
@@ -46,6 +47,7 @@ const (
 	TypeScreenSnapshotResult = "screen-snapshot-result"
 	TypeLayoutResult         = "layout-result"
 	TypePaneCWD              = "pane-cwd"
+	TypeImageSaved           = "image-saved"
 
 	// Events (daemon -> all subscribers, cid=0).
 	TypePaneAdded           = "pane-added"
@@ -79,6 +81,9 @@ const (
 	CodeUnknownWorkspace = "unknown-workspace"
 	CodePaneSpawnFailed  = "pane-spawn-failed"
 	CodePaneNotFound     = "pane-not-found"
+	CodeImageTooLarge    = "image-too-large"
+	CodeUnsupportedImage = "unsupported-image"
+	CodeImageSaveFailed  = "image-save-failed"
 )
 
 // writeFrame writes a single framed message: a 5-byte header consisting of a
@@ -163,6 +168,9 @@ type Message struct {
 	Cmd         []string        `json:"cmd,omitempty"`         // argv, empty => default $SHELL
 	Title       string          `json:"title,omitempty"`       //
 	CWD         string          `json:"cwd,omitempty"`         // current working directory returned by get-pane-cwd
+	MimeType    string          `json:"mimeType,omitempty"`    // clipboard image media type (paste-image request)
+	Data        string          `json:"data,omitempty"`        // base64 clipboard image bytes (paste-image request)
+	Path        string          `json:"path,omitempty"`        // absolute Session Owner path (image-saved reply)
 	Breakpoint  string          `json:"breakpoint,omitempty"`  // responsive layout key (opaque to daemon)
 	ClientKind  string          `json:"clientKind,omitempty"`  // "interactive" (browser/human) | "agent" (MCP/automation)
 	Layout      string          `json:"layout,omitempty"`      // opaque dockview layout JSON blob

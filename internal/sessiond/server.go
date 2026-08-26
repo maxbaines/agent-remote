@@ -2,9 +2,12 @@ package sessiond
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net"
+	"net/http"
 	"os"
 	"path/filepath"
 	"sync"
@@ -22,7 +25,12 @@ type Server struct {
 	mu    sync.Mutex
 	subs  map[string]map[*conn]bool // workspaceId -> set of attached connections
 	conns map[*conn]bool            // all live connections
+
+	imageMu  sync.Mutex
+	imageDir string // private, session-lifetime clipboard image directory
 }
+
+const maxClipboardImageBytes = 5 << 20
 
 // NewServer returns a Server bound to socketPath with a fresh Registry. It
 // errors on an empty socket path.
@@ -54,6 +62,7 @@ func (s *Server) ListenAndServe(ctx context.Context) error {
 	if err := os.Chmod(dir, 0o700); err != nil {
 		return err
 	}
+	defer s.cleanupClipboardImages()
 	_ = os.Remove(s.socket)
 
 	ln, err := net.Listen("unix", s.socket)
@@ -129,7 +138,6 @@ func (s *Server) unsubscribeLocked(c *conn) {
 //  1. composition reply FIRST (always sent, nil panes when empty),
 //  2. per-pane replay data frames enqueued BEFORE the conn is marked live,
 //  3. mark live so later broadcasts land strictly AFTER replay frames.
-//
 func (s *Server) attachConn(c *conn, wsID string, cid uint64, breakpoint string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -409,6 +417,22 @@ func (c *conn) handle(msg Message) {
 		}
 		cwd, _ := pane.CurrentWorkingDirectory()
 		c.reply(&Message{Type: TypePaneCWD, CID: msg.CID, PaneID: msg.PaneID, CWD: cwd})
+	case TypePasteImage:
+		if c.attached == "" {
+			c.replyError(msg.CID, CodeUnknownWorkspace, "not attached to a workspace")
+			return
+		}
+		pane, ok := c.srv.reg.Pane(c.attached, msg.PaneID)
+		if !ok || pane.SurfaceKind == "browser" {
+			c.replyError(msg.CID, CodePaneNotFound, "pane not found")
+			return
+		}
+		path, code, err := c.srv.saveClipboardImage(msg.MimeType, msg.Data)
+		if err != nil {
+			c.replyError(msg.CID, code, err.Error())
+			return
+		}
+		c.reply(&Message{Type: TypeImageSaved, CID: msg.CID, PaneID: msg.PaneID, Path: path})
 	case TypeCreateBrowserPane:
 		c.createBrowserPane(msg)
 	case TypeCloseBrowserPane:
@@ -458,6 +482,78 @@ func (c *conn) handle(msg Message) {
 			Text:   vb.ScreenText(),
 			Cursor: &CursorPos{Row: row, Col: col},
 		})
+	}
+}
+
+func (s *Server) saveClipboardImage(declaredType, encoded string) (string, string, error) {
+	if len(encoded) == 0 || len(encoded) > base64.StdEncoding.EncodedLen(maxClipboardImageBytes) {
+		return "", CodeImageTooLarge, fmt.Errorf("clipboard image must be between 1 byte and 5 MiB")
+	}
+	data, err := base64.StdEncoding.DecodeString(encoded)
+	if err != nil {
+		return "", CodeUnsupportedImage, fmt.Errorf("clipboard image is not valid base64")
+	}
+	if len(data) == 0 || len(data) > maxClipboardImageBytes {
+		return "", CodeImageTooLarge, fmt.Errorf("clipboard image must be between 1 byte and 5 MiB")
+	}
+
+	detectedType := http.DetectContentType(data)
+	extensions := map[string]string{
+		"image/png":  ".png",
+		"image/jpeg": ".jpg",
+		"image/gif":  ".gif",
+		"image/webp": ".webp",
+	}
+	extension, ok := extensions[detectedType]
+	if !ok {
+		return "", CodeUnsupportedImage, fmt.Errorf("unsupported clipboard image type %q", declaredType)
+	}
+
+	dir, err := s.clipboardImageDir()
+	if err != nil {
+		return "", CodeImageSaveFailed, fmt.Errorf("could not create clipboard image directory")
+	}
+	file, err := os.CreateTemp(dir, "paste-*"+extension)
+	if err != nil {
+		return "", CodeImageSaveFailed, fmt.Errorf("could not create clipboard image")
+	}
+	path := file.Name()
+	if err = file.Chmod(0o600); err == nil {
+		_, err = file.Write(data)
+	}
+	closeErr := file.Close()
+	if err != nil || closeErr != nil {
+		_ = os.Remove(path)
+		return "", CodeImageSaveFailed, fmt.Errorf("could not save clipboard image")
+	}
+	return path, "", nil
+}
+
+func (s *Server) clipboardImageDir() (string, error) {
+	s.imageMu.Lock()
+	defer s.imageMu.Unlock()
+	if s.imageDir != "" {
+		return s.imageDir, nil
+	}
+	dir, err := os.MkdirTemp(filepath.Dir(s.socket), "clipboard-images-")
+	if err != nil {
+		return "", err
+	}
+	if err := os.Chmod(dir, 0o700); err != nil {
+		_ = os.RemoveAll(dir)
+		return "", err
+	}
+	s.imageDir = dir
+	return dir, nil
+}
+
+func (s *Server) cleanupClipboardImages() {
+	s.imageMu.Lock()
+	dir := s.imageDir
+	s.imageDir = ""
+	s.imageMu.Unlock()
+	if dir != "" {
+		_ = os.RemoveAll(dir)
 	}
 }
 

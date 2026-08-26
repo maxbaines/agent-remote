@@ -744,6 +744,9 @@ export class MuxApp extends LitElement {
           }
           terminalRegistry.ensure(paneId, {
             onInput: (data) => this._socket?.sendPaneInput(paneId, data),
+            onImagePaste: (image) => this._socket
+              ? this._socket.pasteImage(paneId, image)
+              : Promise.reject(new Error('Terminal is disconnected')),
             onResize: (cols, rows) => this._controller?.reportResize(paneId, cols, rows),
             onSettled: () => this._paneFocusCoordinator?.claimPane(paneId),
           });
@@ -906,6 +909,9 @@ export class MuxApp extends LitElement {
       if (pane.surfaceKind === 'browser') { liveIds.add(paneId); continue; }
       terminalRegistry.ensure(paneId, {
         onInput: (data) => this._socket?.sendPaneInput(paneId, data),
+        onImagePaste: (image) => this._socket
+          ? this._socket.pasteImage(paneId, image)
+          : Promise.reject(new Error('Terminal is disconnected')),
         // Active-view-wins: only rendered/visible panes own a live
         // ResizeObserver, so tabbed-away panes never report a resize.
         onResize: (cols, rows) => this._controller?.reportResize(paneId, cols, rows),

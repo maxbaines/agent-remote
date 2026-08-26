@@ -31,6 +31,7 @@ type DaemonConn interface {
 	// this browser client, carrying its current measured size.
 	PaneFocus(paneID uint32, cols, rows int) error
 	PaneCWD(paneID int) (string, error)
+	SaveClipboardImage(paneID int, mimeType, data string) (string, error)
 	BrowserActionResult(msg sessiond.Message) error
 	// BrowserCommand relays a browser-command to the daemon (broadcast to workspace
 	// subscribers). payload is the pre-marshalled command JSON.

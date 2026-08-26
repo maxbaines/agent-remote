@@ -122,6 +122,8 @@ export interface PaneHandlers {
   onInput: (data: Uint8Array) => void;
   /** Called (idempotently) when the terminal cols/rows change. */
   onResize: (cols: number, rows: number) => void;
+  /** Saves an explicit clipboard image paste and returns its Session Owner path. */
+  onImagePaste?: (image: Blob) => Promise<string>;
   /**
    * Called once, the first time this pane transitions from not-ready to
    * ready (visible + replay-drained + correctly sized) — on initial attach
@@ -382,7 +384,7 @@ export const terminalRegistry = {
     // grid, or sit anchored top-left with empty space when larger. This is a
     // no-op visually for the normal (authoritative) case, where the terminal's
     // natural size always matches the container exactly.
-    hostEl.style.cssText = 'width:100%;height:100%;touch-action:none;overflow:auto;';
+    hostEl.style.cssText = 'width:100%;height:100%;touch-action:none;overflow:auto;position:relative;';
 
     const term = new Terminal(TERMINAL_CONFIG);
     const inputTarget = { workspaceId: _currentWorkspaceId, paneId };
@@ -614,6 +616,37 @@ export const terminalRegistry = {
       const payload = sep === -1 ? data : data.slice(sep + 1);
       return payload === '?';
     });
+
+    // Branch on the native paste event's payload: plain text continues into
+    // xterm.js unchanged, while an image is explicitly uploaded to sessiond's
+    // host and the resulting absolute path is pasted through xterm.js. Using
+    // term.paste() preserves bracketed-paste mode and keeps the input path
+    // identical to normal text paste after the file has been created.
+    hostEl.addEventListener('paste', (event: ClipboardEvent) => {
+      const imageItem = Array.from(event.clipboardData?.items ?? []).find(
+        (item) => item.kind === 'file' && item.type.startsWith('image/'),
+      );
+      if (!imageItem) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const image = imageItem.getAsFile();
+      if (!image || !entry.handlers.onImagePaste) {
+        showImagePasteStatus(hostEl, 'Could not read clipboard image', true);
+        return;
+      }
+
+      const generation = entry.generation;
+      showImagePasteStatus(hostEl, 'Uploading clipboard image…');
+      void entry.handlers.onImagePaste(image).then((path) => {
+        if (_map.get(key) !== entry || entry.generation !== generation || !entry.ready) return;
+        term.paste(path);
+        term.focus();
+        showImagePasteStatus(hostEl, 'Image path pasted');
+      }).catch((error: unknown) => {
+        const message = error instanceof Error ? error.message : 'Image upload failed';
+        showImagePasteStatus(hostEl, message, true);
+      });
+    }, { capture: true });
 
     // Touch scroll — xterm.js v6 regressed native touch-scroll support
     // (upstream issue #5489). Wire it manually: track finger Y delta and
@@ -1321,4 +1354,27 @@ if (typeof window !== 'undefined') {
     snapshot: (paneId: number) => terminalRegistry.snapshot(paneId),
     isAuthoritative: (paneId: number) => terminalRegistry.isAuthoritative(paneId),
   };
+}
+
+function showImagePasteStatus(host: HTMLElement, message: string, error = false): void {
+  let status = host.querySelector<HTMLElement>(':scope > [data-image-paste-status]');
+  if (!status) {
+    status = document.createElement('div');
+    status.dataset.imagePasteStatus = '';
+    status.setAttribute('role', 'status');
+    status.style.cssText = [
+      'position:absolute', 'top:10px', 'left:50%', 'transform:translateX(-50%)',
+      'z-index:10', 'padding:6px 10px', 'border-radius:6px', 'font:12px/1.3 system-ui,sans-serif',
+      'color:#fff', 'pointer-events:none', 'box-shadow:0 2px 8px rgba(0,0,0,.35)',
+    ].join(';');
+    host.appendChild(status);
+  }
+  status.textContent = message;
+  status.style.background = error ? '#a12626' : '#245d3b';
+  const previousTimer = Number(status.dataset.removeTimer || 0);
+  if (previousTimer) window.clearTimeout(previousTimer);
+  const delay = message.startsWith('Uploading') ? 0 : 2500;
+  if (delay) {
+    status.dataset.removeTimer = String(window.setTimeout(() => status?.remove(), delay));
+  }
 }

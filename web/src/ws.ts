@@ -7,6 +7,7 @@ export type ControlMessageCallback = (msg: Record<string, unknown>) => void;
 const BACKOFF_BASE = 1000;
 const BACKOFF_CAP = 30000;
 const JITTER_MAX = 500;
+const MAX_CLIPBOARD_IMAGE_BYTES = 5 * 1024 * 1024;
 
 export class MuxSocket {
   private _store: MuxStore;
@@ -20,6 +21,11 @@ export class MuxSocket {
   private _nextRequestCid = 1;
   private _pendingPaneCWD = new Map<number, {
     resolve: (cwd: string | undefined) => void;
+    timeout: ReturnType<typeof setTimeout>;
+  }>();
+  private _pendingImagePastes = new Map<number, {
+    resolve: (path: string) => void;
+    reject: (error: Error) => void;
     timeout: ReturnType<typeof setTimeout>;
   }>();
 
@@ -67,6 +73,7 @@ export class MuxSocket {
       this._ws = null;
     }
     this._resolvePendingPaneCWD();
+    this._rejectPendingImagePastes('Terminal disconnected during image upload');
   }
 
   sendPaneInput(paneId: number, data: Uint8Array): void {
@@ -198,6 +205,33 @@ export class MuxSocket {
     });
   }
 
+  /** Persist an explicitly pasted browser clipboard image on the Session Owner
+   * host. The returned path resolves on the same host as the pane's PTY. */
+  async pasteImage(paneId: number, image: Blob): Promise<string> {
+    if (!this.connected) throw new Error('Terminal is disconnected');
+    if (image.size === 0 || image.size > MAX_CLIPBOARD_IMAGE_BYTES) {
+      throw new Error('Image must be between 1 byte and 5 MiB');
+    }
+    const data = await blobToBase64(image);
+    if (!this.connected) throw new Error('Terminal disconnected during image upload');
+
+    const cid = this._nextRequestCid++;
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        this._pendingImagePastes.delete(cid);
+        reject(new Error('Image upload timed out'));
+      }, 15000);
+      this._pendingImagePastes.set(cid, { resolve, reject, timeout });
+      this.sendSessiond({
+        type: SessiondType.PasteImage,
+        cid,
+        paneId,
+        mimeType: image.type || 'application/octet-stream',
+        data,
+      });
+    });
+  }
+
   destroy(): void {
     this._intentionalClose = true;
     if (this._reconnectTimer !== undefined) {
@@ -209,6 +243,7 @@ export class MuxSocket {
       this._ws = null;
     }
     this._resolvePendingPaneCWD();
+    this._rejectPendingImagePastes('Terminal disconnected during image upload');
   }
 
   get connected(): boolean {
@@ -228,6 +263,14 @@ export class MuxSocket {
       pending.resolve(undefined);
     }
     this._pendingPaneCWD.clear();
+  }
+
+  private _rejectPendingImagePastes(message: string): void {
+    for (const pending of this._pendingImagePastes.values()) {
+      clearTimeout(pending.timeout);
+      pending.reject(new Error(message));
+    }
+    this._pendingImagePastes.clear();
   }
 
   private _open(): void {
@@ -254,6 +297,16 @@ export class MuxSocket {
         const raw = JSON.parse(ev.data) as Record<string, unknown>;
         const cid = typeof raw.cid === 'number' ? raw.cid : undefined;
         if (cid !== undefined) {
+          const imagePaste = this._pendingImagePastes.get(cid);
+          if (imagePaste) {
+            clearTimeout(imagePaste.timeout);
+            this._pendingImagePastes.delete(cid);
+            if (raw.type === SessiondType.ImageSaved && typeof raw.path === 'string') {
+              imagePaste.resolve(raw.path);
+            } else {
+              imagePaste.reject(new Error(typeof raw.error === 'string' ? raw.error : 'Image upload failed'));
+            }
+          }
           const pending = this._pendingPaneCWD.get(cid);
           if (pending) {
             clearTimeout(pending.timeout);
@@ -286,6 +339,7 @@ export class MuxSocket {
 
     ws.onclose = (ev: CloseEvent) => {
       this._resolvePendingPaneCWD();
+      this._rejectPendingImagePastes('Terminal disconnected during image upload');
       if (ev.code === 1000 || this._intentionalClose) {
         return;
       }
@@ -297,6 +351,23 @@ export class MuxSocket {
       // no-op — onclose fires after onerror
     };
   }
+}
+
+function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Could not read clipboard image'));
+    reader.onload = () => {
+      const result = reader.result;
+      if (typeof result !== 'string') {
+        reject(new Error('Could not read clipboard image'));
+        return;
+      }
+      const comma = result.indexOf(',');
+      resolve(comma === -1 ? result : result.slice(comma + 1));
+    };
+    reader.readAsDataURL(blob);
+  });
 }
 
 export function buildWsUrl(path = '/ws'): string {

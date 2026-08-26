@@ -348,6 +348,22 @@ func (c *Client) PaneCWD(paneID int) (string, error) {
 	return reply.CWD, nil
 }
 
+// SaveClipboardImage persists an explicitly user-pasted image on the Session
+// Owner host and returns its absolute path. The daemon validates the decoded
+// size and image signature before writing a private session-lifetime file.
+func (c *Client) SaveClipboardImage(paneID int, mimeType, data string) (string, error) {
+	reply, err := c.request(&Message{
+		Type:     TypePasteImage,
+		PaneID:   paneID,
+		MimeType: mimeType,
+		Data:     data,
+	})
+	if err != nil {
+		return "", err
+	}
+	return reply.Path, nil
+}
+
 // RenamePane sets the display name of the pane identified by the
 // workspace-local paneID to name.
 func (c *Client) RenamePane(paneID int, name string) error {
