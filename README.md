@@ -83,6 +83,28 @@ make build
 ./bin/agent-remote deploy user@myserver.com
 ```
 
+## Docker and Coolify persistence
+
+Containers are replaceable, so a Docker deployment must mount the state that
+should survive a rebuild or redeploy. Configure these named-volume destination
+paths in Coolify:
+
+| Destination | Contents |
+|-------------|----------|
+| `/var/lib/agent-remote` | Agent Remote config/auth, shell history, Git/GitHub/npm settings, SSH/GnuPG state, and other XDG state |
+| `/root/.codex` | Codex config, file-backed login, skills/plugins, and resumable sessions |
+| `/root/.claude` | Claude Code config, login, and sessions |
+| `/workspace` | Repositories and working files |
+
+The image keeps runtime-only files such as the `sessiond` socket under
+`/run/agent-remote`; do not persist that path. At startup it configures Codex to
+store credentials in `$CODEX_HOME/auth.json`, inside the mounted Codex volume.
+That file contains access tokens and the volume should be treated as secret.
+
+Persistent storage preserves files, settings, and resumable agent history. An
+actual container stop still terminates its processes and PTYs, so running shells
+and full-screen programs cannot continue across a container restart.
+
 ## Features
 
 - **Workspaces** — named groups of panes, switch between them from a bar at the top

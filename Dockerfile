@@ -62,17 +62,28 @@ RUN bash -lc "npm install --global \
        done \
     && npm cache clean --force"
 
-ENV XDG_RUNTIME_DIR=/var/lib/agent-remote/runtime
+ENV XDG_RUNTIME_DIR=/run/agent-remote
 ENV XDG_CONFIG_HOME=/var/lib/agent-remote/config
+ENV XDG_DATA_HOME=/var/lib/agent-remote/data
+ENV XDG_STATE_HOME=/var/lib/agent-remote/state
+ENV XDG_CACHE_HOME=/var/cache/agent-remote
 ENV SHELL=/usr/bin/zsh
 ENV CODEX_HOME=/root/.codex
 ENV CLAUDE_CONFIG_DIR=/root/.claude
+ENV GH_CONFIG_DIR=/var/lib/agent-remote/config/gh
+ENV GIT_CONFIG_GLOBAL=/var/lib/agent-remote/config/gitconfig
+ENV NPM_CONFIG_USERCONFIG=/var/lib/agent-remote/config/npmrc
+ENV NODE_REPL_HISTORY=/var/lib/agent-remote/state/node/repl_history
+ENV PYTHON_HISTORY=/var/lib/agent-remote/state/python/history
 ENV AGENT_REMOTE_CODEX_VERSION=${CODEX_VERSION}
 ENV AGENT_REMOTE_CLAUDE_CODE_VERSION=${CLAUDE_CODE_VERSION}
 
 RUN mkdir -p \
     "$XDG_RUNTIME_DIR" \
     "$XDG_CONFIG_HOME" \
+    "$XDG_DATA_HOME" \
+    "$XDG_STATE_HOME" \
+    "$XDG_CACHE_HOME" \
     "$CODEX_HOME" \
     "$CLAUDE_CONFIG_DIR" \
     /workspace

@@ -1,6 +1,99 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
+persist_home_directory() {
+    local source_path="$1"
+    local persistent_path="$2"
+    local image_defaults_path
+
+    install -d -m 0700 "$persistent_path"
+
+    if [[ -L "$source_path" ]]; then
+        return
+    fi
+
+    # Respect an operator-provided mount at the conventional path. It is
+    # already persistent and must never be moved out of the mount point.
+    if command -v mountpoint >/dev/null 2>&1 && mountpoint -q "$source_path"; then
+        return
+    fi
+
+    if [[ -d "$source_path" ]]; then
+        # Preserve any defaults supplied by the base image without replacing
+        # state that was already written to the persistent volume.
+        cp -a -n "$source_path"/. "$persistent_path"/ 2>/dev/null || true
+        image_defaults_path="${source_path}.image-defaults"
+        while [[ -e "$image_defaults_path" ]]; do
+            image_defaults_path="${image_defaults_path}.old"
+        done
+        mv "$source_path" "$image_defaults_path"
+    elif [[ -e "$source_path" ]]; then
+        printf 'agent-remote: cannot persist %s because it is not a directory\n' \
+            "$source_path" >&2
+        return 1
+    fi
+
+    ln -s "$persistent_path" "$source_path"
+}
+
+ensure_state_layout() {
+    umask 077
+
+    install -d -m 0700 \
+        "$XDG_RUNTIME_DIR" \
+        "$XDG_CONFIG_HOME" \
+        "$XDG_DATA_HOME" \
+        "$XDG_STATE_HOME" \
+        "$CODEX_HOME" \
+        "$CLAUDE_CONFIG_DIR" \
+        "$GH_CONFIG_DIR" \
+        "$(dirname "$NODE_REPL_HISTORY")" \
+        "$(dirname "$PYTHON_HISTORY")"
+    install -d -m 0755 /workspace
+
+    # OpenSSH and GnuPG do not consistently follow XDG paths. Link their
+    # conventional home directories into Agent Remote's persistent state root.
+    persist_home_directory "$HOME/.ssh" "$XDG_CONFIG_HOME/ssh"
+    persist_home_directory "$HOME/.gnupg" "$XDG_CONFIG_HOME/gnupg"
+}
+
+ensure_codex_file_credentials() {
+    local config_path="$CODEX_HOME/config.toml"
+    local config_tmp
+
+    if [[ -f "$config_path" ]] \
+        && grep -Eq '^[[:space:]]*cli_auth_credentials_store[[:space:]]*=' "$config_path"; then
+        return
+    fi
+
+    if [[ ! -f "$config_path" ]]; then
+        printf 'cli_auth_credentials_store = "file"\n' > "$config_path"
+        chmod 0600 "$config_path"
+        return
+    fi
+
+    # A top-level TOML key must be inserted before the first table. Appending it
+    # could accidentally place it inside the final [table] in a user's config.
+    config_tmp="$(mktemp "$CODEX_HOME/.config.toml.XXXXXX")"
+    awk '
+        BEGIN { inserted = 0 }
+        !inserted && /^[[:space:]]*\[/ {
+            print "cli_auth_credentials_store = \"file\""
+            print ""
+            inserted = 1
+        }
+        { print }
+        END {
+            if (!inserted) {
+                if (NR > 0) print ""
+                print "cli_auth_credentials_store = \"file\""
+            }
+        }
+    ' "$config_path" > "$config_tmp"
+    chmod 0600 "$config_tmp"
+    mv "$config_tmp" "$config_path"
+}
+
 ensure_npm_cli() {
     local command_name="$1"
     local package_name="$2"
@@ -14,6 +107,9 @@ ensure_npm_cli() {
         "$command_name" "$package_name" "$package_version"
     npm install --global "${package_name}@${package_version}"
 }
+
+ensure_state_layout
+ensure_codex_file_credentials
 
 ensure_npm_cli codex @openai/codex "$AGENT_REMOTE_CODEX_VERSION"
 ensure_npm_cli claude @anthropic-ai/claude-code "$AGENT_REMOTE_CLAUDE_CODE_VERSION"
