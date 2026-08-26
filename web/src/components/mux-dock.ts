@@ -304,6 +304,24 @@ export class MuxDock extends LitElement {
   /** Bound capture-phase handler so we can remove it in disconnectedCallback. */
   private _onPointerDownCapture = (e: PointerEvent): void => {
     this._lastPointerType = e.pointerType || 'mouse';
+
+    // Dockview prevents pointerdown on its tab close and overflow controls so
+    // they do not start a drag. WebKit treats that cancelled pointerdown as a
+    // reason to suppress the synthetic click that follows a touch tap, leaving
+    // the controls inert on iPad/iPhone. Stop the touch pointerdown before it
+    // reaches dockview instead; the later click remains uncancelled and the
+    // existing click handlers run normally. Header buttons are included so a
+    // tap on our new-tab/split controls cannot be claimed by dockview's header
+    // drag surface. Tab bodies deliberately fall through so touch reordering
+    // keeps using dockview's pointer drag backend.
+    if (e.pointerType === 'touch' || e.pointerType === 'pen') {
+      const target = e.target instanceof Element ? e.target : null;
+      if (target?.closest(
+        '.dv-default-tab-action, .dv-tabs-overflow-dropdown-root, .mux-header-btn',
+      )) {
+        e.stopPropagation();
+      }
+    }
   };
   /**
    * Bound document pointerup handler — deactivates browser-pane drag shields
