@@ -407,6 +407,21 @@ export class MuxApp extends LitElement {
       min-height: 0;
     }
 
+    /* A software keyboard leaves little useful room for a split layout. On
+       touch devices, give the focused terminal the whole unobstructed visual
+       viewport until the keyboard is dismissed. Split.js leaves inline widths
+       on its children, so the main pane overrides those while focus mode is
+       active rather than tearing down and rebuilding the user's layout. */
+    .content-area.keyboard-focus mux-sidebar,
+    .content-area.keyboard-focus .sidebar-gutter {
+      display: none;
+    }
+
+    .content-area.keyboard-focus .main-pane {
+      width: 100% !important;
+      flex-basis: 100% !important;
+    }
+
     .main-pane {
       flex: 1;
       display: flex;
@@ -996,7 +1011,7 @@ export class MuxApp extends LitElement {
       && isTerminalSurface(activePane.surfaceKind ?? 'terminal');
 
     return html`
-      ${!isWide ? html`<mux-title-bar
+      ${!isWide && !showMobileKeyboard ? html`<mux-title-bar
         @launcher-action="${this._onLauncherAction}"
         @pane-select="${this._onActivePane}"
         @workspace-switch="${this._onWorkspaceSelected}"
@@ -1004,7 +1019,7 @@ export class MuxApp extends LitElement {
         @command-invoke="${this._onCommandInvoke}"
         @voice-transcript="${this._onVoiceTranscript}"
       ></mux-title-bar>` : ''}
-      <div class="content-area">
+      <div class="content-area ${showMobileKeyboard ? 'keyboard-focus' : ''}">
         ${isWide ? html`
           <mux-sidebar
             @workspace-switch="${this._onWorkspaceSelected}"
@@ -1033,6 +1048,7 @@ export class MuxApp extends LitElement {
                   .workspaceKey="${store.attached ?? ''}"
                   .layout="${store.layout}"
                   .narrow="${!isWide}"
+                  .keyboardFocusMode="${showMobileKeyboard}"
                   @pane-select="${this._onActivePane}"
                   @pane-close="${this._onClosePane}"
                   @command-invoke="${this._onCommandInvoke}"

@@ -269,6 +269,10 @@ export class MuxDock extends LitElement {
   @property({ attribute: false }) workspaceKey = '';
   @property({ attribute: false }) layout = '';
 
+  /** Temporarily maximize the active group while a touch software keyboard is
+   * visible. This is presentation-only and must never enter the saved layout. */
+  @property({ attribute: false, type: Boolean }) keyboardFocusMode = false;
+
   /** Test hook: exposes the MuxStore instance for E2E verification scripts. */
   readonly __store = store;
   /**
@@ -337,6 +341,9 @@ export class MuxDock extends LitElement {
   private _layoutSaveTimer: number | undefined;
   /** True while restoring a layout via fromJSON — suppresses layout-save echoes. */
   private _restoringLayout = false;
+  /** Pane maximized by keyboard focus mode. Null means any current maximize
+   * state predates focus mode and must be preserved when the keyboard closes. */
+  private _keyboardFocusMaximizedPaneId: number | null = null;
   /**
    * Where the NEXT newly-added pane should be placed:
    *   'tab'   — a new tab in the active group (the "+" button)
@@ -421,6 +428,7 @@ export class MuxDock extends LitElement {
 
   private _scheduleLayoutSave(): void {
     if (this.narrow) return; // narrow (phone) is a tab view — no persisted layout
+    if (this.keyboardFocusMode) return; // transient keyboard maximize is not durable layout
     if (this._restoringLayout) return; // don't echo a save while we're restoring
     // Viewer panels are client-local and cannot be reconstructed by sessiond.
     // Pause persistence while one is open so its component id/params never
@@ -432,6 +440,44 @@ export class MuxDock extends LitElement {
       const json = JSON.stringify(this._dv.toJSON());
       this.dispatchEvent(new CustomEvent('layout-save', { detail: { layout: json }, bubbles: true, composed: true }));
     }, 400);
+  }
+
+  /** Keep Dockview's maximized group aligned with the active terminal while
+   * keyboard focus mode is open, and restore the prior split when it closes. */
+  private _syncKeyboardFocusMode(): void {
+    if (!this._dv) return;
+
+    if (!this.keyboardFocusMode) {
+      const paneId = this._keyboardFocusMaximizedPaneId;
+      this._keyboardFocusMaximizedPaneId = null;
+      const panel = paneId === null ? undefined : this._panels.get(paneId);
+      if (panel?.api.isMaximized()) panel.api.exitMaximized();
+      return;
+    }
+
+    // A pending pre-keyboard save could otherwise fire after maximize() and
+    // accidentally persist this transient presentation state.
+    if (this._layoutSaveTimer !== undefined) {
+      clearTimeout(this._layoutSaveTimer);
+      this._layoutSaveTimer = undefined;
+    }
+
+    const activePanel = this._panels.get(this.activePaneId);
+    if (!activePanel) return;
+
+    if (this._keyboardFocusMaximizedPaneId !== null
+      && this._keyboardFocusMaximizedPaneId !== this.activePaneId) {
+      const previous = this._panels.get(this._keyboardFocusMaximizedPaneId);
+      if (previous?.api.isMaximized()) previous.api.exitMaximized();
+      this._keyboardFocusMaximizedPaneId = null;
+    }
+
+    // Preserve a maximize that existed before the keyboard opened. We only
+    // restore states that this mode created itself.
+    if (!activePanel.api.isMaximized()) {
+      activePanel.api.maximize();
+      this._keyboardFocusMaximizedPaneId = this.activePaneId;
+    }
   }
 
   private _refreshBellTitles(): void {
@@ -1087,6 +1133,8 @@ export class MuxDock extends LitElement {
       this._settingActive = true;
       this._removingPanels = true;
       try {
+        // Any tracked maximize belongs to the outgoing Dockview groups.
+        this._keyboardFocusMaximizedPaneId = null;
         // Clear locally-closed set: new workspace starts fresh.
         this._locallyClosedPanes.clear();
         // Close all existing panels
@@ -1214,6 +1262,7 @@ export class MuxDock extends LitElement {
         this._removingPanels = false;
       }
       this._refreshBellTitles();
+      this._syncKeyboardFocusMode();
       return;
     }
 
@@ -1286,6 +1335,7 @@ export class MuxDock extends LitElement {
         requestAnimationFrame(() => terminalRegistry.focus(paneIdToFocus));
       }
     }
+    this._syncKeyboardFocusMode();
     // Bell dot updates are reactive without a direct store.subscribe() here:
     // mux-app.render() passes store.panes.filter() which always returns a new
     // array reference on every store notification. Lit tracks the new reference
