@@ -19,27 +19,52 @@ COPY --from=web-build /src/web/dist ./web/dist
 RUN CGO_ENABLED=1 go build -trimpath -ldflags="-s -w" \
     -o /out/agent-remote ./cmd/agent-remote
 
-FROM debian:bookworm-slim
+FROM ghcr.io/openai/codex-universal:47f4f0eb5337083e2f610db0d15558932cb4901d
+
+ARG CODEX_VERSION=0.149.1
+ARG CLAUDE_CODE_VERSION=2.1.246
+
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-        bash \
-        ca-certificates \
-        curl \
-        git \
+        gh \
         libpam0g \
         procps \
     && rm -rf /var/lib/apt/lists/*
 
+# Keep the image self-contained so routine restarts do not depend on npm being
+# reachable. The startup wrapper below repairs either CLI if a mounted volume or
+# an image change ever leaves it unavailable.
+RUN bash -lc "npm install --global \
+        @openai/codex@${CODEX_VERSION} \
+        @anthropic-ai/claude-code@${CLAUDE_CODE_VERSION} \
+    && codex --version \
+    && claude --version \
+    && npm cache clean --force"
+
 ENV XDG_RUNTIME_DIR=/var/lib/agent-remote/runtime
 ENV XDG_CONFIG_HOME=/var/lib/agent-remote/config
+ENV CODEX_HOME=/root/.codex
+ENV CLAUDE_CONFIG_DIR=/root/.claude
+ENV AGENT_REMOTE_CODEX_VERSION=${CODEX_VERSION}
+ENV AGENT_REMOTE_CLAUDE_CODE_VERSION=${CLAUDE_CODE_VERSION}
 
-RUN mkdir -p "$XDG_RUNTIME_DIR" "$XDG_CONFIG_HOME"
+RUN mkdir -p \
+    "$XDG_RUNTIME_DIR" \
+    "$XDG_CONFIG_HOME" \
+    "$CODEX_HOME" \
+    "$CLAUDE_CONFIG_DIR" \
+    /workspace
 
 COPY --from=go-build /out/agent-remote /usr/local/bin/agent-remote
+COPY docker/agent-remote-start /usr/local/bin/agent-remote-start
+
+RUN chmod 0755 /usr/local/bin/agent-remote-start
+
+WORKDIR /workspace
 
 EXPOSE 8311
 
 HEALTHCHECK --interval=10s --timeout=5s --start-period=30s --retries=10 \
     CMD curl -fsS http://127.0.0.1:8311/api/health || exit 1
 
-ENTRYPOINT ["/usr/local/bin/agent-remote", "serve", "--addr", "0.0.0.0:8311", "--no-auth", "--behind-reverse-proxy", "--public-origin", "https://jt.actor"]
+ENTRYPOINT ["/opt/entrypoint.sh", "/usr/local/bin/agent-remote-start"]
