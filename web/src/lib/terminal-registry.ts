@@ -22,6 +22,11 @@ import { muxLog } from './mux-log.js';
 import { resolveTerminalFontFamily, TERMINAL_FONT_FAMILY } from './fonts.js';
 import { terminalPresentation } from './terminal-presentation.js';
 import { parseTerminalCWD, registerTerminalFileLinks } from './terminal-file-links.js';
+import {
+  mobileTerminalInput,
+  type MobileInputResult,
+  type MobileTerminalKey,
+} from './mobile-terminal-input.js';
 
 /**
  * Ensure xterm.js's stylesheet is present in the root node that actually
@@ -229,6 +234,19 @@ function _key(paneId: number): string {
   return `${_currentWorkspaceId}:${paneId}`;
 }
 
+/** Route a software Cmd chord through the same browser-local keybinding seams
+ * used by a physical keyboard. The originating character is consumed before
+ * this event is dispatched, so Cmd input can never leak into the PTY. */
+function _dispatchMobileShortcut(result: MobileInputResult): void {
+  if (!result.shortcut) return;
+  window.dispatchEvent(new KeyboardEvent('keydown', {
+    key: result.shortcut.key,
+    metaKey: result.shortcut.metaKey,
+    bubbles: true,
+    cancelable: true,
+  }));
+}
+
 // Minimum container pixels below which a fit is treated as a transient layout
 // artifact (dockview settle/teardown), not a real terminal size. The observed
 // transients measured ~10x4 cells (a few tens of px); a real pane is hundreds.
@@ -367,6 +385,7 @@ export const terminalRegistry = {
     hostEl.style.cssText = 'width:100%;height:100%;touch-action:none;overflow:auto;';
 
     const term = new Terminal(TERMINAL_CONFIG);
+    const inputTarget = { workspaceId: _currentWorkspaceId, paneId };
     let currentWorkingDirectory: string | undefined;
 
     // Terminal-query response ownership (see AGENTS.md "Terminal query
@@ -480,11 +499,15 @@ export const terminalRegistry = {
         }
         return;
       }
-      if (/\x1b/.test(data)) {
+      const mobileInput = mobileTerminalInput.transformText(inputTarget, data);
+      _dispatchMobileShortcut(mobileInput);
+      if (!mobileInput.data) return;
+
+      if (/\x1b/.test(mobileInput.data)) {
         muxLog('registry onData', `FORWARDED (ready) pane=${paneId}`,
-          { preview: JSON.stringify(data.slice(0, 60)) });
+          { preview: JSON.stringify(mobileInput.data.slice(0, 60)) });
       }
-      entry.handlers.onInput(_encoder.encode(data));
+      entry.handlers.onInput(_encoder.encode(mobileInput.data));
     });
 
     // Forward legacy binary mouse reports (X10/UTF-8 encoding).
@@ -1060,6 +1083,25 @@ export const terminalRegistry = {
   /** Focus the terminal for keyboard input. */
   focus(paneId: number): void {
     _map.get(_key(paneId))?.term.focus();
+  },
+
+  /**
+   * Send one key from the mobile accessory bar through the active pane's
+   * existing input handler. Cursor sequences respect xterm's current
+   * application-cursor mode; an armed Ctrl/Alt/Cmd modifier is consumed here.
+   */
+  sendMobileKey(paneId: number, key: MobileTerminalKey): void {
+    const entry = _map.get(_key(paneId));
+    if (!entry || !entry.ready) return;
+
+    const result = mobileTerminalInput.encodeKey(
+      { workspaceId: _currentWorkspaceId, paneId },
+      key,
+      entry.term.modes.applicationCursorKeysMode,
+    );
+    _dispatchMobileShortcut(result);
+    if (result.data) entry.handlers.onInput(_encoder.encode(result.data));
+    entry.term.focus();
   },
 
   /**

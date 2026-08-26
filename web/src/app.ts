@@ -42,14 +42,16 @@ import './components/mux-undo-toast.js';
 import './components/workspace-picker.js';
 import './components/reconnect-overlay.js';
 import './components/mux-sidebar.js';
+import './components/mobile-keyboard-bar.js';
 import type { MuxSidebar } from './components/mux-sidebar.js';
 
 
 import { WorkspaceController } from './lib/workspace-controller.js';
 import { PaneFocusCoordinator } from './lib/pane-focus-coordinator.js';
 import { mintClientRef } from './lib/client-ref.js';
-import { SessiondType, type LayoutCommand } from './types.js';
+import { SessiondType, isTerminalSurface, type LayoutCommand } from './types.js';
 import { currentLayoutMode } from './lib/breakpoint.js';
+import { detectMobilePlatform } from './lib/mobile-terminal-input.js';
 import { muxLog, muxLogReset } from './lib/mux-log.js';
 import Split from 'split.js';
 import type { Instance as SplitInstance } from 'split.js';
@@ -139,6 +141,8 @@ export class MuxApp extends LitElement {
          to svh (smallest stable viewport) then 100vh for older browsers. */
       height: 100vh;    /* fallback for browsers without dvh support */
       height: 100dvh;   /* dynamic viewport — shrinks with mobile browser chrome */
+      height: var(--mux-visual-viewport-height, 100dvh);
+      transform: translateY(var(--mux-visual-viewport-offset-top, 0px));
       background: var(--chrome-body);
       color: var(--mux-fg);
       overflow: hidden;
@@ -411,6 +415,14 @@ export class MuxApp extends LitElement {
       min-width: 0;
     }
 
+    /* mux-dock's injected base style uses height:100% for its standalone
+       layout. Inside main-pane it must be shrinkable so the mobile key bar
+       participates in the flex column instead of overflowing beneath it. */
+    .main-pane > mux-dock {
+      height: auto;
+      min-height: 0;
+    }
+
     /* Split.js gutter — styled to visually match the removed
        mux-sidebar.ts .resize-handle (4px, transparent, col-resize cursor,
        hover highlight). Unlike the old absolutely-positioned overlay, this
@@ -455,6 +467,61 @@ export class MuxApp extends LitElement {
 
   @state()
   private _layoutMode: 'wide' | 'narrow' = currentLayoutMode();
+
+  @state()
+  private _mobileKeyboardVisible = false;
+
+  /** Capability/OS scoped rather than breakpoint scoped: iPads commonly use
+   * wide layout but still need the software-keyboard accessory bar. */
+  private readonly _mobilePlatform = detectMobilePlatform();
+
+  /** Largest unobstructed visual viewport seen for the current orientation.
+   * A software keyboard is inferred from a focused xterm textarea plus a
+   * substantial reduction from this baseline. */
+  private _mobileViewportBaselineHeight = 0;
+  private _mobileViewportBaselineWidth = 0;
+  private _mobileFocusFrame: number | undefined;
+
+  /** Keep the bottom accessory bar above iOS's overlay keyboard. Android's
+   * interactive-widget viewport mode usually resizes layout directly, while
+   * iOS exposes keyboard occlusion only through VisualViewport. */
+  private _syncMobileVisualViewport = (): void => {
+    if (!this._mobilePlatform.mobile || !window.visualViewport) return;
+    const viewport = window.visualViewport;
+    const height = viewport.height;
+    const terminalFocused = this.shadowRoot?.activeElement?.classList.contains('xterm-helper-textarea') === true;
+
+    if (this._mobileViewportBaselineWidth === 0
+      || Math.abs(viewport.width - this._mobileViewportBaselineWidth) > 1) {
+      // Width changes indicate an orientation or windowing-mode change, so
+      // the old portrait/landscape height is no longer a useful baseline.
+      this._mobileViewportBaselineWidth = viewport.width;
+      this._mobileViewportBaselineHeight = height;
+    } else if (this._mobileViewportBaselineHeight === 0
+      || height > this._mobileViewportBaselineHeight
+      || (!terminalFocused && !this._mobileKeyboardVisible)) {
+      this._mobileViewportBaselineHeight = height;
+    }
+
+    const keyboardVisible = terminalFocused
+      && this._mobileViewportBaselineHeight - height > 120;
+    if (keyboardVisible !== this._mobileKeyboardVisible) {
+      this._mobileKeyboardVisible = keyboardVisible;
+    }
+
+    // height keeps the terminal grid above an overlay keyboard; offsetTop
+    // follows iOS when it pans the visual viewport to keep the cursor visible.
+    this.style.setProperty('--mux-visual-viewport-height', `${height}px`);
+    this.style.setProperty('--mux-visual-viewport-offset-top', `${viewport.offsetTop}px`);
+  };
+
+  private _onMobileFocusChange = (): void => {
+    if (this._mobileFocusFrame !== undefined) cancelAnimationFrame(this._mobileFocusFrame);
+    this._mobileFocusFrame = requestAnimationFrame(() => {
+      this._mobileFocusFrame = undefined;
+      this._syncMobileVisualViewport();
+    });
+  };
 
   /** Public Command seam consumed by UI surfaces, shortcut dispatch, and E2E. */
   readonly commands = new CommandRegistry([
@@ -564,6 +631,13 @@ export class MuxApp extends LitElement {
     window.addEventListener(TERMINAL_FILE_OPEN_EVENT, this._onTerminalFileOpen);
     // Update layout mode when the viewport crosses the 768px breakpoint.
     window.addEventListener('resize', this._onViewportResize);
+    if (this._mobilePlatform.mobile) {
+      window.visualViewport?.addEventListener('resize', this._syncMobileVisualViewport);
+      window.visualViewport?.addEventListener('scroll', this._syncMobileVisualViewport);
+      document.addEventListener('focusin', this._onMobileFocusChange);
+      document.addEventListener('focusout', this._onMobileFocusChange);
+      this._syncMobileVisualViewport();
+    }
     this._layoutMode = currentLayoutMode();
     // Apply the default theme before the first rendered frame. The resolved
     // server config will replace it as soon as the config envelope arrives.
@@ -726,6 +800,17 @@ export class MuxApp extends LitElement {
     window.removeEventListener('layout-command', this._onLayoutCommand);
     window.removeEventListener(TERMINAL_FILE_OPEN_EVENT, this._onTerminalFileOpen);
     window.removeEventListener('resize', this._onViewportResize);
+    window.visualViewport?.removeEventListener('resize', this._syncMobileVisualViewport);
+    window.visualViewport?.removeEventListener('scroll', this._syncMobileVisualViewport);
+    document.removeEventListener('focusin', this._onMobileFocusChange);
+    document.removeEventListener('focusout', this._onMobileFocusChange);
+    if (this._mobileFocusFrame !== undefined) cancelAnimationFrame(this._mobileFocusFrame);
+    this._mobileFocusFrame = undefined;
+    this._mobileKeyboardVisible = false;
+    this._mobileViewportBaselineHeight = 0;
+    this._mobileViewportBaselineWidth = 0;
+    this.style.removeProperty('--mux-visual-viewport-height');
+    this.style.removeProperty('--mux-visual-viewport-offset-top');
     this._disposePaneFocusListeners?.();
     this._disposePaneFocusListeners = null;
     this._paneFocusCoordinator = null;
@@ -904,6 +989,11 @@ export class MuxApp extends LitElement {
     const panes = store.panes.filter((p) => p.paneId >= 0);
     const isWide = this._layoutMode === 'wide';
     const createTab = this.commands.get(CREATE_TAB_COMMAND.id)!;
+    const activePane = panes.find((pane) => pane.paneId === store.activePaneId);
+    const showMobileKeyboard = this._mobilePlatform.mobile
+      && this._mobileKeyboardVisible
+      && !!activePane
+      && isTerminalSurface(activePane.surfaceKind ?? 'terminal');
 
     return html`
       ${!isWide ? html`<mux-title-bar
@@ -952,6 +1042,13 @@ export class MuxApp extends LitElement {
                   @layout-save="${this._onLayoutSave}"
                 ></mux-dock>
               `}
+          ${showMobileKeyboard ? html`
+            <mux-mobile-keyboard-bar
+              .workspaceId="${store.attached ?? ''}"
+              .paneId="${store.activePaneId}"
+              .showCommandKey="${this._mobilePlatform.ios}"
+            ></mux-mobile-keyboard-bar>
+          ` : ''}
         </div>
 
       </div>
