@@ -153,6 +153,7 @@ func New(cfg Config) *Server {
 	s.mux.Handle("GET /api/config", protect(http.HandlerFunc(s.handleGetConfig)))
 	s.mux.Handle("PATCH /api/config", protect(http.HandlerFunc(s.handlePatchConfig)))
 	s.mux.Handle("GET /api/files", protect(http.HandlerFunc(s.handleFileRead)))
+	s.mux.Handle("GET /api/file-tree", protect(http.HandlerFunc(s.handleFileTree)))
 
 	// Opt-in AI capability. Deliberately a separate route family from
 	// /api/config: the key goes in via PUT and only a derived Status comes out.

@@ -43,6 +43,7 @@ import './components/workspace-picker.js';
 import './components/reconnect-overlay.js';
 import './components/mux-sidebar.js';
 import './components/mobile-keyboard-bar.js';
+import './components/file-tree-sidebar.js';
 import type { MuxSidebar } from './components/mux-sidebar.js';
 
 
@@ -68,6 +69,7 @@ import {
  *  in `widthPxToSplitPercent()` — defined once so the two can never drift
  *  out of sync if the gutter size is ever changed. */
 const SIDEBAR_GUTTER_SIZE = 4;
+const FILE_TREE_OPEN_KEY = 'agent-remote.fileTreeOpen';
 /** Small positive bias (px) that makes Split's percentage renderer round to
  *  the requested whole pixel instead of occasionally landing 1/64px short. */
 const SIDEBAR_SUBPIXEL_ROUNDING_BIAS = 0.001;
@@ -87,6 +89,15 @@ const SIDEBAR_SUBPIXEL_ROUNDING_BIAS = 0.001;
  *  quantization from resolving an otherwise exact target 1/64px short. */
 function widthPxToSplitPercent(targetPx: number, containerWidth: number, gutterSize: number): number {
   return ((targetPx + gutterSize / 2 + SIDEBAR_SUBPIXEL_ROUNDING_BIAS) / containerWidth) * 100;
+}
+
+function restoreFileTreeOpen(): boolean {
+  try {
+    const stored = localStorage.getItem(FILE_TREE_OPEN_KEY);
+    return stored === null ? true : stored === 'true';
+  } catch {
+    return true;
+  }
 }
 
 // Optimistic panes use a strictly-negative temp paneId so they never collide
@@ -413,10 +424,12 @@ export class MuxApp extends LitElement {
        on its children, so the main pane overrides those while focus mode is
        active rather than tearing down and rebuilding the user's layout. */
     .content-area.keyboard-focus mux-sidebar,
+    .content-area.keyboard-focus file-tree-sidebar,
     .content-area.keyboard-focus .sidebar-gutter {
       display: none;
     }
 
+    .content-area.keyboard-focus .workspace-area,
     .content-area.keyboard-focus .main-pane {
       width: 100% !important;
       flex-basis: 100% !important;
@@ -428,6 +441,14 @@ export class MuxApp extends LitElement {
       flex-direction: column;
       overflow: hidden;
       min-width: 0;
+    }
+
+    .workspace-area {
+      flex: 1;
+      display: flex;
+      min-width: 0;
+      min-height: 0;
+      overflow: hidden;
     }
 
     /* mux-dock's injected base style uses height:100% for its standalone
@@ -470,6 +491,9 @@ export class MuxApp extends LitElement {
 
   @state()
   private _creatingWorkspace = false;
+
+  @state()
+  private _fileTreeOpen = restoreFileTreeOpen();
 
   @state()
   private _showCreateModal = false;
@@ -580,6 +604,8 @@ export class MuxApp extends LitElement {
   private _closingPanes = new Set<number>();
 
   private _socket: MuxSocket | null = null;
+  private _resolvePaneCWD = (paneId: number): Promise<string | undefined> =>
+    this._socket?.paneCWD(paneId) ?? Promise.resolve(undefined);
   private _unsubscribe: (() => void) | null = null;
   private _controller: WorkspaceController | null = null;
   private _paneFocusCoordinator: PaneFocusCoordinator | null = null;
@@ -676,6 +702,7 @@ export class MuxApp extends LitElement {
       // Cycle tabs within the active pane's group only (not across split panes).
       nextTab: () => this._dock?.cycleTabInGroup('next'),
       prevTab: () => this._dock?.cycleTabInGroup('prev'),
+      toggleFileTree: () => this._toggleFileTree(),
     });
 
     // Re-render whenever wire state (composition / workspaces / config) changes.
@@ -930,14 +957,14 @@ export class MuxApp extends LitElement {
 
   private _initSplit(): void {
     const sidebarEl = this.renderRoot.querySelector<HTMLElement>('mux-sidebar');
-    const mainPaneEl = this.renderRoot.querySelector<HTMLElement>('.main-pane');
+    const workspaceAreaEl = this.renderRoot.querySelector<HTMLElement>('.workspace-area');
     const contentAreaEl = this.renderRoot.querySelector<HTMLElement>('.content-area');
-    if (!sidebarEl || !mainPaneEl || !contentAreaEl || this._split) return;
+    if (!sidebarEl || !workspaceAreaEl || !contentAreaEl || this._split) return;
 
     this._sidebarWidthPx = restoreSidebarWidth();
     const pct = widthPxToSplitPercent(this._sidebarWidthPx, contentAreaEl.clientWidth, SIDEBAR_GUTTER_SIZE);
 
-    this._split = Split([sidebarEl, mainPaneEl], {
+    this._split = Split([sidebarEl, workspaceAreaEl], {
       // Percentage sizes, Split's own default calc() renderer — no custom
       // elementStyle (see design doc's Architecture section for why the
       // prior custom pixel-based renderer was removed).
@@ -1028,14 +1055,17 @@ export class MuxApp extends LitElement {
       <div class="content-area ${showMobileKeyboard ? 'keyboard-focus' : ''}">
         ${isWide ? html`
           <mux-sidebar
+            .fileTreeOpen="${this._fileTreeOpen}"
             @workspace-switch="${this._onWorkspaceSelected}"
             @workspace-create="${this._onOpenCreateModal}"
             @workspace-rename="${this._onWorkspaceRename}"
             @workspace-close="${this._onSidebarWorkspaceClose}"
             @launcher-action="${this._onLauncherAction}"
+            @file-tree-toggle="${this._toggleFileTree}"
           ></mux-sidebar>
         ` : ''}
-        <div class="main-pane">
+        <div class="workspace-area">
+          <div class="main-pane">
           ${panes.length === 0
             ? html`
                 <div class="empty-workspace">
@@ -1070,6 +1100,17 @@ export class MuxApp extends LitElement {
               .paneId="${store.activePaneId}"
               .showCommandKey="${this._mobilePlatform.ios}"
             ></mux-mobile-keyboard-bar>
+          ` : ''}
+          </div>
+
+          ${isWide && this._fileTreeOpen ? html`
+            <file-tree-sidebar
+              .paneId="${activePane && isTerminalSurface(activePane.surfaceKind ?? 'terminal') ? activePane.paneId : 0}"
+              .workspaceId="${store.attached ?? ''}"
+              .cwdProvider="${this._resolvePaneCWD}"
+              @file-open="${this._onFileTreeOpen}"
+              @file-tree-toggle="${this._toggleFileTree}"
+            ></file-tree-sidebar>
           ` : ''}
         </div>
 
@@ -1176,6 +1217,20 @@ export class MuxApp extends LitElement {
     // This pane just became the visible tab in this client's layout, so it
     // should claim PTY-sizing authority (active-view-wins).
     this._paneFocusCoordinator?.claimPane(e.detail.paneId);
+  };
+
+  private _toggleFileTree = (): void => {
+    this._fileTreeOpen = !this._fileTreeOpen;
+    try {
+      localStorage.setItem(FILE_TREE_OPEN_KEY, String(this._fileTreeOpen));
+    } catch {
+      // Storage can be unavailable in hardened/private browser contexts.
+    }
+  };
+
+  private _onFileTreeOpen = (e: CustomEvent<{ path: string }>): void => {
+    if (!e.detail?.path) return;
+    this._dock?.openFile({ path: e.detail.path });
   };
 
   /**

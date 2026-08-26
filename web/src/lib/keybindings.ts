@@ -13,6 +13,7 @@ export interface UIActions {
   closePane?: () => void;
   nextTab?: () => void;
   prevTab?: () => void;
+  toggleFileTree?: () => void;
 }
 
 /** Normalizes a KeyboardEvent to a canonical chord string: ctrl+alt+shift+meta+key. */
@@ -83,14 +84,20 @@ export function installCommandShortcuts(
  * These are not user-configurable — they make agent-remote feel like a native app.
  *
  *   Cmd/Ctrl+W      — close the active pane   (interceptable in all modes)
+ *   Alt+Cmd/Ctrl+B  — toggle the desktop file tree
  *
  * Returns a cleanup function.
  */
 export function installAppShortcuts(
-  actions: Pick<UIActions, 'closePane' | 'nextTab' | 'prevTab'>,
+  actions: Pick<UIActions, 'closePane' | 'nextTab' | 'prevTab' | 'toggleFileTree'>,
 ): () => void {
   const handler = (e: KeyboardEvent): void => {
     if (isRecordingKeybinding(e)) return;
+    if ((e.key === 'b' || e.key === 'B') && e.altKey && (e.metaKey || e.ctrlKey) && !e.shiftKey) {
+      e.preventDefault();
+      actions.toggleFileTree?.();
+      return;
+    }
     if (e.key === 'w' || e.key === 'W') {
       if (e.metaKey || e.ctrlKey) {
         e.preventDefault();

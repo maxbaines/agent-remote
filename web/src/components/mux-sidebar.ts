@@ -1,10 +1,10 @@
 import { LitElement, html, css, unsafeCSS } from 'lit';
-import { customElement, state } from 'lit/decorators.js';
+import { customElement, property, state } from 'lit/decorators.js';
 import { store } from '../state.js';
 import { workspaceLabel } from './workspace-picker.js';
 import './launcher-menu.js';
 import { icon } from '../lib/icons.js';
-import { Ellipsis } from 'lucide';
+import { Ellipsis, FolderTree } from 'lucide';
 import { SIDEBAR_MIN_WIDTH, SIDEBAR_MAX_WIDTH } from '../lib/sidebar-width.js';
 import { instanceLabel } from '../lib/instance-identity.js';
 
@@ -70,6 +70,18 @@ export class MuxSidebar extends LitElement {
 
     .launcher-btn:hover {
       background: var(--chrome-hover);
+    }
+
+    .launcher-btn.active {
+      color: var(--chrome-accent);
+      background: var(--chrome-hover);
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 1px;
+      flex-shrink: 0;
     }
 
     .menu-anchor {
@@ -265,6 +277,7 @@ export class MuxSidebar extends LitElement {
   @state() private _renaming: string | null = null;
   @state() private _pendingClose = new Set<string>();
   @state() private _menuOpen = false;
+  @property({ type: Boolean }) fileTreeOpen = false;
 
   private _unsub: (() => void) | null = null;
 
@@ -282,6 +295,13 @@ export class MuxSidebar extends LitElement {
       bubbles: true,
       composed: true,
       detail: customEvent.detail,
+    }));
+  }
+
+  private _toggleFileTree(): void {
+    this.dispatchEvent(new CustomEvent('file-tree-toggle', {
+      bubbles: true,
+      composed: true,
     }));
   }
 
@@ -475,11 +495,18 @@ export class MuxSidebar extends LitElement {
     return html`
       <div class="header">
         <span title="${window.location.hostname}">${instanceLabel()}</span>
-        <button
-          class="launcher-btn"
-          title="Open menu"
-          @click="${() => { this._menuOpen = !this._menuOpen; }}"
-        >${icon(Ellipsis, { size: 15 })}</button>
+        <div class="header-actions">
+          <button
+            class="launcher-btn ${this.fileTreeOpen ? 'active' : ''}"
+            title="${this.fileTreeOpen ? 'Hide file tree' : 'Show file tree'} (⌥⌘B)"
+            @click="${this._toggleFileTree}"
+          >${icon(FolderTree, { size: 15 })}</button>
+          <button
+            class="launcher-btn"
+            title="Open menu"
+            @click="${() => { this._menuOpen = !this._menuOpen; }}"
+          >${icon(Ellipsis, { size: 15 })}</button>
+        </div>
         ${this._menuOpen
           ? html`<div class="menu-anchor">
               <mux-launcher-menu
