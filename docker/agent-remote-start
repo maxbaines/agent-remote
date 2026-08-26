@@ -23,6 +23,5 @@ printf 'agent-remote: Claude Code %s\n' "$(claude --version)"
 
 exec /usr/local/bin/agent-remote serve \
     --addr 0.0.0.0:8311 \
-    --no-auth \
     --behind-reverse-proxy \
     --public-origin "${AGENT_REMOTE_PUBLIC_ORIGIN:-https://jt.actor}"
