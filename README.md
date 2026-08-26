@@ -1,144 +1,105 @@
 # Agent Remote
 
-A web-first terminal workspace. Persistent sessions, split panes, and a browser UI — backed by a custom Go Session Owner.
+Persistent terminal workspaces for your browser.
 
-Agent Remote is an upstream-aware fork of muxterm. See [fork provenance](docs/fork-provenance.md) for the pinned source revision, compatibility boundaries, and update policy.
+Agent Remote runs shells and coding agents on a Host, while the UI runs in a browser or installed PWA. Organize work into named Workspaces, arrange terminal Panes as tabs or splits, disconnect, and return without tying a Terminal Session's lifetime to one browser tab.
 
-## Install
+![Agent Remote desktop workspace](docs/visual-reference/agent-remote-desktop-v1.png)
 
-### macOS — Homebrew
-```bash
-brew install maxbaines/tap/agent-remote
-```
+> [!NOTE]
+> Agent Remote is under active development and does not have a tagged release yet. The Homebrew tap has not been published, and the install script has no release archive to fetch. For now, build from source.
 
-### Linux
+## Highlights
 
-```bash
-curl -fsSL https://raw.githubusercontent.com/maxbaines/agent-remote/main/install.sh | bash
-```
+- **Persistent Terminal Sessions** — the Session Owner keeps PTYs alive when browsers disconnect or the Gateway restarts.
+- **Workspaces, tabs, and splits** — group related work, drag to resize, and nest Pane Groups with dockview.
+- **Clean reconnects** — server-side VT emulation replays the live screen instead of dumping a stale raw byte stream.
+- **Desktop and mobile controls** — configurable Keybindings, touch-safe Pane actions, a mobile modifier-key bar, and voice input where the browser supports it.
+- **Terminal file links** — open detected source, text, log, and Markdown paths in read-only in-app viewers.
+- **Nine bundled themes** — coordinated terminal palettes and browser chrome, applied immediately to open terminals.
+- **Self-hosted authentication** — passkey-first remote sign-in with TOTP and one-use recovery codes; no identity SaaS or external database.
+- **Agent integration** — a local MCP server can operate Workspaces, Panes, terminals, tunnels, and configuration.
+- **Single application binary** — the Go Gateway embeds the built web client; only the separate Session Owner process stays behind to own PTYs.
 
-Or review first:
-```bash
-curl -fsSL https://raw.githubusercontent.com/maxbaines/agent-remote/main/install.sh -o install.sh
-less install.sh
-bash install.sh
-```
+## Build and run
 
-**No sudo required.** The binary installs to `~/.local/bin` and PATH is configured automatically.
+### Requirements
 
-**To run as a background service** (persists across reboots):
-```bash
-agent-remote install
-# Optionally, to keep running even when logged out:
-sudo loginctl enable-linger $USER
-```
-
-**To upgrade:**
-```bash
-curl -fsSL https://raw.githubusercontent.com/maxbaines/agent-remote/main/install.sh | bash
-agent-remote install  # restarts the service with the new binary
-```
-
-### Windows — Scoop (coming soon)
-
-Pre-built binaries for each platform are attached to every [GitHub Release](https://github.com/maxbaines/agent-remote/releases).
-
-## What is this?
-
-Agent Remote is a terminal workspace where the UI lives in a browser. Open splits, create Workspaces, and resize Panes in HTML and xterm.js, then reconnect from another Remote Client without tying Terminal Session lifetime to the browser.
-
-The session daemon is a standalone Go process that owns your PTYs directly. It survives HTTP server restarts. When you reconnect, it replays a clean screen state — not a raw byte stream — so full-screen apps like vim and htop come back correctly at whatever size your window happens to be.
-
-```
-Browser (Lit + xterm.js + dockview)
-    ↕ WebSocket (binary-framed protocol)
-Go server (HTTP + WS relay)
-    ↕ Unix socket
-sessiond (PTY daemon)
-    ↕ PTY
-your shells
-```
-
-## Quick start
+- A Unix-like Host: macOS, Linux, or WSL2
+- Go 1.24.4 (the version pinned by `go.mod`)
+- Node.js 22 and npm
 
 ```bash
-# Build
+git clone https://github.com/maxbaines/agent-remote.git
+cd agent-remote
 make build
-
-# Run locally (opens browser, connects to local sessiond)
 ./bin/agent-remote
+```
 
-# Run behind an HTTPS reverse proxy for remote access
-./bin/agent-remote serve --addr 127.0.0.1:8080 \
+Running `agent-remote` without a subcommand starts the local Gateway at `http://127.0.0.1:8311` and opens it in your browser. Loopback access needs no authentication.
+
+## Remote access
+
+Put Agent Remote behind an HTTPS reverse proxy and give it the final public origin:
+
+```bash
+./bin/agent-remote serve \
+  --addr 127.0.0.1:8080 \
   --behind-reverse-proxy \
   --public-origin https://agent-remote.example.com
-
-# On the host, create the one-time enrollment code
-./bin/agent-remote auth init --origin https://agent-remote.example.com
-
-# Install as a system service (survives reboots)
-./bin/agent-remote install
-
-# Push to a remote server
-./bin/agent-remote deploy user@myserver.com
 ```
 
-## Docker and Coolify persistence
+Then create the single-use owner-enrollment link on the Host:
 
-Containers are replaceable, so a Docker deployment must mount the state that
-should survive a rebuild or redeploy. Configure these named-volume destination
-paths in Coolify:
+```bash
+./bin/agent-remote auth init --origin https://agent-remote.example.com
+```
+
+Open the printed URL, register a passkey, enroll TOTP, and save the recovery codes. Passkeys are scoped to the configured hostname, so choose the final HTTPS origin before enrolling. The reverse proxy must forward both normal HTTP traffic and WebSocket upgrades.
+
+See [Authentication](docs/authentication.md) for setup, recovery, storage, and reset details.
+
+## Docker and Coolify
+
+The repository Dockerfile builds Agent Remote on top of the Codex universal image and includes Codex CLI, Claude Code, zsh, GitHub CLI, Starship, delta, lazygit, and yazi. It listens on container port `8311`.
+
+For a Coolify deployment:
+
+1. Build from the repository `Dockerfile`.
+2. Expose port `8311` through an HTTPS domain.
+3. Set `AGENT_REMOTE_PUBLIC_ORIGIN` to that exact origin.
+4. Add persistent storage for the paths below.
 
 | Destination | Contents |
-|-------------|----------|
-| `/var/lib/agent-remote` | Agent Remote config/auth, shell history, Git/GitHub/npm settings, SSH/GnuPG state, and other XDG state |
-| `/root/.codex` | Codex config, file-backed login, skills/plugins, and resumable sessions |
-| `/root/.claude` | Claude Code config, login, and sessions |
+|---|---|
+| `/var/lib/agent-remote` | Agent Remote auth/config, shell history, Git/GitHub/npm settings, SSH/GnuPG state, and other XDG state |
+| `/root/.codex` | Codex configuration, file-backed login, skills/plugins, and resumable sessions |
+| `/root/.claude` | Claude Code configuration, login, and sessions |
 | `/workspace` | Repositories and working files |
 
-The image keeps runtime-only files such as the `sessiond` socket under
-`/run/agent-remote`; do not persist that path. At startup it configures Codex to
-store credentials in `$CODEX_HOME/auth.json`, inside the mounted Codex volume.
-That file contains access tokens and the volume should be treated as secret.
+Do not persist `/run/agent-remote`; it contains runtime-only sockets. Treat the persisted volumes as sensitive because they can contain access tokens, private keys, and shell history.
 
-Persistent storage preserves files, settings, and resumable agent history. An
-actual container stop still terminates its processes and PTYs, so running shells
-and full-screen programs cannot continue across a container restart.
+### What persistence means
 
-## Features
+The Session Owner survives Remote Client disconnects and Gateway restarts, so live shells continue through a web-server restart or binary redeploy that leaves the Session Owner running.
 
-- **Workspaces** — named groups of panes, switch between them from a bar at the top
-- **Split panes** — real DOM layout via dockview; drag to resize, arbitrary nesting
-- **Clean reconnects** — server-side VT emulation replays a live cell-grid snapshot, not raw bytes; full-screen apps restore correctly at any window size
-- **Browser pane** — embed a running local web app (e.g. a dev server on port 3000) as a mux pane, proxied through the server
-- **PWA** — installable as a standalone desktop or mobile app; service worker for offline support
-- **Bundled themes** — nine coordinated dark and light palettes update existing terminals and browser chrome immediately
-- **Session persistence** — the sessiond daemon detaches from the HTTP server; your shells survive server restarts, deploys, and reboots
-- **Single binary** — Go binary with embedded frontend; no external runtime besides a shell
-- **Auth** — passkey-first remote login with TOTP-backed one-use recovery codes; no identity service or email provider
-- **Service install** — `agent-remote install` sets up systemd (Linux) or launchd (macOS)
-- **Push deploy** — `agent-remote deploy user@host` copies the binary and installs remotely
-- **Agent integration (MCP)** — connect any MCP-compatible AI agent to drive workspaces, terminals, and browser panes
+A Host reboot, container replacement, or Session Owner stop still terminates live PTYs and their processes. Persistent volumes preserve files, configuration, and resumable agent history; they cannot preserve a running shell process.
 
-## Agent integration (MCP)
+## Agent integration with MCP
 
-`agent-remote mcp` exposes a [Model Context Protocol](https://modelcontextprotocol.io) server that lets any MCP-compatible AI agent drive workspaces, terminals, and browser panes. The server speaks JSON-RPC 2.0 over stdio and requires a running `agent-remote` or `agent-remote serve` instance to connect to.
+`agent-remote mcp` exposes a [Model Context Protocol](https://modelcontextprotocol.io) server over JSON-RPC 2.0 on stdio. It connects to a running local Agent Remote instance and currently provides 17 tools:
 
-**25 tools** across 6 categories: workspace management, pane layout (with ASCII diagram for spatial awareness), terminal control (OSC 133 shell completion), browser navigation, browser interaction, and browser observation.
+- terminal input, command completion, and screen observation;
+- Workspace and Pane lifecycle and layout;
+- port-forward tunnel lifecycle; and
+- live configuration reads and updates.
+
+It also exposes current terminal screens as `pane://` resources.
 
 ### Amplifier
 
-Add to `.amplifier/mcp.json` (project) or `~/.amplifier/mcp.json` (global):
-
-```json
-{
-  "mcpServers": {
-    "agent-remote": {
-      "command": "agent-remote",
-      "args": ["mcp"]
-    }
-  }
-}
+```bash
+agent-remote amplifier install
 ```
 
 ### Claude Code
@@ -147,22 +108,9 @@ Add to `.amplifier/mcp.json` (project) or `~/.amplifier/mcp.json` (global):
 claude mcp add agent-remote -- agent-remote mcp
 ```
 
-Or add to `.mcp.json` in your project root:
-
-```json
-{
-  "mcpServers": {
-    "agent-remote": {
-      "command": "agent-remote",
-      "args": ["mcp"]
-    }
-  }
-}
-```
-
 ### OpenCode
 
-Add to `opencode.json` in your project root:
+Add this server to `opencode.json`:
 
 ```json
 {
@@ -176,85 +124,76 @@ Add to `opencode.json` in your project root:
 }
 ```
 
-## Authentication
+## CLI
 
-Local loopback use keeps the zero-config bypass. Remote access uses a passkey as the normal sign-in method, with a TOTP authenticator plus one saved one-use recovery code as the fallback. Authentication is self-hosted inside the Agent Remote binary; it does not require Better Auth, Resend, an email provider, or an external database.
+| Command | Purpose |
+|---|---|
+| `agent-remote` | Start locally on `127.0.0.1:8311` and open a browser |
+| `agent-remote serve` | Start a Gateway for local or reverse-proxied access |
+| `agent-remote install` | Install systemd or launchd services |
+| `agent-remote uninstall` | Remove the installed services |
+| `agent-remote deploy user@host` | Copy and install the current binary over SSH |
+| `agent-remote doctor` | Inspect Gateway, Session Owner, and service health |
+| `agent-remote auth ...` | Initialize, inspect, or reset owner authentication |
+| `agent-remote mcp` | Start the local stdio MCP server |
+| `agent-remote amplifier install` | Install the Agent Remote Amplifier bundle |
+| `agent-remote version` | Print version information |
 
-For a remote deployment, first set the final HTTPS origin in `~/.config/agent-remote/config.toml` (or `$XDG_CONFIG_HOME/agent-remote/config.toml`):
+Run `agent-remote <command> --help` for command-specific flags.
 
-```toml
-[server]
-behind_reverse_proxy = true
-public_origin = "https://agent-remote.example.com"
+## How it works
+
+```text
+Remote Client (browser or installed PWA)
+    ↕ WebSocket
+Gateway (Go HTTP server, auth, configuration, file and tunnel APIs)
+    ↕ Unix socket
+Session Owner (Workspace registry, PTYs, VT buffers, replay)
+    ↕ PTY
+shells and coding agents
 ```
 
-Start or restart Agent Remote behind your TLS reverse proxy, then run this in a shell on the host:
+Each Pane is backed by a real PTY. The Session Owner, not the browser, owns terminal state and answers terminal queries. The Gateway can therefore restart independently, and a reconnecting Remote Client receives a fresh serialization of the current VT cell grid plus retained scrollback.
+
+The browser renders terminals with xterm.js and arranges Pane Groups with dockview. One WebSocket carries binary Pane I/O and JSON control messages between a Remote Client and the Gateway.
+
+## Development and verification
+
+Build and run the isolated local development stack:
 
 ```bash
-agent-remote auth init
-```
-
-The command prints a single-use setup code and URL valid for ten minutes. Open the URL, enter the code, register a passkey, add the displayed secret to your authenticator app, and confirm a six-digit code. Save the recovery codes shown at the end; they are not displayed again.
-
-```bash
-agent-remote auth status       # non-secret enrollment status
-agent-remote auth reset --yes  # remove credentials and sessions; restart afterward
-```
-
-Changing `public_origin` changes the WebAuthn relying party. Reset and re-enroll authentication if the public hostname changes. See [Authentication](docs/authentication.md) for the complete setup and recovery model.
-
-## Architecture
-
-| Component | Role |
-|-----------|------|
-| `cmd/agent-remote/` | CLI — serve, install, uninstall, deploy, sessiond, doctor |
-| `internal/sessiond/` | PTY daemon — workspace/pane registry, VT emulation, reconnect replay |
-| `internal/server/` | HTTP + WebSocket relay, auth, browser-pane proxy |
-| `internal/service/` | Cross-platform service install (systemd/launchd) |
-| `internal/deploy/` | Push-to-remote via SSH |
-| `web/src/` | Lit web components, xterm.js terminal rendering, dockview split layout |
-
-### Session daemon
-
-`sessiond` is a separate Unix socket daemon that manages PTYs independently of the HTTP server. Each pane is a real PTY running `$SHELL`. The daemon auto-starts when the first browser client connects, and keeps running when the server restarts.
-
-For reconnect, `sessiond` runs a headless VT emulator (`charmbracelet/x/vt`) per pane with 2000-line scrollback. On attach, it serializes the live cell grid and sends it as a clean replay — so reconnecting to a vim session doesn't produce garbage at the wrong terminal size.
-
-### Protocol
-
-One WebSocket per browser tab, backed by one Unix socket connection to `sessiond`. Frames are binary-prefixed: `[4-byte length][1-byte kind][payload]`. Pane I/O is raw bytes with a 4-byte pane ID prefix. Control messages are JSON. The protocol is frozen — sessiond and the HTTP relay can be updated independently as long as the frame format is stable.
-
-## Requirements
-
-- **Go** 1.24.2+ (the pinned toolchain is Go 1.24.4)
-- **Node.js** 18+
-
-## Development
-
-```bash
-# Build everything (frontend + Go binary)
 make build
-
-# Run Go tests
-make test
-
-# Build frontend only
-cd web && npm install && npm run build
-
-# Run frontend tests
-cd web && npm test
-
-# Fast frontend checks (lint + types, no build)
-cd web && npm run check:fast
+make dev-local
 ```
 
-The macOS desktop-v1 cutover, browser gate, non-root ownership checks, and rollback exercise are
-documented in the [desktop v1 development release runbook](docs/releases/desktop-v1-development.md).
+Before committing, run the required static checks:
 
-## Design
+```bash
+cd web && npm run check:fast
+cd .. && go build ./...
+```
 
-See [docs/design.md](docs/design.md) for architecture details and decision rationale.
+Agent Remote does not accept new unit tests. Changes are verified against a real Gateway, Session Owner, shell, and browser. Start every verification pass with a fresh development runtime and a newly created Workspace and Pane, then exercise the behavior with `playwright-cli`:
+
+```bash
+playwright-cli open http://127.0.0.1:8313
+playwright-cli snapshot
+# interact with the real UI and inspect the result
+playwright-cli close
+```
+
+Read [AGENTS.md](AGENTS.md) before contributing; it contains the full verification policy and fixture-hygiene requirements.
+
+## Documentation
+
+- [Authentication and recovery](docs/authentication.md)
+- [Remote Client protocol](docs/agent-remote-client-protocol.md)
+- [Current desktop theme and visual design](DESIGN.md)
+- [Product terminology](CONTEXT.md)
+- [Fork provenance and upstream policy](docs/fork-provenance.md)
+
+Agent Remote is an upstream-aware fork of muxterm. The provenance document records the pinned source revision, compatibility boundaries, and update policy.
 
 ## License
 
-MIT
+[MIT](LICENSE)
