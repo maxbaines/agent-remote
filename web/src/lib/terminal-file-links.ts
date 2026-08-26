@@ -1,4 +1,4 @@
-import type { Terminal, ILink } from '@xterm/xterm';
+import type { Terminal, IBufferRange, IDecoration, ILink, IMarker } from '@xterm/xterm';
 
 export const TERMINAL_FILE_OPEN_EVENT = 'terminal-file-open' as const;
 
@@ -86,6 +86,31 @@ function openWebLink(uri: string): void {
   window.open(uri, '_blank', 'noopener');
 }
 
+interface HoverColor {
+  decoration?: IDecoration;
+  marker: IMarker;
+}
+
+function addHoverColor(term: Terminal, range: IBufferRange): HoverColor | undefined {
+  if (range.start.y !== range.end.y) return undefined;
+  const cursorLine = term.buffer.active.baseY + term.buffer.active.cursorY;
+  const marker = term.registerMarker(range.start.y - 1 - cursorLine);
+  const foregroundColor = term.options.theme?.brightBlue ?? term.options.theme?.blue ?? '#0a84ff';
+  const decoration = term.registerDecoration({
+    marker,
+    x: range.start.x - 1,
+    width: range.end.x - range.start.x + 1,
+    foregroundColor,
+    layer: 'bottom',
+  });
+  return { marker, decoration };
+}
+
+function removeHoverColor(color: HoverColor | undefined): void {
+  color?.decoration?.dispose();
+  color?.marker.dispose();
+}
+
 /**
  * Installs both OSC 8 and plain-text file link handling on a terminal. File
  * links activate only on Shift-click; ordinary HTTP links retain their normal
@@ -96,11 +121,21 @@ export function registerTerminalFileLinks(
   paneId: number,
   getCWD: () => string | undefined,
 ): void {
+  let oscHoverColor: HoverColor | undefined;
   term.options.linkHandler = {
     allowNonHttpProtocols: true,
     activate: (event, uri) => {
       if (requestFileOpen(event, uri, paneId, getCWD)) return;
       openWebLink(uri);
+    },
+    hover: (_event, uri, range) => {
+      if (!parseTerminalFileLink(uri)) return;
+      removeHoverColor(oscHoverColor);
+      oscHoverColor = addHoverColor(term, range);
+    },
+    leave: () => {
+      removeHoverColor(oscHoverColor);
+      oscHoverColor = undefined;
     },
   };
 
@@ -123,24 +158,33 @@ export function registerTerminalFileLinks(
         const parsed = parseTerminalFileLink(text);
         if (!parsed) continue;
         const start = match.index + match[0].indexOf(text);
+        const range: IBufferRange = {
+          start: { x: start + 1, y: bufferLineNumber },
+          end: { x: start + text.length, y: bufferLineNumber },
+        };
         const decorations = { pointerCursor: false, underline: false };
+        let hoverColor: HoverColor | undefined;
         links.push({
           text,
-          range: {
-            start: { x: start + 1, y: bufferLineNumber },
-            end: { x: start + text.length, y: bufferLineNumber },
-          },
+          range,
           decorations,
           activate: (event, activatedText) => {
             requestFileOpen(event, activatedText, paneId, getCWD);
           },
           hover: (event) => {
             decorations.pointerCursor = event.shiftKey;
-            decorations.underline = event.shiftKey;
+            decorations.underline = true;
+            hoverColor = addHoverColor(term, range);
           },
           leave: () => {
             decorations.pointerCursor = false;
             decorations.underline = false;
+            removeHoverColor(hoverColor);
+            hoverColor = undefined;
+          },
+          dispose: () => {
+            removeHoverColor(hoverColor);
+            hoverColor = undefined;
           },
         });
       }

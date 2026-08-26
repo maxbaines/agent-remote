@@ -72,6 +72,9 @@ export function buildTerminalConfig(cfg: ResolvedConfig) {
     // Terminal backgrounds are always opaque. Palettes that evoke native
     // translucency do so with a CSS glyph fade, never an alpha background.
     allowTransparency: false, // non-overridable
+    // File-link hover coloring uses xterm decorations so glyphs remain on the
+    // terminal canvas and continue to respect selections and theme changes.
+    allowProposedApi: true,
     convertEol: false, // PTY sends \r\n — don't double-convert; non-overridable
   };
 }
