@@ -114,6 +114,7 @@ export function configureTerminals(cfg: ResolvedConfig): void {
     entry.term.options.cursorBlink = newConfig.cursorBlink;
     // Re-fit so a font-size change recalculates cols/rows correctly.
     entry.fitAddon.fit();
+    _scheduleTerminalChromeFill(entry);
   }
 }
 
@@ -257,6 +258,34 @@ const _MIN_FIT_WIDTH = 120;
 const _MIN_FIT_HEIGHT = 60;
 
 /**
+ * xterm sizes its screen and custom vertical scrollbar to an exact whole-row
+ * canvas height. FitAddon therefore leaves a sub-row remainder between that
+ * canvas and the containing Pane. The outer xterm/scrollable elements fill the
+ * Pane via CSS; scale only the scrollbar chrome over the same remainder so its
+ * track and bottom-positioned thumb reach the Pane edge without stretching the
+ * character grid or changing PTY rows.
+ */
+function _syncTerminalChromeFill(entry: PaneEntry): void {
+  const terminalEl = entry.term.element;
+  const screenEl = terminalEl?.querySelector<HTMLElement>('.xterm-screen');
+  if (!terminalEl || !screenEl) return;
+
+  const terminalHeight = terminalEl.clientHeight;
+  const gridHeight = screenEl.getBoundingClientRect().height;
+  if (terminalHeight <= 0 || gridHeight <= 0) return;
+
+  terminalEl.style.setProperty(
+    '--mux-terminal-scrollbar-fill-scale',
+    String(terminalHeight / gridHeight),
+  );
+}
+
+function _scheduleTerminalChromeFill(entry: PaneEntry): void {
+  _syncTerminalChromeFill(entry);
+  requestAnimationFrame(() => _syncTerminalChromeFill(entry));
+}
+
+/**
  * Fit the terminal ONLY when the container has a plausible (non-degenerate)
  * size. Returns true if a fit was applied. During dockview settle/teardown the
  * container briefly measures tiny (e.g. 10x4 cells); fitting then would push
@@ -269,6 +298,7 @@ function _fitIfPlausible(entry: PaneEntry): boolean {
   const h = entry.hostEl.offsetHeight;
   if (w < _MIN_FIT_WIDTH || h < _MIN_FIT_HEIGHT) return false;
   entry.fitAddon.fit();
+  _scheduleTerminalChromeFill(entry);
   return true;
 }
 
@@ -1055,6 +1085,7 @@ export const terminalRegistry = {
     entry.applyingServerResize = true;
     entry.term.resize(cols, rows);
     entry.applyingServerResize = false;
+    _scheduleTerminalChromeFill(entry);
   },
 
   /**

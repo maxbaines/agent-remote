@@ -559,15 +559,22 @@ export class MuxDock extends LitElement {
         }
 
         /* FitAddon deliberately rounds the terminal grid down to whole rows.
-           Keep xterm's interactive/background root stretched to the panel edge
-           so the fractional remainder does not become a dead strip at the
-           bottom after mobile safe-area and header height changes. The screen
-           and canvases retain their exact cell-grid dimensions. */
+           Keep xterm's interactive/background and scroll-chrome roots stretched
+           to the panel edge so the fractional remainder does not become a dead
+           strip at the bottom after mobile safe-area and header height changes.
+           The screen and canvases retain their exact cell-grid dimensions. */
         mux-dock .xterm {
           height: 100%;
         }
         mux-dock .xterm .xterm-viewport {
           background-color: var(--mux-bg);
+        }
+        mux-dock .xterm .xterm-scrollable-element {
+          height: 100%;
+        }
+        mux-dock .xterm .scrollbar.vertical {
+          transform: scaleY(var(--mux-terminal-scrollbar-fill-scale, 1));
+          transform-origin: top right;
         }
 
         /* xterm's DOM renderer keeps glyphs (including true-colour output) in
