@@ -4,7 +4,7 @@ Persistent terminal workspaces for your browser.
 
 JustTerminal runs shells and coding agents on a Host, while the UI runs in a browser or installed PWA. Organize work into named Workspaces, arrange terminal Panes as tabs or splits, disconnect, and return without tying a Terminal Session's lifetime to one browser tab.
 
-![JustTerminal desktop workspace](docs/visual-reference/just-terminal-desktop-v1.png)
+![JustTerminal workspace with Codex beside Markdown and JavaScript file viewers](docs/visual-reference/just-terminal-desktop-v1.png)
 
 > [!NOTE]
 > JustTerminal is under active development and does not have a tagged release yet. The Homebrew tap has not been published, and the install script has no release archive to fetch. For now, build from source.

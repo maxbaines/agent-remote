@@ -116,15 +116,16 @@ second palette or persist ad-hoc colour overrides.
 ## Representative capture
 
 `docs/visual-reference/just-terminal-desktop-v1.png` is the committed Chromium reference at
-1440×900. It shows the sidebar, active and inactive tabs, split groups, terminal surfaces,
-pane divider, and desktop controls. Regenerate it only from a fresh runtime with:
+1440×900. It shows the sidebar and desktop controls around a `1 / (1 + 1)` layout: Codex in
+the full-height left Terminal Session, rendered Markdown above syntax-highlighted JavaScript
+on the right, and the split dividers and active/inactive tabs between them.
 
-```bash
-node web/e2e/fixed-appearance.mjs \
-  --url http://127.0.0.1:8313 \
-  --capture docs/visual-reference/just-terminal-desktop-v1.png
-```
+Regenerate it only from a fresh runtime, Workspace, and Panes in a real Chromium session.
+Use neutral `just-terminal` fixture paths, open the two files through JustTerminal's actual
+file viewers, and capture the 1440×900 viewport with `playwright-cli` after confirming Codex
+is ready and the browser console has no errors.
 
-The script switches between dark and light themes, checks live xterm and chrome updates, verifies
+`web/e2e/fixed-appearance.mjs` separately switches between dark and light themes, checks live
+xterm and chrome updates, verifies
 Host persistence across reload, rejects stale browser-local title-bar colour application, checks
 contrast, and rejects inherited product branding.
