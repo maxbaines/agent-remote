@@ -66,7 +66,7 @@ const (
 
 	// Client-driven browser pane messages (ride /ws; no server-side engine).
 	// The daemon holds only a pane handle and RELAYS commands to the client that
-	// owns the pane. See docs/agent-remote-client-protocol.md.
+	// owns the pane. See docs/just-terminal-client-protocol.md.
 	TypeCreateBrowserPane = "create-browser-pane" // client → daemon: allocate a browser pane handle
 	TypeCloseBrowserPane  = "close-browser-pane"  // client → daemon: close a browser pane
 	TypeBrowserCommand    = "browser-command"     // relayed to workspace subs: {paneId, cid, action, params}
@@ -206,7 +206,7 @@ type Message struct {
 	RuntimeMs       int64 `json:"runtimeMs,omitempty"`       // real shell process wall-clock runtime, set on pane-closed only
 
 	// Params carries the browser-command parameters as raw JSON for passthrough
-	// relay (TypeBrowserCommand). Schema (see docs/agent-remote-client-protocol.md):
+	// relay (TypeBrowserCommand). Schema (see docs/just-terminal-client-protocol.md):
 	//   { "action": "navigate|click|scroll|evaluate|back|forward|reload",
 	//     "selector"?: string,        // CSS selector — element targeting
 	//     "x"?: number, "y"?: number, // CSS px — coordinate targeting

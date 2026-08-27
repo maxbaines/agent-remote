@@ -18,11 +18,11 @@ timing/`onData` byte filtering.
 
 Unit tests are banned in this project. Do not write them. Do not ask if you should write them. Do not write them "just for the pure logic". Do not write vitest tests, Go table-driven tests for internal functions, or any test that runs without a real browser and a real sessiond process.
 
-**Why:** Agent Remote is an integration system — the browser, the Session Owner, and real shell processes inside Terminal Sessions. Nothing meaningful is testable in isolation. A unit test that checks `_normalizeUrl()` returns the right string tells you nothing about whether a user can open a browser Pane. A Go test that checks `injectBase()` modifies a byte slice tells you nothing about whether X-Frame-Options is actually stripped in a real HTTP response. These tests have accumulated across the codebase and none of them have ever caught a real bug or prevented a regression.
+**Why:** JustTerminal is an integration system — the browser, the Session Owner, and real shell processes inside Terminal Sessions. Nothing meaningful is testable in isolation. A unit test that checks `_normalizeUrl()` returns the right string tells you nothing about whether a user can open a browser Pane. A Go test that checks `injectBase()` modifies a byte slice tells you nothing about whether X-Frame-Options is actually stripped in a real HTTP response. These tests have accumulated across the codebase and none of them have ever caught a real bug or prevented a regression.
 
 **What to do instead: VERIFICATION**
 
-Every feature or fix must be verified by actually running Agent Remote and observing the behavior in a real browser. Use the `/agent-remote-verify` skill and `playwright-cli` for this. Do not say a feature is done until you have seen it work with your own tool calls.
+Every feature or fix must be verified by actually running JustTerminal and observing the behavior in a real browser. Use the `/just-terminal-verify` skill and `playwright-cli` for this. Do not say a feature is done until you have seen it work with your own tool calls.
 
 Verification pattern:
 ```bash
@@ -30,7 +30,7 @@ Verification pattern:
 make build
 
 # 2. Run
-./bin/agent-remote &
+./bin/just-terminal &
 
 # 3. Open and observe
 playwright-cli open http://localhost:8311
@@ -40,7 +40,7 @@ playwright-cli click e5
 playwright-cli close
 ```
 
-**You are not done until playwright-cli (or the agent-remote-verify skill) confirms the feature works in a real browser.**
+**You are not done until playwright-cli (or the just-terminal-verify skill) confirms the feature works in a real browser.**
 
 ### Verification hygiene: fresh fixtures every time, especially when debugging
 
@@ -51,7 +51,7 @@ Lesson learned the hard way (multi-client resize/focus-authority fix, 2026-07-31
 - **Create a brand-new workspace (and therefore a brand-new pane) for every verification run**, especially every re-run while debugging something flaky. Never reuse a pane across multiple test iterations. A pane that's been resized/reattached dozens of times is not the same as a pane a real user just opened.
 - **Kill and fully restart `make dev-local` (wiped `XDG_RUNTIME_DIR`) before a "clean" verification pass**, not just fresh browser sessions. A fresh browser tab against a long-lived, heavily-poked sessiond process is not a clean test.
 - **Never edit source files while `air`'s dev-local watch loop is mid-test.** Concurrent edits trigger a rebuild that kills in-flight browser WebSocket connections, producing failures that look like application bugs but are actually the test harness pulling the rug out from under itself. Finish the test, *then* edit.
-- **Check for stale sessiond processes from a different worktree before trusting a result.** `make dev-local` uses a fixed, worktree-independent socket path (`${TMPDIR:-/tmp}/agent-remote-dev-local`) so it survives long paths — but that means two worktrees running `make dev-local` at different times can leave a stale daemon squatting on the same socket. Run `ps aux | grep sessiond` and confirm the binary path matches the worktree you're actually testing before trusting what you see in the browser.
+- **Check for stale sessiond processes from a different worktree before trusting a result.** `make dev-local` uses a fixed, worktree-independent socket path (`${TMPDIR:-/tmp}/just-terminal-dev-local`) so it survives long paths — but that means two worktrees running `make dev-local` at different times can leave a stale daemon squatting on the same socket. Run `ps aux | grep sessiond` and confirm the binary path matches the worktree you're actually testing before trusting what you see in the browser.
 - If a scenario is flaky (passes once, fails on the next identical-looking run), don't just re-run it more — that's the "3+ failures = question the pattern" signal. Rule out fixture/environment staleness with a fresh-everything run *before* concluding it's a real code defect.
 
 ### Fast static checks (required before commit)

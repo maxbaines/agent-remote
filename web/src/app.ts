@@ -70,7 +70,7 @@ import {
  *  in `widthPxToSplitPercent()` — defined once so the two can never drift
  *  out of sync if the gutter size is ever changed. */
 const SIDEBAR_GUTTER_SIZE = 4;
-const FILE_TREE_OPEN_KEY = 'agent-remote.fileTreeOpen';
+const FILE_TREE_OPEN_KEY = 'just-terminal.fileTreeOpen';
 /** Small positive bias (px) that makes Split's percentage renderer round to
  *  the requested whole pixel instead of occasionally landing 1/64px short. */
 const SIDEBAR_SUBPIXEL_ROUNDING_BIAS = 0.001;
@@ -1145,7 +1145,7 @@ export class MuxApp extends LitElement {
         )}
       </div>
       <div class="overlay ${this._connectionStatus === 'connected' ? 'hidden' : ''}">
-        Connecting to Agent Remote...
+        Connecting to JustTerminal...
       </div>
 
       ${this._showCreateModal ? html`
@@ -1196,14 +1196,14 @@ export class MuxApp extends LitElement {
                 ></mux-keybindings-surface>
               ` : html`
                 <div class="info-panel">
-                  <h2>About Agent Remote
+                  <h2>About JustTerminal
                     <button class="close-btn" @click="${this._closeOverlayPanel}">×</button>
                   </h2>
                   <div class="about-body">
-                    <p><strong>Agent Remote</strong> is a persistent browser terminal workspace. It
+                    <p><strong>JustTerminal</strong> is a persistent browser terminal workspace. It
                     connects to the Session Owner through the Gateway and renders Panes using
                     xterm.js inside a dockview layout.</p>
-                    <p>Config file: <strong>~/.config/agent-remote/config.toml</strong></p>
+                    <p>Config file: <strong>~/.config/just-terminal/config.toml</strong></p>
                   </div>
                   <div class="about-sha">build ${__GIT_SHA__}</div>
                 </div>

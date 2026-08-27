@@ -78,7 +78,7 @@ Expected: `1`
 assert_content () {  # $1 = pane %N
   pane="$1"
   tmux capture-pane -p -t "%$pane" | sed 's/[[:space:]]*$//' > /tmp/tmux_$pane.txt
-  playwright-cli --raw eval "JSON.stringify(window.__agentRemote.snapshot($pane).rows.map(r => r.replace(/\\s+$/,'')))" \
+  playwright-cli --raw eval "JSON.stringify(window.__justTerminal.snapshot($pane).rows.map(r => r.replace(/\\s+$/,'')))" \
     | jq -r '.[]' > /tmp/xterm_$pane.txt
   diff /tmp/tmux_$pane.txt /tmp/xterm_$pane.txt && echo "CONTENT OK pane $pane" || { echo "CONTENT MISMATCH pane $pane"; exit 1; }
 }
@@ -108,7 +108,7 @@ Capture xterm snapshot dims for pane 2, compare against rendered body geometry.
 ### Fetch snapshot dimensions for pane 2
 
 ```bash
-playwright-cli --raw eval "JSON.stringify((function(){ const s = window.__agentRemote.snapshot(2); return { cols: s.cols, rows: s.rows }; })())"
+playwright-cli --raw eval "JSON.stringify((function(){ const s = window.__justTerminal.snapshot(2); return { cols: s.cols, rows: s.rows }; })())"
 ```
 
 ### Measure rendered body geometry

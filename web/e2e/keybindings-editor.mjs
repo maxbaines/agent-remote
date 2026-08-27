@@ -5,7 +5,7 @@
  * Usage: node web/e2e/keybindings-editor.mjs [--url http://127.0.0.1:8313]
  *
  * Exit codes: 0 = all passed, 1 = an assertion failed, 2 = setup error.
- * Prereqs: playwright-cli installed; a real Agent Remote Gateway + Session Owner
+ * Prereqs: playwright-cli installed; a real JustTerminal Gateway + Session Owner
  * are running at --url with a fresh runtime directory.
  */
 
@@ -114,7 +114,7 @@ function recordShortcut(key, modifiers) {
 try {
   pcli('open', url);
   peval(`(async () => {
-    localStorage.removeItem('agent-remote.keybindings.v1');
+    localStorage.removeItem('just-terminal.keybindings.v1');
     const registrations = await navigator.serviceWorker.getRegistrations();
     for (const registration of registrations) await registration.unregister();
     const cacheKeys = await caches.keys();
@@ -145,7 +145,7 @@ try {
 
   recordShortcut('y', { ctrlKey: true, altKey: true });
   waitFor(`${EDITOR}?.shadowRoot?.querySelector('[data-command-id="pane.create-tab"] .shortcut-value')?.textContent?.trim() === 'Ctrl+Alt+Y'`);
-  const persisted = pevalJson(`JSON.parse(localStorage.getItem('agent-remote.keybindings.v1') ?? '{}')`);
+  const persisted = pevalJson(`JSON.parse(localStorage.getItem('just-terminal.keybindings.v1') ?? '{}')`);
   assert(persisted['pane.create-tab'] === 'ctrl+alt+y', `custom Keybinding was not browser-persisted: ${JSON.stringify(persisted)}`);
 
   const paneCount = pevalJson(`${POSITIVE_PANES}.length`);
@@ -200,7 +200,7 @@ try {
   const panesBeforeReload = pevalJson(`${POSITIVE_PANES}.length`);
   pcli('reload');
   waitFor(`${DOCK} && ${POSITIVE_PANES}?.length === ${panesBeforeReload}`, 15_000);
-  const restored = pevalJson(`JSON.parse(localStorage.getItem('agent-remote.keybindings.v1') ?? '{}')`);
+  const restored = pevalJson(`JSON.parse(localStorage.getItem('just-terminal.keybindings.v1') ?? '{}')`);
   assert(restored['pane.create-tab'] === 'ctrl+alt+y', `Keybinding did not survive reload: ${JSON.stringify(restored)}`);
   pcli('eval', `window.dispatchEvent(new KeyboardEvent('keydown', {
     key: 'y', ctrlKey: true, altKey: true, bubbles: true, cancelable: true,
@@ -211,7 +211,7 @@ try {
   otherUrl.hostname = otherUrl.hostname === 'localhost' ? '127.0.0.1' : 'localhost';
   pcli('eval', `location.href = ${JSON.stringify(otherUrl.href)}`);
   waitFor(`${DOCK} && ${STORE}?.activePaneId > 0`, 15_000);
-  const isolated = pevalJson(`localStorage.getItem('agent-remote.keybindings.v1')`);
+  const isolated = pevalJson(`localStorage.getItem('just-terminal.keybindings.v1')`);
   assert(isolated === null, `another browser origin received the Keybinding: ${isolated}`);
   openEditor();
   const isolatedLabel = pevalJson(`${EDITOR}.shadowRoot.querySelector('[data-command-id="pane.create-tab"] .shortcut-value')?.textContent?.trim()`);
@@ -227,7 +227,7 @@ try {
 
   pcli('eval', `${EDITOR}.shadowRoot.querySelector('[data-command-id="pane.create-tab"] .reset-shortcut').click()`);
   waitFor(`${EDITOR}.shadowRoot.querySelector('[data-command-id="pane.create-tab"] .shortcut-value')?.textContent?.includes('Cmd+Ctrl+T')`);
-  assert(pevalJson(`localStorage.getItem('agent-remote.keybindings.v1')`) === null, 'individual reset left persisted overrides');
+  assert(pevalJson(`localStorage.getItem('just-terminal.keybindings.v1')`) === null, 'individual reset left persisted overrides');
   const panesBeforeOldChord = pevalJson(`${POSITIVE_PANES}.length`);
   pcli('eval', `${EDITOR}.shadowRoot.querySelector('.close-btn').click()`);
   pcli('eval', `window.dispatchEvent(new KeyboardEvent('keydown', {
@@ -241,7 +241,7 @@ try {
   waitFor(`${EDITOR}.shadowRoot.querySelector('[data-command-id="pane.create-tab"] .shortcut-value')?.textContent?.trim() === 'Ctrl+Alt+U'`);
   pcli('eval', `${EDITOR}.shadowRoot.querySelector('.reset-all').click()`);
   waitFor(`${EDITOR}.shadowRoot.querySelector('[data-command-id="pane.create-tab"] .shortcut-value')?.textContent?.includes('Cmd+Ctrl+T')`);
-  assert(pevalJson(`localStorage.getItem('agent-remote.keybindings.v1')`) === null, 'restore-all left persisted overrides');
+  assert(pevalJson(`localStorage.getItem('just-terminal.keybindings.v1')`) === null, 'restore-all left persisted overrides');
 
   console.log('PASS: individual and all-default resets restore product Keybindings');
 } catch (error) {

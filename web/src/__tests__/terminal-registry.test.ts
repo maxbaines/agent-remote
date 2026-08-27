@@ -447,10 +447,10 @@ describe('terminalRegistry', () => {
       expect(terminalRegistry.snapshot(9999)).toBeNull();
     });
 
-    it('window.__agentRemote.snapshot is a function and returns null for unknown paneId', () => {
-      const agentRemote = (window as unknown as { __agentRemote?: Record<string, unknown> }).__agentRemote;
-      expect(typeof agentRemote?.snapshot).toBe('function');
-      const snapFn = agentRemote!.snapshot as (paneId: number) => unknown;
+    it('window.__justTerminal.snapshot is a function and returns null for unknown paneId', () => {
+      const justTerminal = (window as unknown as { __justTerminal?: Record<string, unknown> }).__justTerminal;
+      expect(typeof justTerminal?.snapshot).toBe('function');
+      const snapFn = justTerminal!.snapshot as (paneId: number) => unknown;
       expect(snapFn(9999)).toBeNull();
     });
   });

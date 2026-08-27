@@ -34,7 +34,7 @@ var (
 	ErrInvalidRecovery   = errors.New("invalid recovery credentials")
 )
 
-// CredentialStore persists Agent Remote's single-owner authentication state.
+// CredentialStore persists JustTerminal's single-owner authentication state.
 // The TOTP secret cannot be hashed (verification requires the original
 // secret), so the directory and file are restricted to 0700/0600 just like the
 // existing opaque OAuth token store.
@@ -75,7 +75,7 @@ type ownerUser struct {
 
 func (u *ownerUser) WebAuthnID() []byte          { return append([]byte(nil), u.id...) }
 func (u *ownerUser) WebAuthnName() string        { return "owner" }
-func (u *ownerUser) WebAuthnDisplayName() string { return "Agent Remote owner" }
+func (u *ownerUser) WebAuthnDisplayName() string { return "JustTerminal owner" }
 func (u *ownerUser) WebAuthnCredentials() []webauthn.Credential {
 	return append([]webauthn.Credential(nil), u.credentials...)
 }
@@ -173,7 +173,7 @@ func (s *CredentialStore) BeginBootstrap() (string, time.Time, error) {
 }
 
 // ConsumeBootstrap reloads from disk so a running Gateway observes a setup
-// code created by a separate `agent-remote auth init` process.
+// code created by a separate `just-terminal auth init` process.
 func (s *CredentialStore) ConsumeBootstrap(code string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -265,7 +265,7 @@ func storeCredential(credential webauthn.Credential) storedCredential {
 
 func (s *CredentialStore) BeginTOTP(accountName string) (*otp.Key, error) {
 	key, err := totp.Generate(totp.GenerateOpts{
-		Issuer:      "Agent Remote",
+		Issuer:      "JustTerminal",
 		AccountName: accountName,
 	})
 	if err != nil {

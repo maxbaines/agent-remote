@@ -2,8 +2,8 @@ import { defineConfig } from 'vite';
 
 export default defineConfig({
   // Relative base so all asset paths (./assets/index.js) resolve correctly
-  // when the page is served through agent-remote's /p/{port}/ proxy.
-  // Absolute paths (/assets/index.js) would resolve to the agent-remote origin and 404.
+  // when the page is served through just-terminal's /p/{port}/ proxy.
+  // Absolute paths (/assets/index.js) would resolve to the just-terminal origin and 404.
   base: './',
   preview: {
     port: 5173,
@@ -13,6 +13,6 @@ export default defineConfig({
     port: 5173,
     // No proxy config here — API and WebSocket calls use absolute localhost URLs
     // (BACKEND_HTTP = 'http://localhost:9002', BACKEND_WS = 'ws://localhost:9002').
-    // DO NOT add a proxy here: that would bypass the agent-remote shim and defeat the test.
+    // DO NOT add a proxy here: that would bypass the just-terminal shim and defeat the test.
   },
 });

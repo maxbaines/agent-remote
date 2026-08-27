@@ -1,6 +1,6 @@
 # Authentication
 
-Agent Remote uses a single-owner, self-hosted authentication system:
+JustTerminal uses a single-owner, self-hosted authentication system:
 
 - Passkeys are the primary sign-in method. Registration and login require user verification and a discoverable credential.
 - TOTP is enrolled during setup but is not an everyday second factor. It is used only for recovery, together with one unused recovery code.
@@ -14,18 +14,18 @@ There is no identity SaaS, email delivery, external database, Better Auth, or Re
 
 WebAuthn credentials are scoped to a relying-party hostname, so configure the final browser origin before enrollment. Remote origins must use HTTPS; the `localhost` hostname is the browser-supported development exception. Use a hostname rather than an IP address.
 
-In `~/.config/agent-remote/config.toml`, or `$XDG_CONFIG_HOME/agent-remote/config.toml` when that variable is set:
+In `~/.config/just-terminal/config.toml`, or `$XDG_CONFIG_HOME/just-terminal/config.toml` when that variable is set:
 
 ```toml
 [server]
 behind_reverse_proxy = true
-public_origin = "https://agent-remote.example.com"
+public_origin = "https://my-instance.js.actor"
 ```
 
-Start Agent Remote behind the TLS reverse proxy using the same configuration. Then, from a shell on the Agent Remote host:
+Start JustTerminal behind the TLS reverse proxy using the same configuration. Then, from a shell on the JustTerminal host:
 
 ```bash
-agent-remote auth init
+just-terminal auth init
 ```
 
 `auth init` writes a hash of a random 128-bit bootstrap code to the local credential store and prints the plaintext code once. The code expires after ten minutes and is consumed when the setup browser session is unlocked. Generating another code replaces any incomplete enrollment, but it refuses to replace an active configuration.
@@ -33,7 +33,7 @@ agent-remote auth init
 The setup URL normally comes from the config file. When the server was started with a command-line-only origin override, pass the same origin to initialization so the printed URL is correct:
 
 ```bash
-agent-remote auth init --origin https://agent-remote.example.com
+just-terminal auth init --origin https://my-instance.js.actor
 ```
 
 In the browser:
@@ -60,7 +60,7 @@ Recovery consumes that recovery code permanently. It signs the current browser i
 ## Host-local administration
 
 ```bash
-agent-remote auth status
+just-terminal auth status
 ```
 
 prints only whether authentication is active, the passkey count, the number of recovery codes remaining, and any pending setup expiry.
@@ -68,14 +68,14 @@ prints only whether authentication is active, the passkey count, the number of r
 If every credential is lost, run the destructive reset locally on the host:
 
 ```bash
-agent-remote auth reset --yes
+just-terminal auth reset --yes
 ```
 
-This deletes the credential and OAuth token files. Restart Agent Remote to discard any in-memory token state, then run `agent-remote auth init` and enroll again. Reset intentionally cannot be triggered through the browser.
+This deletes the credential and OAuth token files. Restart JustTerminal to discard any in-memory token state, then run `just-terminal auth init` and enroll again. Reset intentionally cannot be triggered through the browser.
 
 ## Storage and security boundary
 
-Authentication data is stored alongside the Agent Remote config under `auth/credentials.json` and `auth/tokens.json`. The directory is forced to mode `0700` and files to `0600`, with atomic temporary-file replacement.
+Authentication data is stored alongside the JustTerminal config under `auth/credentials.json` and `auth/tokens.json`. The directory is forced to mode `0700` and files to `0600`, with atomic temporary-file replacement.
 
 The TOTP seed and passkey public credential record must be recoverable by the server and are therefore stored in the credential file. Recovery codes are not: only normalized hashes are retained. Protect and back up the host account and config directory accordingly.
 

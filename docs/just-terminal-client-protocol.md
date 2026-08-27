@@ -1,4 +1,4 @@
-# Agent Remote Client Protocol (v1)
+# JustTerminal Client Protocol (v1)
 
 > Frozen contract. Native clients (Swift, Android) and the web client all speak
 > exactly this. Field names are the Go JSON tags, byte-for-byte. Additive changes

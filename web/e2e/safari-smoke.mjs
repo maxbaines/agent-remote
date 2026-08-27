@@ -105,7 +105,7 @@ try {
       accent: style.getPropertyValue('--chrome-accent').trim(),
     };
   `);
-  if (state.title !== 'Agent Remote') throw new Error(`unexpected title: ${state.title}`);
+  if (state.title !== 'JustTerminal') throw new Error(`unexpected title: ${state.title}`);
   if (!(state.activePaneId > 0)) throw new Error('Safari has no Active Pane');
   if (!state.commandIds.includes('terminal.clear-to-start')) {
     throw new Error(`Safari Command registry incomplete: ${JSON.stringify(state.commandIds)}`);
@@ -114,7 +114,7 @@ try {
     throw new Error(`Safari default theme unresolved: ${JSON.stringify(state)}`);
   }
 
-  console.log('PASS: Safari loads Agent Remote, attaches a Pane, and reaches health');
+  console.log('PASS: Safari loads JustTerminal, attaches a Pane, and reaches health');
   console.log('PASS: Safari resolves the desktop v1 Command registry and default theme');
 } catch (error) {
   console.error(`FAIL: ${error.message}`);

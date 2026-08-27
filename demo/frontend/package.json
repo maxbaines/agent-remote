@@ -1,7 +1,7 @@
 {
-  "name": "agent-remote-demo-frontend",
+  "name": "just-terminal-demo-frontend",
   "version": "1.0.0",
-  "description": "Demo frontend for agent-remote browser pane — Vite + TypeScript, talks to localhost:9002",
+  "description": "Demo frontend for just-terminal browser pane — Vite + TypeScript, talks to localhost:9002",
   "type": "module",
   "scripts": {
     "dev": "vite",

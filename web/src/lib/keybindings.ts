@@ -81,7 +81,7 @@ export function installCommandShortcuts(
 
 /**
  * Installs fixed app-level keyboard shortcuts that override browser defaults.
- * These are not user-configurable — they make agent-remote feel like a native app.
+ * These are not user-configurable — they make just-terminal feel like a native app.
  *
  *   Cmd/Ctrl+W      — close the active pane   (interceptable in all modes)
  *   Alt+Cmd/Ctrl+B  — toggle the desktop file tree

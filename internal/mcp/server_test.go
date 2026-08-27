@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/maxbaines/agent-remote/internal/mcp"
+	"github.com/maxbaines/just-terminal/internal/mcp"
 )
 
 // rpcEnvelope is a minimal struct for reading both results and errors from the server.
@@ -77,8 +77,8 @@ func TestInitializeHandshake(t *testing.T) {
 	if result.ProtocolVersion != "2024-11-05" {
 		t.Errorf("protocolVersion = %q, want %q", result.ProtocolVersion, "2024-11-05")
 	}
-	if result.ServerInfo.Name != "agent-remote" {
-		t.Errorf("serverInfo.name = %q, want %q", result.ServerInfo.Name, "agent-remote")
+	if result.ServerInfo.Name != "just-terminal" {
+		t.Errorf("serverInfo.name = %q, want %q", result.ServerInfo.Name, "just-terminal")
 	}
 }
 

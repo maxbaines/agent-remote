@@ -1,9 +1,9 @@
-# Agent Remote desktop themes
+# JustTerminal desktop themes
 
 **Status:** Canonical desktop appearance reference
 **Scope:** Bundled terminal palettes, theme-derived browser chrome, typography, spacing, and visual states
 
-Agent Remote is terminal-first: terminal content carries the most visual weight and the
+JustTerminal is terminal-first: terminal content carries the most visual weight and the
 surrounding controls stay quiet. Users can choose one of nine bundled themes in Settings;
 the Host persists that choice and broadcasts it to connected Remote Clients. Theme changes
 apply immediately to existing Terminal Sessions and browser chrome. Arbitrary theme editing and
@@ -28,7 +28,7 @@ real browser against a real Gateway and Session Owner.
 | `github-light` | GitHub Light | Light |
 
 Unknown theme IDs safely resolve to cmux in the browser. The selected ID is stored as
-`[theme].palette` in the Agent Remote configuration and included in `/api/config` and the initial
+`[theme].palette` in the JustTerminal configuration and included in `/api/config` and the initial
 WebSocket config envelope.
 
 Terminal backgrounds are always fully opaque and xterm transparency is disabled. The cmux palette
@@ -115,14 +115,14 @@ second palette or persist ad-hoc colour overrides.
 
 ## Representative capture
 
-`docs/visual-reference/agent-remote-desktop-v1.png` is the committed Chromium reference at
+`docs/visual-reference/just-terminal-desktop-v1.png` is the committed Chromium reference at
 1440×900. It shows the sidebar, active and inactive tabs, split groups, terminal surfaces,
 pane divider, and desktop controls. Regenerate it only from a fresh runtime with:
 
 ```bash
 node web/e2e/fixed-appearance.mjs \
   --url http://127.0.0.1:8313 \
-  --capture docs/visual-reference/agent-remote-desktop-v1.png
+  --capture docs/visual-reference/just-terminal-desktop-v1.png
 ```
 
 The script switches between dark and light themes, checks live xterm and chrome updates, verifies

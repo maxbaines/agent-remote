@@ -7,7 +7,7 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/maxbaines/agent-remote/internal/sessiond"
+	"github.com/maxbaines/just-terminal/internal/sessiond"
 )
 
 // tunnelTools groups the MCP tunnel tool handlers. Unlike workspace and layout
@@ -34,7 +34,7 @@ func (tt *tunnelTools) listTunnels(_ map[string]any) (string, error) {
 
 // createTunnel registers a new port-forward tunnel for args["port"] and
 // returns {"id":"<id>","port":<port>}. The tunnel is reachable at /t/{id}/ on
-// the agent-remote serve layer.
+// the just-terminal serve layer.
 func (tt *tunnelTools) createTunnel(args map[string]any) (string, error) {
 	port, err := argInt(args, "port")
 	if err != nil {

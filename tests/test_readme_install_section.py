@@ -55,7 +55,7 @@ def test_homebrew_subsection():
     install_start = content.index(INSTALL_HEADING)
     section = content[install_start:install_end]
     assert "### macOS \u2014 Homebrew" in section, "Homebrew subsection not found"
-    assert "brew install maxbaines/tap/agent-remote" in section, "brew install command not found"
+    assert "brew install maxbaines/tap/just-terminal" in section, "brew install command not found"
 
 
 def test_curl_subsection():
@@ -72,7 +72,7 @@ def test_binary_install_identity():
     install_end = content.index(WHAT_HEADING)
     install_start = content.index(INSTALL_HEADING)
     section = content[install_start:install_end]
-    assert "agent-remote install" in section, "Agent Remote binary command not found"
+    assert "just-terminal install" in section, "JustTerminal binary command not found"
 
 
 def test_windows_scoop_subsection():
@@ -91,7 +91,7 @@ def test_github_releases_link():
     install_start = content.index(INSTALL_HEADING)
     section = content[install_start:install_end]
     assert "GitHub Release" in section, "GitHub Releases link not found"
-    assert "https://github.com/maxbaines/agent-remote/releases" in section, (
+    assert "https://github.com/maxbaines/just-terminal/releases" in section, (
         "GitHub Releases URL not found"
     )
 
@@ -107,7 +107,7 @@ def test_no_sudo_note():
 def test_existing_content_unchanged():
     """Verify the product overview still documents the Session Owner."""
     content = read_readme()
-    assert "Agent Remote is a terminal workspace where the UI lives in a browser." in content
+    assert "JustTerminal is a terminal workspace where the UI lives in a browser." in content
     assert "sessiond (PTY daemon)" in content
     assert "Terminal Session lifetime" in content
 

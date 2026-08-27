@@ -542,7 +542,7 @@ export class MuxDock extends LitElement {
     // Base = dockview's built-in "abyss" theme (for its flat STRUCTURE only:
     // zero tab radius/margin, transparent sashes). We re-skin all of its colours
     // with the active palette's semantic chrome tokens so the tab bar matches
-    // agent-remote's title bar:
+    // just-terminal's title bar:
     //   • active tabs merge into the terminal body,
     //   • the tab bar and inactive tabs share the title-bar surface with dimmer
     //     text, so unselected tabs recede,
@@ -585,7 +585,7 @@ export class MuxDock extends LitElement {
           opacity: var(--mux-terminal-text-opacity, 1);
         }
 
-        /* Dockview re-skin: every surface follows the fixed Agent Remote tokens. */
+        /* Dockview re-skin: every surface follows the fixed JustTerminal tokens. */
         mux-dock .dv-dockview {
           --dv-background-color: var(--chrome-body);
           --dv-tabs-and-actions-container-height: 34px;

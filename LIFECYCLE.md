@@ -1,4 +1,4 @@
-# agent-remote Component Lifecycle — Believed Sequence
+# just-terminal Component Lifecycle — Believed Sequence
 
 This is my best understanding of what SHOULD happen on a browser refresh.
 Logging in `mux-log.ts` instruments every key transition so we can compare

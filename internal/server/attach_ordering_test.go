@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/maxbaines/agent-remote/internal/sessiond"
+	"github.com/maxbaines/just-terminal/internal/sessiond"
 )
 
 // orderRecorder captures the relative order in which composition (text) and

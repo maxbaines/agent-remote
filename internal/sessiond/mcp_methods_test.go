@@ -15,7 +15,7 @@ import (
 // 104-byte Unix socket path limit without assuming that /tmp is mounted.
 func startMCPTestServer(t *testing.T) (srv *Server, socketPath string, cancel context.CancelFunc) {
 	t.Helper()
-	dir, err := os.MkdirTemp(".", "agent-remote")
+	dir, err := os.MkdirTemp(".", "just-terminal")
 	if err != nil {
 		t.Fatalf("MkdirTemp: %v", err)
 	}

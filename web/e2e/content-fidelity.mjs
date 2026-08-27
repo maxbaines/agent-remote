@@ -65,7 +65,7 @@ try {
 
   const evalOutput = execFileSync(
     'playwright-cli',
-    ['eval', `JSON.stringify(window.__agentRemote.snapshot(${paneId}))`],
+    ['eval', `JSON.stringify(window.__justTerminal.snapshot(${paneId}))`],
     { encoding: 'utf8' },
   );
 

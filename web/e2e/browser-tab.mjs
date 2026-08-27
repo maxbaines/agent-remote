@@ -2,10 +2,10 @@
 /**
  * browser-tab.mjs — E2E for the browser pane feature.
  *
- * Verifies five scenarios against a running agent-remote server:
+ * Verifies five scenarios against a running just-terminal server:
  *   1. [⌂] button opens a port popover → browser pane created with correct title/iframe.
  *   2. Proxied HTTP content is reachable at /p/PORT/.
- *   3. Browser pane survives a agent-remote page reload (state-restored from sessiond).
+ *   3. Browser pane survives a just-terminal page reload (state-restored from sessiond).
  *   4. Closing the browser pane removes it from the workspace after reload.
  *   5. Pressing Escape in the popover dismisses it without creating a new pane.
  *
@@ -13,7 +13,7 @@
  *
  * Exit codes: 0 = all passed, 1 = at least one test failed, 2 = setup error.
  *
- * Prereqs: playwright-cli installed globally; agent-remote dev server running at --url.
+ * Prereqs: playwright-cli installed globally; just-terminal dev server running at --url.
  */
 
 import { execFileSync } from 'node:child_process';
@@ -179,8 +179,8 @@ try {
     waitFor(`window.__healthOk === true`, 10000);
   });
 
-  // ── Test 3: browser pane survives agent-remote page reload ────────────────────
-  runTest('browser pane survives agent-remote page reload', () => {
+  // ── Test 3: browser pane survives just-terminal page reload ────────────────────
+  runTest('browser pane survives just-terminal page reload', () => {
     pcli('reload');
     sleep(3000); // allow reconnect + state restore
     waitFor(`hasBrowserPanel()`, 8000);

@@ -5,7 +5,7 @@ import type {
   CommandState,
 } from './command-registry.js';
 
-export const KEYBINDINGS_STORAGE_KEY = 'agent-remote.keybindings.v1';
+export const KEYBINDINGS_STORAGE_KEY = 'just-terminal.keybindings.v1';
 
 export interface EffectiveKeybinding {
   chord: string;

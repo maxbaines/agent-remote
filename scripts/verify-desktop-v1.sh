@@ -2,18 +2,18 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-binary="${AGENT_REMOTE_BINARY:-${repo_root}/bin/agent-remote}"
+binary="${JUST_TERMINAL_BINARY:-${repo_root}/bin/just-terminal}"
 host="127.0.0.1"
-start_port="${AGENT_REMOTE_VERIFY_PORT:-18431}"
+start_port="${JUST_TERMINAL_VERIFY_PORT:-18431}"
 expected_uid="$(id -u)"
-runtime_root="${AGENT_REMOTE_VERIFY_RUNTIME_ROOT:-${HOME}}"
+runtime_root="${JUST_TERMINAL_VERIFY_RUNTIME_ROOT:-${HOME}}"
 
 if [[ "${expected_uid}" == "0" ]]; then
   echo "error: desktop v1 verification must run as the intended non-root Session Owner" >&2
   exit 1
 fi
 if [[ ! -x "${binary}" ]]; then
-  echo "error: Agent Remote binary is not executable: ${binary}" >&2
+  echo "error: JustTerminal binary is not executable: ${binary}" >&2
   echo "hint: run 'make build' first" >&2
   exit 1
 fi
@@ -35,7 +35,7 @@ cases=(
   "web/e2e/fixed-appearance.mjs"
 )
 
-if [[ "$(uname -s)" == "Darwin" && "${AGENT_REMOTE_SKIP_SAFARI:-0}" != "1" ]]; then
+if [[ "$(uname -s)" == "Darwin" && "${JUST_TERMINAL_SKIP_SAFARI:-0}" != "1" ]]; then
   if command -v safaridriver >/dev/null 2>&1; then
     cases+=("web/e2e/safari-smoke.mjs")
   else
@@ -50,7 +50,7 @@ runtime_base=""
 
 cleanup_case() {
   if [[ -z "${sessiond_pid}" && -n "${runtime_base}" ]]; then
-    local cleanup_socket="${runtime_base}/agent-remote/sessiond.sock"
+    local cleanup_socket="${runtime_base}/just-terminal/sessiond.sock"
     if [[ -S "${cleanup_socket}" ]]; then
       sessiond_pid="$(find_sessiond_pid "${cleanup_socket}")"
     fi
@@ -118,9 +118,9 @@ for index in "${!cases[@]}"; do
   url="http://${host}:${port}"
   # macOS limits Unix-domain socket paths to 104 bytes. $TMPDIR is normally a
   # long /var/folders path, so use a deliberately short directory under $HOME.
-  runtime_base="$(mktemp -d "${runtime_root%/}/.agent-remote-v1.XXXXXX")"
+  runtime_base="$(mktemp -d "${runtime_root%/}/.just-terminal-v1.XXXXXX")"
   log_path="${runtime_base}/gateway.log"
-  socket_path="${runtime_base}/agent-remote/sessiond.sock"
+  socket_path="${runtime_base}/just-terminal/sessiond.sock"
 
   echo "==> ${test_script} (${url})"
   XDG_RUNTIME_DIR="${runtime_base}" XDG_CONFIG_HOME="${runtime_base}/config" "${binary}" serve \
@@ -134,7 +134,7 @@ for index in "${!cases[@]}"; do
     exit 1
   fi
 
-  AGENT_REMOTE_EXPECTED_UID="${expected_uid}" node "${test_script}" --url "${url}"
+  JUST_TERMINAL_EXPECTED_UID="${expected_uid}" node "${test_script}" --url "${url}"
 
   if [[ ! -S "${socket_path}" ]]; then
     echo "error: Session Owner socket was not created: ${socket_path}" >&2

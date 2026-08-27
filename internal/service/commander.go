@@ -11,15 +11,15 @@ type Commander interface {
 
 func SystemdUnitPath() string {
 	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".config", "systemd", "user", "agent-remote.service")
+	return filepath.Join(home, ".config", "systemd", "user", "just-terminal.service")
 }
 
 func SessiondSystemdUnitPath() string {
 	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".config", "systemd", "user", "agent-remote-sessiond.service")
+	return filepath.Join(home, ".config", "systemd", "user", "just-terminal-sessiond.service")
 }
 
 func LaunchdPlistPath() string {
 	home, _ := os.UserHomeDir()
-	return filepath.Join(home, "Library", "LaunchAgents", "com.agent-remote.plist")
+	return filepath.Join(home, "Library", "LaunchAgents", "com.just-terminal.plist")
 }

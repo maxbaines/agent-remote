@@ -1,6 +1,6 @@
 package mcp
 
-// Browser interaction tools were removed when agent-remote dropped browser pane
+// Browser interaction tools were removed when just-terminal dropped browser pane
 // support. This file is kept as a compilation stub per the project's no-delete
 // policy for test files.
 //

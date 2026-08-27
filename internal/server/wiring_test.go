@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/maxbaines/agent-remote/internal/sessiond"
+	"github.com/maxbaines/just-terminal/internal/sessiond"
 )
 
 // TestHandleTextInput_TypeCreateBrowserPane verifies that a TypeCreateBrowserPane

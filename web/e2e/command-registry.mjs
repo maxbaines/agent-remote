@@ -2,7 +2,7 @@
 /**
  * command-registry.mjs — real-browser/sessiond coverage for the create-tab tracer.
  *
- * Verifies against a fresh Agent Remote runtime that:
+ * Verifies against a fresh JustTerminal runtime that:
  *   1. pane.create-tab exposes stable presentation, shortcut, and availability metadata.
  *   2. The dock header button and default browser-safe shortcut both create a tab.
  *   3. An unavailable create-tab command is guarded and creates nothing.
@@ -11,7 +11,7 @@
  * Usage: node web/e2e/command-registry.mjs [--url http://127.0.0.1:8313]
  *
  * Exit codes: 0 = all passed, 1 = an assertion failed, 2 = setup error.
- * Prereqs: playwright-cli installed; a real Agent Remote Gateway + Session Owner
+ * Prereqs: playwright-cli installed; a real JustTerminal Gateway + Session Owner
  * are running at --url with a fresh runtime directory.
  */
 

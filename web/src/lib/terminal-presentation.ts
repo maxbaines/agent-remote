@@ -1,4 +1,4 @@
-const CLEAR_BOUNDARY_STORAGE_PREFIX = 'agent-remote.clear-to-start.v1:';
+const CLEAR_BOUNDARY_STORAGE_PREFIX = 'just-terminal.clear-to-start.v1:';
 const MAX_RETAINED_BYTES = 1 << 20;
 
 interface ClearBoundaryRecord {

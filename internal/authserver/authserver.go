@@ -34,16 +34,16 @@ const AuthorizeCodeTTL = 10 * time.Minute
 
 // Config configures a new AuthServer.
 type Config struct {
-	// WebRedirectURI is the exact-match redirect URI for the agent-remote-web
+	// WebRedirectURI is the exact-match redirect URI for the just-terminal-web
 	// client. In direct/local-dev mode it is loopback-derived (e.g.
 	// "http://127.0.0.1:8311/auth/callback"); when the operator sets
 	// behind_reverse_proxy it is "<public_origin>/auth/callback". Both are
-	// produced by cmd/agent-remote's webRedirectURIFor, which is the single
+	// produced by cmd/just-terminal's webRedirectURIFor, which is the single
 	// derivation seam — this package never derives it, and never inspects
 	// a request header to guess it.
 	WebRedirectURI string
 	// PublicOrigin is the exact browser origin used for WebAuthn origin
-	// validation, e.g. https://agent-remote.example.com or
+	// validation, e.g. https://my-instance.js.actor or
 	// http://127.0.0.1:8311 in direct local mode.
 	PublicOrigin string
 	// CredentialStore holds the single owner's passkeys, TOTP secret, recovery
@@ -56,7 +56,7 @@ type Config struct {
 	RateLimiter *RateLimiter
 }
 
-// AuthServer wraps go-oauth2/oauth2 with agent-remote's hardening
+// AuthServer wraps go-oauth2/oauth2 with just-terminal's hardening
 // configuration, hardcoded clients, file-backed token store, and
 // passkey/TOTP-backed login and setup surfaces.
 type AuthServer struct {
@@ -78,7 +78,7 @@ type AuthServer struct {
 // New wires a Manager (PKCE S256-only, authorization-code-grant-only, no
 // refresh tokens, 30-day access-token TTL) with the hardcoded ClientStore,
 // the file-backed TokenStore, and the loopback-port-wildcard redirect URI
-// exception bounded to agent-remote-mcp.
+// exception bounded to just-terminal-mcp.
 func New(cfg Config) (*AuthServer, error) {
 	if cfg.CredentialStore == nil {
 		return nil, errors.New("authserver: CredentialStore is required")
@@ -95,7 +95,7 @@ func New(cfg Config) (*AuthServer, error) {
 	}
 	wa, err := webauthn.New(&webauthn.Config{
 		RPID:                  origin.Hostname(),
-		RPDisplayName:         "Agent Remote",
+		RPDisplayName:         "JustTerminal",
 		RPOrigins:             []string{cfg.PublicOrigin},
 		AttestationPreference: protocol.PreferNoAttestation,
 		AuthenticatorSelection: protocol.AuthenticatorSelection{

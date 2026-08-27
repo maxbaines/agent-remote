@@ -15,9 +15,9 @@ import (
 )
 
 const (
-	webAuthnCookieName = "agent-remote_webauthn"
-	setupCookieName    = "agent-remote_setup"
-	loginProofCookie   = "agent-remote_login_proof"
+	webAuthnCookieName = "just-terminal_webauthn"
+	setupCookieName    = "just-terminal_setup"
+	loginProofCookie   = "just-terminal_login_proof"
 	setupSessionTTL    = 15 * time.Minute
 	loginProofTTL      = 2 * time.Minute
 	maxCeremonies      = 256

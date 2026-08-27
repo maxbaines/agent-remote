@@ -578,9 +578,9 @@ export const terminalRegistry = {
       // system sound when bell is set to "audible".
       if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
         try {
-          new Notification('Agent Remote', {
+          new Notification('JustTerminal', {
             body: `Activity in pane ${paneId}`,
-            tag: `agent-remote-pane-${paneId}`,
+            tag: `just-terminal-pane-${paneId}`,
             silent: true,
           });
         } catch {
@@ -1380,8 +1380,8 @@ export const terminalRegistry = {
 };
 
 if (typeof window !== 'undefined') {
-  (window as unknown as { __agentRemote?: Record<string, unknown> }).__agentRemote = {
-    ...(window as unknown as { __agentRemote?: Record<string, unknown> }).__agentRemote,
+  (window as unknown as { __justTerminal?: Record<string, unknown> }).__justTerminal = {
+    ...(window as unknown as { __justTerminal?: Record<string, unknown> }).__justTerminal,
     snapshot: (paneId: number) => terminalRegistry.snapshot(paneId),
     isAuthoritative: (paneId: number) => terminalRegistry.isAuthoritative(paneId),
   };

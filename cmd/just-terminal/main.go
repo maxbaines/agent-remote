@@ -16,14 +16,14 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/maxbaines/agent-remote/internal/authserver"
-	"github.com/maxbaines/agent-remote/internal/config"
-	"github.com/maxbaines/agent-remote/internal/deploy"
-	"github.com/maxbaines/agent-remote/internal/mcp"
-	"github.com/maxbaines/agent-remote/internal/server"
-	"github.com/maxbaines/agent-remote/internal/service"
-	"github.com/maxbaines/agent-remote/internal/sessiond"
-	webstatic "github.com/maxbaines/agent-remote/web"
+	"github.com/maxbaines/just-terminal/internal/authserver"
+	"github.com/maxbaines/just-terminal/internal/config"
+	"github.com/maxbaines/just-terminal/internal/deploy"
+	"github.com/maxbaines/just-terminal/internal/mcp"
+	"github.com/maxbaines/just-terminal/internal/server"
+	"github.com/maxbaines/just-terminal/internal/service"
+	"github.com/maxbaines/just-terminal/internal/sessiond"
+	webstatic "github.com/maxbaines/just-terminal/web"
 )
 
 var version = "dev"
@@ -92,18 +92,18 @@ func main() {
 			os.Exit(1)
 		}
 	case "version":
-		fmt.Printf("Agent Remote %s (MCP: stdio)\n", version)
+		fmt.Printf("JustTerminal %s (MCP: stdio)\n", version)
 	}
 }
 
-// runDoctor reports the status of the agent-remote daemon and system service.
+// runDoctor reports the status of the just-terminal daemon and system service.
 func runDoctor() error {
 	const (
 		ok   = "\u2713" // ✓
 		fail = "\u2717" // ✗
 	)
 
-	fmt.Printf("Agent Remote %s\n\n", version)
+	fmt.Printf("JustTerminal %s\n\n", version)
 
 	// Daemon
 	sock, err := sessiond.SocketPath()
@@ -113,7 +113,7 @@ func runDoctor() error {
 		fmt.Printf("     socket:  %s\n", sock)
 		if _, err := os.Stat(sock); os.IsNotExist(err) {
 			fmt.Printf("  %s  daemon:  not running (socket not found)\n", fail)
-			fmt.Printf("     hint:    start with 'agent-remote' or check service logs\n")
+			fmt.Printf("     hint:    start with 'just-terminal' or check service logs\n")
 		} else {
 			c, dialErr := sessiond.Dial(sock)
 			if dialErr != nil {
@@ -142,7 +142,7 @@ func runDoctor() error {
 			fmt.Printf("     plist:   %s\n", plistPath)
 		} else {
 			fmt.Printf("  %s  service: not installed\n", fail)
-			fmt.Printf("     hint:    run 'agent-remote install' to auto-start on login\n")
+			fmt.Printf("     hint:    run 'just-terminal install' to auto-start on login\n")
 		}
 	default:
 		unitPath := service.SystemdUnitPath()
@@ -151,7 +151,7 @@ func runDoctor() error {
 			fmt.Printf("     unit:    %s\n", unitPath)
 		} else {
 			fmt.Printf("  %s  service: not installed\n", fail)
-			fmt.Printf("     hint:    run 'agent-remote install' to auto-start on login\n")
+			fmt.Printf("     hint:    run 'just-terminal install' to auto-start on login\n")
 		}
 	}
 
@@ -198,7 +198,7 @@ func newSessiondDialer() server.DialFunc {
 // off; remove the file value instead.
 //
 // SERVE MODE ONLY. runLocal deliberately does NOT call this: bare
-// `agent-remote` is loopback-only by definition and must stay that way even on
+// `just-terminal` is loopback-only by definition and must stay that way even on
 // a host whose config.toml sets behind_reverse_proxy = true (which is
 // exactly the production host). Honoring the file there would disable the
 // loopback bypass and point the local browser at the public origin,
@@ -214,8 +214,8 @@ func resolveServerConfig(cli Config, file config.ServerConfig) config.ServerConf
 	return out
 }
 
-// publicBaseURL returns the origin agent-remote must use whenever it constructs
-// one of its own public-facing absolute URLs. Today that is the agent-remote-web
+// publicBaseURL returns the origin just-terminal must use whenever it constructs
+// one of its own public-facing absolute URLs. Today that is the just-terminal-web
 // OAuth redirect URI; when Phase 2 (MCP-over-HTTP) adds the RFC 8414
 // authorization-server metadata and the RFC 9728 protected-resource
 // metadata / canonical /mcp resource URI, those MUST derive from this same
@@ -228,7 +228,7 @@ func resolveServerConfig(cli Config, file config.ServerConfig) config.ServerConf
 //
 // Otherwise it is the pre-existing loopback derivation from addr (the
 // server's listen address), where a "0.0.0.0" or unparseable host is
-// normalized to 127.0.0.1 because the browser reaches agent-remote over
+// normalized to 127.0.0.1 because the browser reaches just-terminal over
 // loopback in that topology.
 func publicBaseURL(addr string, sc config.ServerConfig) string {
 	if sc.BehindReverseProxy {
@@ -242,7 +242,7 @@ func publicBaseURL(addr string, sc config.ServerConfig) string {
 }
 
 // webRedirectURIFor returns the exact-match redirect URI for the
-// agent-remote-web OAuth client. authserver's validateRedirectURI compares this
+// just-terminal-web OAuth client. authserver's validateRedirectURI compares this
 // value byte-for-byte against the incoming redirect_uri, so it must be
 // exactly the URL the browser will actually be sent back to.
 func webRedirectURIFor(addr string, sc config.ServerConfig) string {
@@ -332,14 +332,14 @@ func runAuthCommand(cfg Config) error {
 			return err
 		}
 		fmt.Println("Authentication credentials and sessions removed.")
-		fmt.Println("Restart Agent Remote, then run `agent-remote auth init`.")
+		fmt.Println("Restart JustTerminal, then run `just-terminal auth init`.")
 		return nil
 	default:
 		return fmt.Errorf("unknown auth action %q", cfg.AuthAction)
 	}
 }
 
-// runLocal starts agent-remote in local mode: starts the HTTP server on localhost,
+// runLocal starts just-terminal in local mode: starts the HTTP server on localhost,
 // wires the per-browser sessiond dialer, opens a browser, and blocks until
 // shutdown.
 func runLocal(cfg Config) error {
@@ -351,7 +351,7 @@ func runLocal(cfg Config) error {
 	// resolution to it, and never runs its startup validation. (Those three
 	// names are deliberately not spelled out here: the C4 guard greps this
 	// function body for them, and even a mention in a comment trips it.)
-	// Bare `agent-remote` on a host whose config.toml sets behind_reverse_proxy =
+	// Bare `just-terminal` on a host whose config.toml sets behind_reverse_proxy =
 	// true — i.e. the production host — must still behave exactly as it
 	// does today: loopback bypass on, loopback-derived redirect URI, no
 	// startup error. Honoring the file here would send the *local* browser
@@ -366,7 +366,7 @@ func runLocal(cfg Config) error {
 
 	authSrv, err := newAuthServer(cfg.Addr, localServerCfg)
 	if err != nil {
-		log.Printf("agent-remote: authentication unavailable (%v) — non-loopback access will be denied; local access is unaffected", err)
+		log.Printf("just-terminal: authentication unavailable (%v) — non-loopback access will be denied; local access is unaffected", err)
 	}
 
 	srv := server.New(server.Config{
@@ -384,7 +384,7 @@ func runLocal(cfg Config) error {
 
 	// Publish serve-layer URL so the MCP server can discover the tunnel API.
 	if err := sessiond.WriteServerURL(cfg.Addr); err != nil {
-		log.Printf("agent-remote: could not write server URL: %v", err)
+		log.Printf("just-terminal: could not write server URL: %v", err)
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -396,11 +396,11 @@ func runLocal(cfg Config) error {
 	}
 	go openBrowser("http://" + browserHost)
 
-	log.Printf("agent-remote listening on %s", cfg.Addr)
+	log.Printf("just-terminal listening on %s", cfg.Addr)
 	return srv.ListenAndServe(ctx)
 }
 
-// runServe starts agent-remote in serve mode, wires the per-browser sessiond dialer,
+// runServe starts just-terminal in serve mode, wires the per-browser sessiond dialer,
 // and blocks until shutdown. The daemon is ensured lazily by the dialer (per
 // browser), which is a no-op under systemd where the daemon is its own unit.
 func runServe(cfg Config) error {
@@ -417,7 +417,7 @@ func runServe(cfg Config) error {
 
 	authSrv, err := newAuthServer(cfg.Addr, srvCfg)
 	if err != nil {
-		log.Printf("agent-remote: authentication unavailable (%v) — non-loopback access will be denied; local access is unaffected", err)
+		log.Printf("just-terminal: authentication unavailable (%v) — non-loopback access will be denied; local access is unaffected", err)
 	}
 
 	srv := server.New(server.Config{
@@ -435,17 +435,17 @@ func runServe(cfg Config) error {
 
 	// Publish serve-layer URL so the MCP server can discover the tunnel API.
 	if err := sessiond.WriteServerURL(cfg.Addr); err != nil {
-		log.Printf("agent-remote: could not write server URL: %v", err)
+		log.Printf("just-terminal: could not write server URL: %v", err)
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	log.Printf("agent-remote listening on %s", cfg.Addr)
+	log.Printf("just-terminal listening on %s", cfg.Addr)
 	return srv.ListenAndServe(ctx)
 }
 
-// runDeploy deploys agent-remote to a remote host via SSH.
+// runDeploy deploys just-terminal to a remote host via SSH.
 func runDeploy(cfg Config) error {
 	d, err := deploy.New()
 	if err != nil {
@@ -454,7 +454,7 @@ func runDeploy(cfg Config) error {
 	return d.Deploy(cfg.Target)
 }
 
-// runInstall installs agent-remote as a system service.
+// runInstall installs just-terminal as a system service.
 func runInstall(cfg Config) error {
 	svcCfg := service.ServiceConfig{
 		Addr:   cfg.Addr,
@@ -464,16 +464,16 @@ func runInstall(cfg Config) error {
 	if err := service.Install(svcCfg); err != nil {
 		return err
 	}
-	fmt.Printf("Agent Remote installed and running at http://%s\n", cfg.Addr)
+	fmt.Printf("JustTerminal installed and running at http://%s\n", cfg.Addr)
 	return nil
 }
 
-// runUninstall removes the agent-remote system service.
+// runUninstall removes the just-terminal system service.
 func runUninstall() error {
 	if err := service.Uninstall(); err != nil {
 		return err
 	}
-	fmt.Println("Agent Remote service removed")
+	fmt.Println("JustTerminal service removed")
 	return nil
 }
 
@@ -503,12 +503,12 @@ func openBrowser(url string) {
 	}
 }
 
-// runAmplifierBundleInstall adds the agent-remote Amplifier bundle as an app bundle
-// by running: amplifier bundle add --app git+https://github.com/maxbaines/agent-remote@main#subdirectory=bundle
+// runAmplifierBundleInstall adds the just-terminal Amplifier bundle as an app bundle
+// by running: amplifier bundle add --app git+https://github.com/maxbaines/just-terminal@main#subdirectory=bundle
 // The --app flag makes the bundle active on every Amplifier session, not just
 // when explicitly selected.
 func runAmplifierBundleInstall() error {
-	const bundleURI = "git+https://github.com/maxbaines/agent-remote@main#subdirectory=bundle"
+	const bundleURI = "git+https://github.com/maxbaines/just-terminal@main#subdirectory=bundle"
 
 	cmd := exec.Command("amplifier", "bundle", "add", "--app", bundleURI)
 	cmd.Stdout = os.Stdout

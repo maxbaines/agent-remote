@@ -3,7 +3,7 @@ import { MuxStore } from '../state.js';
 import { SessiondType, SessiondErrorCode, type SessiondMessage } from '../types';
 import { WorkspaceController, type WorkspaceSocket } from '../lib/workspace-controller.js';
 
-const LAST_WS_KEY = 'agent-remote.lastWorkspaceId';
+const LAST_WS_KEY = 'just-terminal.lastWorkspaceId';
 
 function makeSocket(): WorkspaceSocket & {
   attachWithBreakpoint: ReturnType<typeof vi.fn>;

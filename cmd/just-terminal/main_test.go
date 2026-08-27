@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/maxbaines/agent-remote/internal/server"
+	"github.com/maxbaines/just-terminal/internal/server"
 )
 
 // captureStdout runs fn and returns whatever it printed to os.Stdout.
@@ -36,7 +36,7 @@ func captureStdout(t *testing.T, fn func()) string {
 // shortSocketPath keeps Unix socket fixtures below macOS's path-length limit.
 func shortSocketPath(t *testing.T, name string) string {
 	t.Helper()
-	dir, err := os.MkdirTemp(".", ".agent-remote-")
+	dir, err := os.MkdirTemp(".", ".just-terminal-")
 	if err != nil {
 		t.Fatalf("MkdirTemp: %v", err)
 	}
@@ -180,7 +180,7 @@ func TestRunUninstall_PrintsConfirmation(t *testing.T) {
 			t.Skipf("service.Uninstall not available in this environment: %v", err)
 		}
 	})
-	if !strings.Contains(out, "Agent Remote service removed") {
+	if !strings.Contains(out, "JustTerminal service removed") {
 		t.Errorf("expected confirmation message, got %q", out)
 	}
 }

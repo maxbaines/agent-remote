@@ -1,0 +1,23 @@
+bundle:
+  name: just-terminal-behavior
+  version: 1.0.0
+  description: Wires the JustTerminal MCP server as a tool source and registers the JustTerminal expert agent
+
+tools:
+  - module: tool-mcp
+    source: git+https://github.com/microsoft/amplifier-module-tool-mcp@main
+    config:
+      servers:
+        just-terminal:
+          command: just-terminal
+          args: ["mcp"]
+          # just-terminal mcp discovers the local Session Owner and Gateway
+          # through the runtime files written by the running processes.
+
+agents:
+  include:
+    - just-terminal:agents/just-terminal-expert
+
+context:
+  include:
+    - just-terminal:context/just-terminal-awareness.md

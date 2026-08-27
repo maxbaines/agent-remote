@@ -27,7 +27,7 @@ type fakeDaemon struct {
 // assuming that /tmp is mounted.
 func newFakeDaemon(t *testing.T, handler func(conn net.Conn)) *fakeDaemon {
 	t.Helper()
-	dir, err := os.MkdirTemp(".", "agent-remote")
+	dir, err := os.MkdirTemp(".", "just-terminal")
 	if err != nil {
 		t.Fatalf("MkdirTemp: %v", err)
 	}

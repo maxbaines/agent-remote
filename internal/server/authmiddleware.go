@@ -5,16 +5,16 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/maxbaines/agent-remote/internal/authserver"
+	"github.com/maxbaines/just-terminal/internal/authserver"
 )
 
 // SessionCookieName is the HttpOnly cookie holding the opaque access token
 // for browser sessions (set by internal/server/authclient.go's callback
 // handler).
-const SessionCookieName = "agent-remote_session"
+const SessionCookieName = "just-terminal_session"
 
 // AuthMiddleware gates access to protected routes. The loopback bypass
-// applies only in direct/local-dev mode; when agent-remote runs behind a reverse
+// applies only in direct/local-dev mode; when just-terminal runs behind a reverse
 // proxy the bypass is disabled entirely (see behindReverseProxy below).
 // Otherwise a valid session cookie (browser) or Authorization: Bearer token
 // (all other callers) is required, validated against the AuthServer's token
@@ -23,7 +23,7 @@ type AuthMiddleware struct {
 	authSrv *authserver.AuthServer // nil => auth unavailable; fail closed for non-loopback callers
 	noAuth  bool
 	// behindReverseProxy disables the IsLocalhost() bypass unconditionally.
-	// A fronting proxy's own hop to agent-remote is indistinguishable from a
+	// A fronting proxy's own hop to just-terminal is indistinguishable from a
 	// genuinely local caller at the RemoteAddr level — and in the real
 	// production topology it is not even loopback — so honoring the bypass
 	// here would silently grant unauthenticated access to genuinely remote
@@ -35,7 +35,7 @@ type AuthMiddleware struct {
 
 // NewAuthMiddleware returns a middleware wired to authSrv, which may be
 // nil if authentication initialization failed at startup (see
-// cmd/agent-remote's newAuthServer) — in that case every non-loopback request
+// cmd/just-terminal's newAuthServer) — in that case every non-loopback request
 // is denied (fail closed), per the design doc's Error Handling section.
 // noAuth mirrors the existing --no-auth dev-only flag: when set, ALL
 // checks (including loopback and the fail-closed case) are skipped.

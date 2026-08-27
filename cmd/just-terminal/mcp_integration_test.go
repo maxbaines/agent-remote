@@ -11,13 +11,13 @@ import (
 	"time"
 )
 
-// buildTestBinary compiles the agent-remote binary into a temp directory and
+// buildTestBinary compiles the just-terminal binary into a temp directory and
 // returns the path to the executable. Tests that call this are skipped when
 // the build fails (e.g. missing CGO on CI without PTY support).
 func buildTestBinary(t *testing.T) string {
 	t.Helper()
 	binDir := t.TempDir()
-	bin := filepath.Join(binDir, "agent-remote")
+	bin := filepath.Join(binDir, "just-terminal")
 	cmd := exec.Command("go", "build", "-o", bin, ".")
 	var buildOut bytes.Buffer
 	cmd.Stdout = &buildOut
@@ -28,14 +28,14 @@ func buildTestBinary(t *testing.T) string {
 	return bin
 }
 
-// TestMCPInitializeOverStdio builds the agent-remote binary, pipes a single
-// JSON-RPC initialize request to 'agent-remote mcp', and asserts that the first
+// TestMCPInitializeOverStdio builds the just-terminal binary, pipes a single
+// JSON-RPC initialize request to 'just-terminal mcp', and asserts that the first
 // stdout line is a valid JSON-RPC 2.0 response with:
 //
 //   - jsonrpc == "2.0"
 //   - id == 1
 //   - result.protocolVersion == "2024-11-05"
-//   - result.serverInfo.name == "agent-remote"
+//   - result.serverInfo.name == "just-terminal"
 //
 // No sessiond daemon is required — initialize must work without one.
 func TestMCPInitializeOverStdio(t *testing.T) {
@@ -54,7 +54,7 @@ func TestMCPInitializeOverStdio(t *testing.T) {
 	cmd.Stderr = &stderr
 
 	if err := cmd.Run(); err != nil {
-		t.Fatalf("agent-remote mcp failed: %v\nstderr: %s\nstdout: %s",
+		t.Fatalf("just-terminal mcp failed: %v\nstderr: %s\nstdout: %s",
 			err, stderr.String(), stdout.String())
 	}
 
@@ -101,8 +101,8 @@ func TestMCPInitializeOverStdio(t *testing.T) {
 	if resp.Result.ProtocolVersion != "2024-11-05" {
 		t.Errorf("protocolVersion = %q, want %q", resp.Result.ProtocolVersion, "2024-11-05")
 	}
-	if resp.Result.ServerInfo.Name != "agent-remote" {
-		t.Errorf("serverInfo.name = %q, want %q", resp.Result.ServerInfo.Name, "agent-remote")
+	if resp.Result.ServerInfo.Name != "just-terminal" {
+		t.Errorf("serverInfo.name = %q, want %q", resp.Result.ServerInfo.Name, "just-terminal")
 	}
 }
 
@@ -134,7 +134,7 @@ func TestMCPToolsListReturns17Tools(t *testing.T) {
 	cmd.Stderr = &stderr
 
 	if err := cmd.Run(); err != nil {
-		t.Fatalf("agent-remote mcp failed: %v\nstderr: %s\nstdout: %s",
+		t.Fatalf("just-terminal mcp failed: %v\nstderr: %s\nstdout: %s",
 			err, stderr.String(), stdout.String())
 	}
 

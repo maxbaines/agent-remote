@@ -1,6 +1,6 @@
 // fonts.ts — terminal font catalog and bundled Nerd Font declarations.
 //
-// WOFF2 files live in web/public/fonts/ and are served by the agent-remote server
+// WOFF2 files live in web/public/fonts/ and are served by the just-terminal server
 // itself, ensuring Nerd Font glyphs render in any browser regardless of locally
 // installed fonts. Call injectTerminalFonts() once at app startup, before any
 // terminal is created. terminal-registry.ts calls WebFontsAddon.loadFonts()

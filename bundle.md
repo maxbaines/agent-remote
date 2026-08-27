@@ -1,15 +1,15 @@
 ---
 bundle:
-  name: agent-remote
+  name: just-terminal
   version: 1.0.0
-  description: Amplifier bundle for managing Agent Remote — create Panes, run commands, automate browser Panes, manage Workspaces
+  description: Amplifier bundle for managing JustTerminal — create Panes, run commands, automate browser Panes, manage Workspaces
 
 includes:
   - bundle: git+https://github.com/microsoft/amplifier-foundation@main
-  - bundle: agent-remote:behaviors/agent-remote
+  - bundle: just-terminal:behaviors/just-terminal
 ---
 
-@agent-remote:context/agent-remote-awareness.md
+@just-terminal:context/just-terminal-awareness.md
 
 ---
 

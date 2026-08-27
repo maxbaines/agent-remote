@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Agent Remote installer
-# Installs the agent-remote binary to ~/.local/bin — no sudo required.
+# JustTerminal installer
+# Installs the just-terminal binary to ~/.local/bin — no sudo required.
 #
 # Usage (pipe):
-#   curl -fsSL https://raw.githubusercontent.com/maxbaines/agent-remote/main/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/maxbaines/just-terminal/main/install.sh | bash
 #
 # Usage (with flags via bash -s):
 #   curl -fsSL .../install.sh | bash -s -- --version v0.2.1
@@ -14,7 +14,7 @@ set -euo pipefail
 # Review first:
 #   curl -fsSL .../install.sh -o install.sh && less install.sh && bash install.sh
 
-REPO="maxbaines/agent-remote"
+REPO="maxbaines/just-terminal"
 INSTALL_DIR="$HOME/.local/bin"
 
 # ---------------------------------------------------------------------------
@@ -42,7 +42,7 @@ NO_MODIFY_PATH=0
 FORCE=0
 
 usage() {
-  printf "Agent Remote installer\n\n"
+  printf "JustTerminal installer\n\n"
   printf "Usage: install.sh [OPTIONS]\n\n"
   printf "Options:\n"
   printf "  --version <ver>     Install a specific version (e.g. v0.2.1). Default: latest.\n"
@@ -84,10 +84,10 @@ done
 # ---------------------------------------------------------------------------
 # Tmpdir + cleanup trap
 # ---------------------------------------------------------------------------
-AGENT_REMOTE_TMP="$(mktemp -d)"
+JUST_TERMINAL_TMP="$(mktemp -d)"
 
 cleanup() {
-  rm -rf "$AGENT_REMOTE_TMP"
+  rm -rf "$JUST_TERMINAL_TMP"
 }
 trap cleanup EXIT
 
@@ -102,8 +102,8 @@ case "$OS" in
   Linux)  OS="linux" ;;
   Darwin) OS="darwin" ;;
   MINGW*|MSYS*|CYGWIN*)
-    printf "${RED}error:${RESET} Windows is not supported — Agent Remote requires Unix PTYs.\n" >&2
-    printf "       Use WSL2 if you need Agent Remote on a Windows Host.\n" >&2
+    printf "${RED}error:${RESET} Windows is not supported — JustTerminal requires Unix PTYs.\n" >&2
+    printf "       Use WSL2 if you need JustTerminal on a Windows Host.\n" >&2
     exit 1
     ;;
   *)
@@ -124,7 +124,7 @@ esac
 
 # WSL detection — informational only, not a blocker
 if [ "$OS" = "linux" ] && grep -qi microsoft /proc/version 2>/dev/null; then
-  printf "${YELLOW}note:${RESET} WSL detected. Agent Remote runs, but browser auto-open may not work inside WSL.\n"
+  printf "${YELLOW}note:${RESET} WSL detected. JustTerminal runs, but browser auto-open may not work inside WSL.\n"
 fi
 
 # ---------------------------------------------------------------------------
@@ -132,9 +132,9 @@ fi
 # ---------------------------------------------------------------------------
 if [ "$OS" = "darwin" ] && [ "$FORCE" = "0" ]; then
   printf "\n"
-  printf "${BOLD}Agent Remote is available via Homebrew on macOS:${RESET}\n"
+  printf "${BOLD}JustTerminal is available via Homebrew on macOS:${RESET}\n"
   printf "\n"
-  printf "  brew install maxbaines/tap/agent-remote\n"
+  printf "  brew install maxbaines/tap/just-terminal\n"
   printf "\n"
   printf "To install anyway (no Homebrew), re-run with --force\n"
   printf "\n"
@@ -184,27 +184,27 @@ fi
 # ---------------------------------------------------------------------------
 # Download tarball + checksums
 # ---------------------------------------------------------------------------
-TARBALL="agent-remote_${OS}_${ARCH}.tar.gz"
+TARBALL="just-terminal_${OS}_${ARCH}.tar.gz"
 URL="https://github.com/${REPO}/releases/download/${VERSION}/${TARBALL}"
 CHECKSUMS_URL="https://github.com/${REPO}/releases/download/${VERSION}/checksums.txt"
 
-printf "Downloading Agent Remote %s (%s/%s)...\n" "$VERSION" "$OS" "$ARCH"
-curl -fsSL "$URL" -o "$AGENT_REMOTE_TMP/$TARBALL"
-curl -fsSL "$CHECKSUMS_URL" -o "$AGENT_REMOTE_TMP/checksums.txt"
+printf "Downloading JustTerminal %s (%s/%s)...\n" "$VERSION" "$OS" "$ARCH"
+curl -fsSL "$URL" -o "$JUST_TERMINAL_TMP/$TARBALL"
+curl -fsSL "$CHECKSUMS_URL" -o "$JUST_TERMINAL_TMP/checksums.txt"
 
 # ---------------------------------------------------------------------------
 # Verify checksum
 # ---------------------------------------------------------------------------
 printf "Verifying checksum... "
 
-EXPECTED="$(grep "$TARBALL" "$AGENT_REMOTE_TMP/checksums.txt" | awk '{print $1}')"
+EXPECTED="$(grep "$TARBALL" "$JUST_TERMINAL_TMP/checksums.txt" | awk '{print $1}')"
 if [ -z "$EXPECTED" ]; then
   printf "${RED}FAILED${RESET}\n" >&2
   printf "${RED}error:${RESET} %s not found in checksums.txt\n" "$TARBALL" >&2
   exit 1
 fi
 
-ACTUAL="$("${SHASUM_CMD[@]}" "$AGENT_REMOTE_TMP/$TARBALL" | awk '{print $1}')"
+ACTUAL="$("${SHASUM_CMD[@]}" "$JUST_TERMINAL_TMP/$TARBALL" | awk '{print $1}')"
 
 if [ "$EXPECTED" != "$ACTUAL" ]; then
   printf "${RED}FAILED${RESET}\n" >&2
@@ -220,13 +220,13 @@ printf "${GREEN}ok${RESET}\n"
 # Extract and install
 # ---------------------------------------------------------------------------
 mkdir -p "$INSTALL_DIR"
-tar -xzf "$AGENT_REMOTE_TMP/$TARBALL" -C "$AGENT_REMOTE_TMP" agent-remote
-chmod +x "$AGENT_REMOTE_TMP/agent-remote"
+tar -xzf "$JUST_TERMINAL_TMP/$TARBALL" -C "$JUST_TERMINAL_TMP" just-terminal
+chmod +x "$JUST_TERMINAL_TMP/just-terminal"
 
 # Detect existing install for upgrade message
 PREV_VERSION=""
-if [ -x "$INSTALL_DIR/agent-remote" ]; then
-  PREV_VERSION="$("$INSTALL_DIR/agent-remote" version 2>/dev/null | awk '{print $NF}' || true)"
+if [ -x "$INSTALL_DIR/just-terminal" ]; then
+  PREV_VERSION="$("$INSTALL_DIR/just-terminal" version 2>/dev/null | awk '{print $NF}' || true)"
 fi
 
 INSTALL_ACTION="Installing"
@@ -234,18 +234,18 @@ if [ -n "$PREV_VERSION" ] && [ "$PREV_VERSION" != "$VERSION" ]; then
   INSTALL_ACTION="Upgrading"
 fi
 
-printf "%s agent-remote to %s/agent-remote...\n" "$INSTALL_ACTION" "$INSTALL_DIR"
-mv "$AGENT_REMOTE_TMP/agent-remote" "$INSTALL_DIR/agent-remote"
+printf "%s just-terminal to %s/just-terminal...\n" "$INSTALL_ACTION" "$INSTALL_DIR"
+mv "$JUST_TERMINAL_TMP/just-terminal" "$INSTALL_DIR/just-terminal"
 
 # ---------------------------------------------------------------------------
 # Service setup / restart
 # ---------------------------------------------------------------------------
 if [ "$INSTALL_ACTION" = "Upgrading" ]; then
   # Restart the existing service with the new binary
-  systemctl --user restart agent-remote 2>/dev/null || true
+  systemctl --user restart just-terminal 2>/dev/null || true
 else
   # First install — register the systemd user service
-  "$INSTALL_DIR/agent-remote" install
+  "$INSTALL_DIR/just-terminal" install
 fi
 
 # ---------------------------------------------------------------------------
@@ -268,7 +268,7 @@ if [ "$NEED_PATH" = "1" ] && [ "$NO_MODIFY_PATH" = "0" ]; then
     bash)
       for rc in "$HOME/.bashrc" "$HOME/.bash_profile"; do
         if ! grep -qF '.local/bin' "$rc" 2>/dev/null; then
-          printf '\n# Added by agent-remote installer\n%s\n' "$PATH_EXPORT" >> "$rc"
+          printf '\n# Added by just-terminal installer\n%s\n' "$PATH_EXPORT" >> "$rc"
         fi
       done
       MODIFIED_FILE="~/.bashrc and ~/.bash_profile"
@@ -277,7 +277,7 @@ if [ "$NEED_PATH" = "1" ] && [ "$NO_MODIFY_PATH" = "0" ]; then
     zsh)
       rc="$HOME/.zshrc"
       if ! grep -qF '.local/bin' "$rc" 2>/dev/null; then
-        printf '\n# Added by agent-remote installer\n%s\n' "$PATH_EXPORT" >> "$rc"
+        printf '\n# Added by just-terminal installer\n%s\n' "$PATH_EXPORT" >> "$rc"
       fi
       MODIFIED_FILE="~/.zshrc"
       SOURCE_CMD="source ~/.zshrc"
@@ -286,7 +286,7 @@ if [ "$NEED_PATH" = "1" ] && [ "$NO_MODIFY_PATH" = "0" ]; then
       rc="$HOME/.config/fish/config.fish"
       mkdir -p "$(dirname "$rc")"
       if ! grep -qF '.local/bin' "$rc" 2>/dev/null; then
-        printf '\n# Added by agent-remote installer\nset -gx PATH "$HOME/.local/bin" $PATH\n' >> "$rc"
+        printf '\n# Added by just-terminal installer\nset -gx PATH "$HOME/.local/bin" $PATH\n' >> "$rc"
       fi
       MODIFIED_FILE="~/.config/fish/config.fish"
       SOURCE_CMD="source ~/.config/fish/config.fish"
@@ -294,7 +294,7 @@ if [ "$NEED_PATH" = "1" ] && [ "$NO_MODIFY_PATH" = "0" ]; then
     *)
       rc="$HOME/.profile"
       if ! grep -qF '.local/bin' "$rc" 2>/dev/null; then
-        printf '\n# Added by agent-remote installer\n%s\n' "$PATH_EXPORT" >> "$rc"
+        printf '\n# Added by just-terminal installer\n%s\n' "$PATH_EXPORT" >> "$rc"
       fi
       MODIFIED_FILE="~/.profile"
       SOURCE_CMD="source ~/.profile"
@@ -308,14 +308,14 @@ fi
 printf "\n"
 
 if [ "$INSTALL_ACTION" = "Upgrading" ]; then
-  printf "${GREEN}${BOLD}Agent Remote upgraded %s → %s${RESET}\n" "$PREV_VERSION" "$VERSION"
-  printf "Service restarted via systemctl --user restart agent-remote\n"
+  printf "${GREEN}${BOLD}JustTerminal upgraded %s → %s${RESET}\n" "$PREV_VERSION" "$VERSION"
+  printf "Service restarted via systemctl --user restart just-terminal\n"
 else
-  printf "${GREEN}${BOLD}Agent Remote %s installed and running${RESET}\n" "$VERSION"
+  printf "${GREEN}${BOLD}JustTerminal %s installed and running${RESET}\n" "$VERSION"
   printf "\n"
   printf "  Open: ${BOLD}http://localhost:8311${RESET}\n"
   printf "\n"
-  printf "  agent-remote doctor              # check daemon and service status\n"
+  printf "  just-terminal doctor              # check daemon and service status\n"
   printf "\n"
   printf "To keep running after logout (optional, requires sudo once):\n"
   printf "  sudo loginctl enable-linger %s\n" "$USER"

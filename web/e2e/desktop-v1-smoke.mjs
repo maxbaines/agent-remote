@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Desktop Chromium smoke for the combined Agent Remote desktop v1 cut.
+ * Desktop Chromium smoke for the combined JustTerminal desktop v1 cut.
  * Detailed behavior remains covered by the feature-specific E2E scripts.
  */
 
@@ -13,7 +13,7 @@ for (let i = 0; i < argv.length; i++) {
   else if (argv[i].startsWith('--url=')) url = argv[i].slice('--url='.length);
 }
 
-const expectedUid = process.env.AGENT_REMOTE_EXPECTED_UID;
+const expectedUid = process.env.JUST_TERMINAL_EXPECTED_UID;
 const browserSession = `desktop-v1-smoke-${process.pid}`;
 
 function pcli(...args) {
@@ -87,7 +87,7 @@ try {
     };
   })()`);
 
-  assert(releaseState.title === 'Agent Remote', `unexpected document title: ${releaseState.title}`);
+  assert(releaseState.title === 'JustTerminal', `unexpected document title: ${releaseState.title}`);
   assert(releaseState.activePaneId > 0, 'no Active Pane after desktop startup');
   assert(
     JSON.stringify(releaseState.commandIds) === JSON.stringify([
@@ -114,16 +114,16 @@ try {
   );
 
   pcli('eval', `(() => {
-    window.__agentRemoteDesktopV1Health = null;
+    window.__justTerminalDesktopV1Health = null;
     fetch('/api/health')
-      .then((response) => { window.__agentRemoteDesktopV1Health = { ok: response.ok, status: response.status }; })
-      .catch(() => { window.__agentRemoteDesktopV1Health = { ok: false, status: 0 }; });
+      .then((response) => { window.__justTerminalDesktopV1Health = { ok: response.ok, status: response.status }; })
+      .catch(() => { window.__justTerminalDesktopV1Health = { ok: false, status: 0 }; });
   })()`);
-  waitFor(`window.__agentRemoteDesktopV1Health !== null`);
-  const health = pevalJson(`window.__agentRemoteDesktopV1Health`);
+  waitFor(`window.__justTerminalDesktopV1Health !== null`);
+  const health = pevalJson(`window.__justTerminalDesktopV1Health`);
   assert(health.ok === true && health.status === 200, `health endpoint failed: ${JSON.stringify(health)}`);
 
-  if (!expectedUid) throw new Error('AGENT_REMOTE_EXPECTED_UID is required');
+  if (!expectedUid) throw new Error('JUST_TERMINAL_EXPECTED_UID is required');
   const marker = `desktop-v1-owner-${Date.now()}`;
   const activePaneId = releaseState.activePaneId;
   pcli('eval', `(() => {

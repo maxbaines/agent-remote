@@ -14,7 +14,7 @@ RUN go mod download
 COPY . .
 COPY --from=web-build /src/web/dist ./web/dist
 RUN CGO_ENABLED=1 go build -trimpath -ldflags="-s -w" \
-    -o /out/agent-remote ./cmd/agent-remote
+    -o /out/just-terminal ./cmd/just-terminal
 
 FROM ghcr.io/openai/codex-universal:47f4f0eb5337083e2f610db0d15558932cb4901d
 
@@ -62,21 +62,21 @@ RUN bash -lc "npm install --global \
        done \
     && npm cache clean --force"
 
-ENV XDG_RUNTIME_DIR=/run/agent-remote
-ENV XDG_CONFIG_HOME=/var/lib/agent-remote/config
-ENV XDG_DATA_HOME=/var/lib/agent-remote/data
-ENV XDG_STATE_HOME=/var/lib/agent-remote/state
-ENV XDG_CACHE_HOME=/var/cache/agent-remote
+ENV XDG_RUNTIME_DIR=/run/just-terminal
+ENV XDG_CONFIG_HOME=/var/lib/just-terminal/config
+ENV XDG_DATA_HOME=/var/lib/just-terminal/data
+ENV XDG_STATE_HOME=/var/lib/just-terminal/state
+ENV XDG_CACHE_HOME=/var/cache/just-terminal
 ENV SHELL=/usr/bin/zsh
 ENV CODEX_HOME=/root/.codex
 ENV CLAUDE_CONFIG_DIR=/root/.claude
-ENV GH_CONFIG_DIR=/var/lib/agent-remote/config/gh
-ENV GIT_CONFIG_GLOBAL=/var/lib/agent-remote/config/gitconfig
-ENV NPM_CONFIG_USERCONFIG=/var/lib/agent-remote/config/npmrc
-ENV NODE_REPL_HISTORY=/var/lib/agent-remote/state/node/repl_history
-ENV PYTHON_HISTORY=/var/lib/agent-remote/state/python/history
-ENV AGENT_REMOTE_CODEX_VERSION=${CODEX_VERSION}
-ENV AGENT_REMOTE_CLAUDE_CODE_VERSION=${CLAUDE_CODE_VERSION}
+ENV GH_CONFIG_DIR=/var/lib/just-terminal/config/gh
+ENV GIT_CONFIG_GLOBAL=/var/lib/just-terminal/config/gitconfig
+ENV NPM_CONFIG_USERCONFIG=/var/lib/just-terminal/config/npmrc
+ENV NODE_REPL_HISTORY=/var/lib/just-terminal/state/node/repl_history
+ENV PYTHON_HISTORY=/var/lib/just-terminal/state/python/history
+ENV JUST_TERMINAL_CODEX_VERSION=${CODEX_VERSION}
+ENV JUST_TERMINAL_CLAUDE_CODE_VERSION=${CLAUDE_CODE_VERSION}
 
 RUN mkdir -p \
     "$XDG_RUNTIME_DIR" \
@@ -88,10 +88,10 @@ RUN mkdir -p \
     "$CLAUDE_CONFIG_DIR" \
     /workspace
 
-COPY --from=go-build /out/agent-remote /usr/local/bin/agent-remote
-COPY docker/agent-remote-start /usr/local/bin/agent-remote-start
+COPY --from=go-build /out/just-terminal /usr/local/bin/just-terminal
+COPY docker/just-terminal-start /usr/local/bin/just-terminal-start
 
-RUN chmod 0755 /usr/local/bin/agent-remote-start
+RUN chmod 0755 /usr/local/bin/just-terminal-start
 
 WORKDIR /workspace
 
@@ -100,4 +100,4 @@ EXPOSE 8311
 HEALTHCHECK --interval=10s --timeout=5s --start-period=30s --retries=10 \
     CMD curl -fsS http://127.0.0.1:8311/api/health || exit 1
 
-ENTRYPOINT ["/opt/entrypoint.sh", "/usr/local/bin/agent-remote-start"]
+ENTRYPOINT ["/opt/entrypoint.sh", "/usr/local/bin/just-terminal-start"]

@@ -1,4 +1,4 @@
-// Package config defines the agent-remote configuration structure and hardcoded defaults.
+// Package config defines the just-terminal configuration structure and hardcoded defaults.
 package config
 
 import (
@@ -15,7 +15,7 @@ import (
 	"github.com/BurntSushi/toml"
 )
 
-// Config is the top-level configuration for agent-remote.
+// Config is the top-level configuration for just-terminal.
 type Config struct {
 	Theme     ThemeConfig     `toml:"theme"      json:"theme"`
 	Font      FontConfig      `toml:"font"       json:"font"`
@@ -26,7 +26,7 @@ type Config struct {
 	Server    ServerConfig    `toml:"server"     json:"server"`
 }
 
-// ServerConfig holds deployment-topology settings that decide how agent-remote
+// ServerConfig holds deployment-topology settings that decide how just-terminal
 // derives its own public-facing URLs and whether the loopback auth bypass
 // applies. Both fields are explicit and opt-in, and are NEVER derived from
 // request headers (X-Forwarded-Host, X-Forwarded-Proto, or anything else):
@@ -37,16 +37,16 @@ type Config struct {
 // browser-facing PATCH /api/config route — a deployment-topology and
 // security setting must not be mutable from a web request.
 type ServerConfig struct {
-	// PublicOrigin is the canonical public origin at which agent-remote is
+	// PublicOrigin is the canonical public origin at which just-terminal is
 	// reachable through its fronting reverse proxy, e.g.
-	// "https://agent-remote.ampbox.io". Scheme and host (with optional port)
+	// "https://my-instance.js.actor". Scheme and host (with optional port)
 	// only — no path, no trailing slash. Empty by default. Ignored
 	// entirely when BehindReverseProxy is false.
 	PublicOrigin string `toml:"public_origin"        json:"public_origin"`
-	// BehindReverseProxy opts agent-remote into reverse-proxy mode: every
-	// public-facing URL agent-remote builds derives from PublicOrigin, and the
+	// BehindReverseProxy opts just-terminal into reverse-proxy mode: every
+	// public-facing URL just-terminal builds derives from PublicOrigin, and the
 	// IsLocalhost() auth bypass is disabled entirely. Opt-in, default
-	// false. The bypass must go, because the proxy's own hop to agent-remote is
+	// false. The bypass must go, because the proxy's own hop to just-terminal is
 	// indistinguishable from a genuinely local caller at the RemoteAddr
 	// level — honoring it would silently grant unauthenticated access to
 	// genuinely remote traffic.
@@ -67,7 +67,7 @@ func (s ServerConfig) Validate() error {
 		return nil
 	}
 	if s.PublicOrigin == "" {
-		return errors.New(`config: behind_reverse_proxy is set but public_origin is empty; set public_origin (e.g. "https://agent-remote.example.com") or unset behind_reverse_proxy`)
+		return errors.New(`config: behind_reverse_proxy is set but public_origin is empty; set public_origin (e.g. "https://my-instance.js.actor") or unset behind_reverse_proxy`)
 	}
 	u, err := url.Parse(s.PublicOrigin)
 	if err != nil {
@@ -123,8 +123,8 @@ type TerminalConfig struct {
 	Bell        string `toml:"bell"          json:"bell"`
 }
 
-// KeysConfig defines agent-remote's own UI keybindings.
-// These are agent-remote UI actions only.
+// KeysConfig defines just-terminal's own UI keybindings.
+// These are just-terminal UI actions only.
 type KeysConfig struct {
 	NextSession    string `toml:"next_session"     json:"next_session"`
 	Split          string `toml:"split"            json:"split"`
@@ -140,7 +140,7 @@ type WorkspaceConfig struct {
 	Rails               []string `toml:"rails"                json:"rails"`
 }
 
-// DriverConfig controls the agent-remote-agent driver lifecycle.
+// DriverConfig controls the just-terminal-agent driver lifecycle.
 // SharedWindowPolicy is RESERVED — parsed and carried through to the client
 // but NOT acted on in Phase 5.
 type DriverConfig struct {
@@ -246,7 +246,7 @@ func Defaults() Config {
 		Driver: DriverConfig{
 			Autostart:          false,
 			SharedWindowPolicy: "follow",
-			Launch:             "agent-remote-agent",
+			Launch:             "just-terminal-agent",
 		},
 		// Direct/local-dev topology by default: no reverse proxy, no
 		// public origin. Stated explicitly rather than left implicit so

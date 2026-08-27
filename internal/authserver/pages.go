@@ -28,9 +28,9 @@ pre { max-height: 300px; overflow: auto; padding: 14px; border-radius: 8px; colo
 
 const loginPageHTML = `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Sign in · Agent Remote</title><style>` + authPageStyle + `</style></head>
+<title>Sign in · JustTerminal</title><style>` + authPageStyle + `</style></head>
 <body><main class="card">
-<h1 class="brand">Agent Remote</h1>
+<h1 class="brand">JustTerminal</h1>
 {{if .Active}}<p class="lede">Use your passkey to unlock this machine.</p>{{else}}<p class="lede">Authentication has not been configured on this host.</p>{{end}}
 {{if .Error}}<p class="error" role="alert">{{.Error}}</p>{{end}}
 {{if .Active}}
@@ -48,7 +48,7 @@ const loginPageHTML = `<!doctype html>
 </div></details>
 </form>
 {{else}}
-<div class="stack"><p class="muted">Run <code>agent-remote auth init</code> through a shell on the Agent Remote host, then visit the setup URL it prints.</p><a class="button" href="/auth/setup">Open setup</a></div>
+<div class="stack"><p class="muted">Run <code>just-terminal auth init</code> through a shell on the JustTerminal host, then visit the setup URL it prints.</p><a class="button" href="/auth/setup">Open setup</a></div>
 {{end}}
 </main>
 {{if .Active}}<script>
@@ -102,23 +102,23 @@ button.addEventListener('click', async () => {
 
 const setupUnlockPageHTML = `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Set up authentication · Agent Remote</title><style>` + authPageStyle + `</style></head>
+<title>Set up authentication · JustTerminal</title><style>` + authPageStyle + `</style></head>
 <body><main class="card"><h1 class="brand">Set up authentication</h1>
-<p class="lede">Enter the single-use code created locally on the Agent Remote host.</p>
+<p class="lede">Enter the single-use code created locally on the JustTerminal host.</p>
 <form method="post" action="/auth/setup/unlock" class="stack">
 <label>Setup code<input name="code" required autocomplete="off" spellcheck="false" autofocus></label>
 <button type="submit">Unlock setup</button>
-</form><p class="muted" style="margin-top:18px">Generate a code with <code>agent-remote auth init</code>. Codes expire after ten minutes.</p>
+</form><p class="muted" style="margin-top:18px">Generate a code with <code>just-terminal auth init</code>. Codes expire after ten minutes.</p>
 </main></body></html>`
 
 const setupEnrollmentPageHTML = `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Enroll authentication · Agent Remote</title><style>` + authPageStyle + `</style></head>
-<body><main class="card"><h1 class="brand">Secure Agent Remote</h1>
+<title>Enroll authentication · JustTerminal</title><style>` + authPageStyle + `</style></head>
+<body><main class="card"><h1 class="brand">Secure JustTerminal</h1>
 <p class="lede">Register a passkey, then confirm an authenticator app. Authentication activates only after both steps succeed.</p>
 <section id="passkey-step" class="stack"><strong>1. Register a passkey</strong><button id="register-passkey">Register passkey</button></section>
 <section id="totp-step" class="stack" hidden><strong>2. Add an authenticator</strong><img id="totp-qr" class="qr" alt="Authenticator QR code"><p class="muted">If you cannot scan the QR code, enter this secret manually:</p><code id="totp-secret" class="secret"></code><label>Six-digit code<input id="totp-code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6"></label><button id="confirm-totp">Confirm and activate</button></section>
-<section id="recovery-step" class="stack" hidden><strong class="success">Authentication is active</strong><p class="muted">Save these one-use recovery codes now. They will not be shown again. Browser recovery requires one code plus your authenticator.</p><pre id="recovery-codes"></pre><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><button id="copy-codes" class="secondary">Copy</button><button id="download-codes" class="secondary">Download</button></div><a class="button" href="/">Continue to Agent Remote</a></section>
+<section id="recovery-step" class="stack" hidden><strong class="success">Authentication is active</strong><p class="muted">Save these one-use recovery codes now. They will not be shown again. Browser recovery requires one code plus your authenticator.</p><pre id="recovery-codes"></pre><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><button id="copy-codes" class="secondary">Copy</button><button id="download-codes" class="secondary">Download</button></div><a class="button" href="/">Continue to JustTerminal</a></section>
 <p id="setup-error" class="error" role="alert" hidden></p>
 </main><script>
 const passkeyStep = document.getElementById('passkey-step');
@@ -183,11 +183,11 @@ confirmButton.addEventListener('click', async () => {
 });
 document.getElementById('copy-codes').addEventListener('click', async () => { await navigator.clipboard.writeText(recoveryText); });
 document.getElementById('download-codes').addEventListener('click', () => {
-  const link = document.createElement('a'); link.href = URL.createObjectURL(new Blob([recoveryText + '\n'], {type:'text/plain'})); link.download = 'agent-remote-recovery-codes.txt'; link.click(); URL.revokeObjectURL(link.href);
+  const link = document.createElement('a'); link.href = URL.createObjectURL(new Blob([recoveryText + '\n'], {type:'text/plain'})); link.download = 'just-terminal-recovery-codes.txt'; link.click(); URL.revokeObjectURL(link.href);
 });
 </script></body></html>`
 
 const setupCompletePageHTML = `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Authentication active · Agent Remote</title><style>` + authPageStyle + `</style></head>
-<body><main class="card"><h1 class="brand">Authentication is active</h1><p class="lede">This host already has an enrolled passkey and authenticator.</p><a class="button" href="/">Continue to Agent Remote</a></main></body></html>`
+<title>Authentication active · JustTerminal</title><style>` + authPageStyle + `</style></head>
+<body><main class="card"><h1 class="brand">Authentication is active</h1><p class="lede">This host already has an enrolled passkey and authenticator.</p><a class="button" href="/">Continue to JustTerminal</a></main></body></html>`

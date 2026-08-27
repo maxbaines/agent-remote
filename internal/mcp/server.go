@@ -213,7 +213,7 @@ func (s *Server) handleInitialize(id json.RawMessage) {
 			"resources": map[string]any{"subscribe": true},
 		},
 		"serverInfo": map[string]any{
-			"name":    "agent-remote",
+			"name":    "just-terminal",
 			"version": serverVersion,
 		},
 	}

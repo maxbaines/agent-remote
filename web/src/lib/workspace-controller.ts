@@ -16,7 +16,7 @@ import { currentLayoutMode } from './breakpoint.js';
 import { terminalRegistry } from './terminal-registry.js';
 import { voiceInputController } from './voice-input-controller.js';
 
-const LAST_WS_KEY = 'agent-remote.lastWorkspaceId';
+const LAST_WS_KEY = 'just-terminal.lastWorkspaceId';
 
 /**
  * Test-mockable subset of MuxSocket the controller drives. Keeping this narrow

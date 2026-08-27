@@ -6,7 +6,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/maxbaines/agent-remote/internal/sessiond"
+	"github.com/maxbaines/just-terminal/internal/sessiond"
 )
 
 // newTestHub builds a Hub whose dialer always returns the supplied DaemonConn,

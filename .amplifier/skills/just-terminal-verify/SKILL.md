@@ -1,12 +1,12 @@
 ---
-name: agent-remote-verify
+name: just-terminal-verify
 description: >
-  Verify Agent Remote end to end in a real browser against a real Session Owner.
+  Verify JustTerminal end to end in a real browser against a real Session Owner.
   Catches garbled terminal text on reconnect, pane deletions not persisting to the server,
   selected-pane state not surviving browser refresh, split layout regressions, bell dot
   indicators on pane tabs and workspace dock slots, and mobile pane picker behavior.
   Run before merging any pane, terminal, reconnect, WebSocket, or bell/attention changes.
-  Invoke as /agent-remote-verify.
+  Invoke as /just-terminal-verify.
 user-invocable: true
 disable-model-invocation: true
 context: fork
@@ -16,7 +16,7 @@ allowed-tools:
   - delegate
 ---
 
-# Agent Remote Verification Journey
+# JustTerminal Verification Journey
 
 Execute all user journeys defined in `SCENARIO.md` by driving a real browser via
 `browser-tester:browser-operator`. Report pass/fail tables for all 17+ checks across the
@@ -27,7 +27,7 @@ and a final PASS or FAIL verdict.
 
 ## Inputs
 
-- `<base_url>` — Agent Remote base URL (default: `http://localhost:8311`)
+- `<base_url>` — JustTerminal base URL (default: `http://localhost:8311`)
 
 ## Steps
 

@@ -28,7 +28,7 @@ persist_home_directory() {
         done
         mv "$source_path" "$image_defaults_path"
     elif [[ -e "$source_path" ]]; then
-        printf 'agent-remote: cannot persist %s because it is not a directory\n' \
+        printf 'just-terminal: cannot persist %s because it is not a directory\n' \
             "$source_path" >&2
         return 1
     fi
@@ -52,7 +52,7 @@ ensure_state_layout() {
     install -d -m 0755 /workspace
 
     # OpenSSH and GnuPG do not consistently follow XDG paths. Link their
-    # conventional home directories into Agent Remote's persistent state root.
+    # conventional home directories into JustTerminal's persistent state root.
     persist_home_directory "$HOME/.ssh" "$XDG_CONFIG_HOME/ssh"
     persist_home_directory "$HOME/.gnupg" "$XDG_CONFIG_HOME/gnupg"
 }
@@ -103,7 +103,7 @@ ensure_npm_cli() {
         return
     fi
 
-    printf 'agent-remote: installing missing %s CLI (%s@%s)\n' \
+    printf 'just-terminal: installing missing %s CLI (%s@%s)\n' \
         "$command_name" "$package_name" "$package_version"
     npm install --global "${package_name}@${package_version}"
 }
@@ -111,13 +111,13 @@ ensure_npm_cli() {
 ensure_state_layout
 ensure_codex_file_credentials
 
-ensure_npm_cli codex @openai/codex "$AGENT_REMOTE_CODEX_VERSION"
-ensure_npm_cli claude @anthropic-ai/claude-code "$AGENT_REMOTE_CLAUDE_CODE_VERSION"
+ensure_npm_cli codex @openai/codex "$JUST_TERMINAL_CODEX_VERSION"
+ensure_npm_cli claude @anthropic-ai/claude-code "$JUST_TERMINAL_CLAUDE_CODE_VERSION"
 
-printf 'agent-remote: Codex %s\n' "$(codex --version)"
-printf 'agent-remote: Claude Code %s\n' "$(claude --version)"
+printf 'just-terminal: Codex %s\n' "$(codex --version)"
+printf 'just-terminal: Claude Code %s\n' "$(claude --version)"
 
-exec /usr/local/bin/agent-remote serve \
+exec /usr/local/bin/just-terminal serve \
     --addr 0.0.0.0:8311 \
     --behind-reverse-proxy \
-    --public-origin "${AGENT_REMOTE_PUBLIC_ORIGIN:-https://jt.actor}"
+    --public-origin "${JUST_TERMINAL_PUBLIC_ORIGIN:?set JUST_TERMINAL_PUBLIC_ORIGIN to the instance origin, e.g. https://my-instance.js.actor}"

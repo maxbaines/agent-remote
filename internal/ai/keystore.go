@@ -8,23 +8,23 @@ import (
 	"strings"
 )
 
-// KeyFileName is the name of the file (within the agent-remote config directory)
+// KeyFileName is the name of the file (within the just-terminal config directory)
 // that stores the Anthropic API key.
 const KeyFileName = "anthropic_key"
 
 // DefaultKeyPath returns the default location of the Anthropic key file:
-// $XDG_CONFIG_HOME/agent-remote/anthropic_key, falling back to
-// $HOME/.config/agent-remote/anthropic_key when XDG_CONFIG_HOME is unset.
+// $XDG_CONFIG_HOME/just-terminal/anthropic_key, falling back to
+// $HOME/.config/just-terminal/anthropic_key when XDG_CONFIG_HOME is unset.
 func DefaultKeyPath() string {
 	base := os.Getenv("XDG_CONFIG_HOME")
 	if base == "" {
 		base = filepath.Join(os.Getenv("HOME"), ".config")
 	}
-	return filepath.Join(base, "agent-remote", KeyFileName)
+	return filepath.Join(base, "just-terminal", KeyFileName)
 }
 
 // keyStore is a file-backed store for the Anthropic API key, sized for
-// agent-remote's actual load (a single OS account, occasional key changes) --
+// just-terminal's actual load (a single OS account, occasional key changes) --
 // not a high-throughput secret store. Modeled on
 // internal/authserver/tokenstore.go's atomic-write conventions.
 type keyStore struct {

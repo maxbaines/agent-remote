@@ -1,6 +1,6 @@
 # Binaries
 bin/
-/agent-remote
+/just-terminal
 /bridge-poc
 *.exe
 *.dll

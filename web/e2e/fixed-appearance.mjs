@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 /**
- * fixed-appearance.mjs — real-browser coverage for Agent Remote themes.
+ * fixed-appearance.mjs — real-browser coverage for JustTerminal themes.
  *
  * Usage:
  *   node web/e2e/fixed-appearance.mjs [--url http://127.0.0.1:8313]
- *     [--capture docs/visual-reference/agent-remote-desktop-v1.png]
+ *     [--capture docs/visual-reference/just-terminal-desktop-v1.png]
  *
- * Prereqs: playwright-cli installed; a real Agent Remote Gateway + Session Owner
+ * Prereqs: playwright-cli installed; a real JustTerminal Gateway + Session Owner
  * are running at --url with a fresh runtime directory.
  */
 
@@ -105,7 +105,7 @@ try {
   pcli('open', url);
   pcli('resize', '1440', '900');
   peval(`(async () => {
-    localStorage.removeItem('agent-remote.titlebarColor');
+    localStorage.removeItem('just-terminal.titlebarColor');
     const registrations = await navigator.serviceWorker.getRegistrations();
     for (const registration of registrations) await registration.unregister();
     const cacheKeys = await caches.keys();

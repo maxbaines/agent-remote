@@ -6,7 +6,7 @@
 // functions. See docs/designs/2026-08-01-sidebar-resize-splitjs-design.md.
 // ---------------------------------------------------------------------------
 
-export const SIDEBAR_WIDTH_KEY = 'agent-remote.sidebarWidth';
+export const SIDEBAR_WIDTH_KEY = 'just-terminal.sidebarWidth';
 export const SIDEBAR_DEFAULT_WIDTH = 220;
 export const SIDEBAR_MIN_WIDTH = 160;
 export const SIDEBAR_MAX_WIDTH = 360;

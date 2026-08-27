@@ -2,7 +2,7 @@
 /**
  * xterm-refresh-stress.mjs — Stress test: page refresh stability for xterm.js + sessiond.
  *
- * Navigates to the agent-remote app, refreshes the page --count times, and verifies
+ * Navigates to the just-terminal app, refreshes the page --count times, and verifies
  * each iteration:
  *
  *   1. The terminal becomes ready within --timeout ms (default: 3000)
@@ -15,7 +15,7 @@
  *   node web/e2e/xterm-refresh-stress.mjs [options]
  *
  * Options:
- *   --url URL       Base URL of running agent-remote server  (default: http://localhost:9090)
+ *   --url URL       Base URL of running just-terminal server  (default: http://localhost:9090)
  *   --count N       Number of refresh iterations        (default: 10)
  *   --timeout MS    Max wait for terminal-ready (ms)    (default: 3000)
  *
@@ -25,7 +25,7 @@
  *   2 — setup error (server unreachable, terminal never appeared on initial load)
  *
  * Prerequisites:
- *   agent-remote server running at --url
+ *   just-terminal server running at --url
  *   playwright-cli installed: npm install -g @playwright/cli@latest
  */
 
@@ -225,7 +225,7 @@ async function main() {
     pcli('open', urlArg);
   } catch (err) {
     console.error(`ERROR: could not open ${urlArg}`);
-    console.error('Is the agent-remote server running?');
+    console.error('Is the just-terminal server running?');
     process.exit(2);
   }
 

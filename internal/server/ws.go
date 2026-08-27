@@ -13,8 +13,8 @@ import (
 	"time"
 
 	"github.com/coder/websocket"
-	codexintegration "github.com/maxbaines/agent-remote/internal/codex"
-	"github.com/maxbaines/agent-remote/internal/sessiond"
+	codexintegration "github.com/maxbaines/just-terminal/internal/codex"
+	"github.com/maxbaines/just-terminal/internal/sessiond"
 )
 
 // Client represents a connected WebSocket client. Each browser WebSocket is
@@ -457,7 +457,7 @@ type Hub struct {
 	clients        map[*Client]bool
 	mu             sync.RWMutex
 	dial           DialFunc
-	resolvedConfig any             // agent-remote-owned resolved config, shipped to clients on connect
+	resolvedConfig any             // just-terminal-owned resolved config, shipped to clients on connect
 	tunnels        *TunnelRegistry // shared tunnel registry for /t/{id}/ proxy
 	codexSnapshot  *codexintegration.Snapshot
 }

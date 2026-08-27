@@ -14,11 +14,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/maxbaines/agent-remote/internal/ai"
-	"github.com/maxbaines/agent-remote/internal/authserver"
-	codexintegration "github.com/maxbaines/agent-remote/internal/codex"
-	muxcfg "github.com/maxbaines/agent-remote/internal/config"
-	"github.com/maxbaines/agent-remote/internal/sessiond"
+	"github.com/maxbaines/just-terminal/internal/ai"
+	"github.com/maxbaines/just-terminal/internal/authserver"
+	codexintegration "github.com/maxbaines/just-terminal/internal/codex"
+	muxcfg "github.com/maxbaines/just-terminal/internal/config"
+	"github.com/maxbaines/just-terminal/internal/sessiond"
 )
 
 func init() {
@@ -44,11 +44,11 @@ type Config struct {
 	AIKeyPath string
 
 	// AuthServer is nil when the credential store or WebAuthn configuration is
-	// unavailable at startup (see cmd/agent-remote's newAuthServer) — then every
+	// unavailable at startup (see cmd/just-terminal's newAuthServer) — then every
 	// non-loopback request is denied (fail closed), and /authorize,
 	// /token, /auth/login, /auth/callback are not mounted at all.
 	AuthServer *authserver.AuthServer
-	// WebRedirectURI is the exact-match redirect URI for the agent-remote-web
+	// WebRedirectURI is the exact-match redirect URI for the just-terminal-web
 	// OAuth client (e.g. "http://127.0.0.1:8311/auth/callback").
 	WebRedirectURI string
 	// BehindReverseProxy mirrors config.ServerConfig.BehindReverseProxy.
@@ -57,7 +57,7 @@ type Config struct {
 	BehindReverseProxy bool
 }
 
-// Server is the HTTP server for agent-remote.
+// Server is the HTTP server for just-terminal.
 type Server struct {
 	addr    string
 	noAuth  bool
@@ -121,14 +121,14 @@ func New(cfg Config) *Server {
 		return authMW.Wrap(h)
 	}
 
-	// NOTE for the Phase 2 (MCP-over-HTTP) surface: agent-remote does not yet
+	// NOTE for the Phase 2 (MCP-over-HTTP) surface: just-terminal does not yet
 	// serve an RFC 8414 .well-known/oauth-authorization-server document, an
 	// RFC 9728 .well-known/oauth-protected-resource document, or a POST
 	// /mcp route — none of them exist anywhere in this codebase today.
 	// When they are added, every absolute URL inside them (issuer,
 	// authorization_endpoint, token_endpoint, resource, and the canonical
 	// /mcp resource URI) MUST be built from the same origin that produced
-	// cfg.WebRedirectURI — cmd/agent-remote's publicBaseURL, which resolves to
+	// cfg.WebRedirectURI — cmd/just-terminal's publicBaseURL, which resolves to
 	// the operator-configured public_origin behind a reverse proxy and to
 	// the loopback derivation otherwise. They MUST NOT be derived from
 	// r.Host, X-Forwarded-Host, X-Forwarded-Proto, or any other request
@@ -348,7 +348,7 @@ func (s *Server) handleTunnelProxy(w http.ResponseWriter, r *http.Request) {
 	// Clone the request and rewrite the URL path to strip the /t/{id} prefix
 	// before forwarding to the upstream. Cookie/Authorization are stripped
 	// so the tunneled (potentially untrusted, arbitrary local dev server)
-	// target never receives agent-remote's own session credentials — see
+	// target never receives just-terminal's own session credentials — see
 	// design doc "Tunnel credential stripping." This closes the
 	// credential-forwarding vector only; same-origin JS access from the
 	// tunneled page is a separate, unresolved limitation (design doc "Out

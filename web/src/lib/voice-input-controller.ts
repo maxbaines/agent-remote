@@ -299,7 +299,7 @@ export const voiceInputController = {
 };
 
 // ---------------------------------------------------------------------------
-// DEV verification accessor — extends the SAME window.__agentRemote object
+// DEV verification accessor — extends the SAME window.__justTerminal object
 // terminal-registry.ts already installs (see terminal-registry.ts:1051-1056),
 // using the IDENTICAL spread pattern so neither module clobbers the other's
 // keys regardless of module evaluation order. Deliberately NOT gated behind
@@ -310,8 +310,8 @@ export const voiceInputController = {
 // ---------------------------------------------------------------------------
 
 if (typeof window !== 'undefined') {
-  (window as unknown as { __agentRemote?: Record<string, unknown> }).__agentRemote = {
-    ...(window as unknown as { __agentRemote?: Record<string, unknown> }).__agentRemote,
+  (window as unknown as { __justTerminal?: Record<string, unknown> }).__justTerminal = {
+    ...(window as unknown as { __justTerminal?: Record<string, unknown> }).__justTerminal,
     voiceInput: {
       /** Starts a session (same code path as a real button click) and
        *  returns its session token, so a test can capture it for later

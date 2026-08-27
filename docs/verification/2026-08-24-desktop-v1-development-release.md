@@ -12,7 +12,7 @@
 
 ## Automated release gate
 
-`AGENT_REMOTE_SKIP_SAFARI=1 make verify-desktop-v1` passed after the separate installed-Safari
+`JUST_TERMINAL_SKIP_SAFARI=1 make verify-desktop-v1` passed after the separate installed-Safari
 observation below. The target completed:
 
 - production frontend and embedded Go build;
@@ -32,7 +32,7 @@ inside the new Terminal Session all used uid `501`.
 ## Safari serious-regression smoke
 
 Installed Safari 18.1.1 opened the fresh runtime at `http://127.0.0.1:18437`. Visual inspection
-confirmed the Agent Remote sidebar, Workspace, active shell Pane and prompt, tab strip, and fixed
+confirmed the JustTerminal sidebar, Workspace, active shell Pane and prompt, tab strip, and fixed
 desktop chrome rendered without a serious regression.
 
 The WebDriver attempt correctly reported that **Allow Remote Automation** was disabled. Enabling it
@@ -41,9 +41,9 @@ installed-Safari visual fallback. Safari parity was not claimed.
 
 ## Install and rollback exercise
 
-The working-tree binary was installed as `agent-remote.current`. A previous binary was compiled
+The working-tree binary was installed as `just-terminal.current`. A previous binary was compiled
 from an archive of the rollback source with the already-verified embedded web assets and installed
-as `agent-remote.previous`. Their SHA-256 digests differed, confirming the exercise swapped distinct
+as `just-terminal.previous`. Their SHA-256 digests differed, confirming the exercise swapped distinct
 artifacts:
 
 - current: `9a6bb48b1ca855bba7b13b0eef736e34f2f69a7eb1b402ba92395581d4b214c9`

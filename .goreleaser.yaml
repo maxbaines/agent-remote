@@ -7,9 +7,9 @@ before:
     - npm --prefix web run build
 
 builds:
-  - id: agent-remote-linux
-    main: ./cmd/agent-remote
-    binary: agent-remote
+  - id: just-terminal-linux
+    main: ./cmd/just-terminal
+    binary: just-terminal
     env:
       # CGO_ENABLED=1 required for msteinert/pam/v2 (PAM Phase 1 auth backend)
       # which is a C binding and cannot build with CGO disabled.
@@ -23,9 +23,9 @@ builds:
     # platform backends without this constraint.
     ldflags:
       - -s -w
-  - id: agent-remote-darwin
-    main: ./cmd/agent-remote
-    binary: agent-remote
+  - id: just-terminal-darwin
+    main: ./cmd/just-terminal
+    binary: just-terminal
     env:
       # CGO_ENABLED=0: Darwin build doesn't use C bindings (OpenDirectory PAM
       # backend arrives in Phase 4). Pure Go build for maximum portability.
@@ -65,9 +65,9 @@ changelog:
       - Merge branch
 
 brews:
-  - name: agent-remote
+  - name: just-terminal
 
-    homepage: "https://github.com/maxbaines/agent-remote"
+    homepage: "https://justterminal.com"
     description: "Persistent browser terminal workspace"
     license: "MIT"
     repository:
@@ -77,6 +77,6 @@ brews:
       token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
     directory: Formula
     install: |
-      bin.install "agent-remote"
+      bin.install "just-terminal"
     test: |
-      system "#{bin}/agent-remote", "version"
+      system "#{bin}/just-terminal", "version"

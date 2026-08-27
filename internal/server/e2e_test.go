@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/coder/websocket"
-	"github.com/maxbaines/agent-remote/internal/sessiond"
+	"github.com/maxbaines/just-terminal/internal/sessiond"
 )
 
 // startEchoDaemon launches a scripted Unix-socket daemon that speaks the frozen
@@ -21,7 +21,7 @@ import (
 // whole serve relay path without spawning a real PTY. Returns the socket path.
 func startEchoDaemon(t *testing.T) string {
 	t.Helper()
-	dir, err := os.MkdirTemp(".", ".agent-remote-")
+	dir, err := os.MkdirTemp(".", ".just-terminal-")
 	if err != nil {
 		t.Fatalf("MkdirTemp: %v", err)
 	}

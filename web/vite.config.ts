@@ -46,8 +46,8 @@ export default defineConfig({
         'icons/icon-maskable.svg',
       ],
       manifest: {
-        name: 'Agent Remote',
-        short_name: 'Agent Remote',
+        name: 'JustTerminal',
+        short_name: 'JustTerminal',
         description: 'Persistent terminal workspaces in your browser.',
         id: '/',
         start_url: '/',

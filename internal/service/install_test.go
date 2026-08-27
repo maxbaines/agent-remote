@@ -36,10 +36,10 @@ func (m *mockCommander) findCommand(name string) *mockCmd {
 
 func TestInstall_Linux_WritesUnitFile(t *testing.T) {
 	tmp := t.TempDir()
-	unitPath := filepath.Join(tmp, "agent-remote.service")
-	sessiondPath := filepath.Join(tmp, "agent-remote-sessiond.service")
+	unitPath := filepath.Join(tmp, "just-terminal.service")
+	sessiondPath := filepath.Join(tmp, "just-terminal-sessiond.service")
 	cfg := ServiceConfig{
-		BinaryPath: "/usr/local/bin/agent-remote",
+		BinaryPath: "/usr/local/bin/just-terminal",
 		Addr:       "localhost:8080",
 		Secret:     "test-secret",
 		SafePATH:   "/usr/bin:/usr/local/bin",
@@ -56,7 +56,7 @@ func TestInstall_Linux_WritesUnitFile(t *testing.T) {
 		t.Fatalf("reading unit file: %v", err)
 	}
 	content := string(data)
-	if !strings.Contains(content, "/usr/local/bin/agent-remote") {
+	if !strings.Contains(content, "/usr/local/bin/just-terminal") {
 		t.Error("unit file missing binary path")
 	}
 	if !strings.Contains(content, "test-secret") {
@@ -66,10 +66,10 @@ func TestInstall_Linux_WritesUnitFile(t *testing.T) {
 
 func TestInstall_Linux_RunsSystemctlEnable(t *testing.T) {
 	tmp := t.TempDir()
-	unitPath := filepath.Join(tmp, "agent-remote.service")
-	sessiondPath := filepath.Join(tmp, "agent-remote-sessiond.service")
+	unitPath := filepath.Join(tmp, "just-terminal.service")
+	sessiondPath := filepath.Join(tmp, "just-terminal-sessiond.service")
 	cfg := ServiceConfig{
-		BinaryPath: "/usr/local/bin/agent-remote",
+		BinaryPath: "/usr/local/bin/just-terminal",
 		Addr:       "localhost:8080",
 		Secret:     "s",
 		SafePATH:   "/usr/bin",
@@ -91,13 +91,13 @@ func TestInstall_Linux_RunsSystemctlEnable(t *testing.T) {
 	}
 
 	enableSessiond := cmd.commands[1]
-	if enableSessiond.Name != "systemctl" || !sliceEqual(enableSessiond.Args, []string{"--user", "enable", "--now", "agent-remote-sessiond.service"}) {
-		t.Errorf("command[1] = %q %v, want systemctl [--user enable --now agent-remote-sessiond.service]", enableSessiond.Name, enableSessiond.Args)
+	if enableSessiond.Name != "systemctl" || !sliceEqual(enableSessiond.Args, []string{"--user", "enable", "--now", "just-terminal-sessiond.service"}) {
+		t.Errorf("command[1] = %q %v, want systemctl [--user enable --now just-terminal-sessiond.service]", enableSessiond.Name, enableSessiond.Args)
 	}
 
 	enableWeb := cmd.commands[2]
-	if enableWeb.Name != "systemctl" || !sliceEqual(enableWeb.Args, []string{"--user", "enable", "--now", "agent-remote.service"}) {
-		t.Errorf("command[2] = %q %v, want systemctl [--user enable --now agent-remote.service]", enableWeb.Name, enableWeb.Args)
+	if enableWeb.Name != "systemctl" || !sliceEqual(enableWeb.Args, []string{"--user", "enable", "--now", "just-terminal.service"}) {
+		t.Errorf("command[2] = %q %v, want systemctl [--user enable --now just-terminal.service]", enableWeb.Name, enableWeb.Args)
 	}
 
 	linger := cmd.commands[3]
@@ -108,10 +108,10 @@ func TestInstall_Linux_RunsSystemctlEnable(t *testing.T) {
 
 func TestInstall_Linux_WritesBothUnitFiles(t *testing.T) {
 	tmp := t.TempDir()
-	unitPath := filepath.Join(tmp, "agent-remote.service")
-	sessiondPath := filepath.Join(tmp, "agent-remote-sessiond.service")
+	unitPath := filepath.Join(tmp, "just-terminal.service")
+	sessiondPath := filepath.Join(tmp, "just-terminal-sessiond.service")
 	cfg := ServiceConfig{
-		BinaryPath: "/usr/local/bin/agent-remote",
+		BinaryPath: "/usr/local/bin/just-terminal",
 		Addr:       "localhost:8080",
 		Secret:     "test-secret",
 		SafePATH:   "/usr/bin:/usr/local/bin",
@@ -127,24 +127,24 @@ func TestInstall_Linux_WritesBothUnitFiles(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reading web unit file: %v", err)
 	}
-	if !strings.Contains(string(webData), "Wants=agent-remote-sessiond.service") {
-		t.Error("web unit file missing Wants=agent-remote-sessiond.service")
+	if !strings.Contains(string(webData), "Wants=just-terminal-sessiond.service") {
+		t.Error("web unit file missing Wants=just-terminal-sessiond.service")
 	}
 
 	sessiondData, err := os.ReadFile(sessiondPath)
 	if err != nil {
 		t.Fatalf("reading sessiond unit file: %v", err)
 	}
-	if !strings.Contains(string(sessiondData), "/usr/local/bin/agent-remote sessiond") {
-		t.Error("sessiond unit file missing '/usr/local/bin/agent-remote sessiond'")
+	if !strings.Contains(string(sessiondData), "/usr/local/bin/just-terminal sessiond") {
+		t.Error("sessiond unit file missing '/usr/local/bin/just-terminal sessiond'")
 	}
 }
 
 func TestInstall_Darwin_WritesPlistFile(t *testing.T) {
 	tmp := t.TempDir()
-	plistPath := filepath.Join(tmp, "com.agent-remote.plist")
+	plistPath := filepath.Join(tmp, "com.just-terminal.plist")
 	cfg := ServiceConfig{
-		BinaryPath: "/usr/local/bin/agent-remote",
+		BinaryPath: "/usr/local/bin/just-terminal",
 		Addr:       "localhost:8080",
 		Secret:     "darwin-secret",
 		SafePATH:   "/usr/bin:/usr/local/bin",
@@ -161,7 +161,7 @@ func TestInstall_Darwin_WritesPlistFile(t *testing.T) {
 		t.Fatalf("reading plist file: %v", err)
 	}
 	content := string(data)
-	if !strings.Contains(content, "/usr/local/bin/agent-remote") {
+	if !strings.Contains(content, "/usr/local/bin/just-terminal") {
 		t.Error("plist file missing binary path")
 	}
 	if !strings.Contains(content, "darwin-secret") {
@@ -171,9 +171,9 @@ func TestInstall_Darwin_WritesPlistFile(t *testing.T) {
 
 func TestInstall_Darwin_RunsLaunchctl(t *testing.T) {
 	tmp := t.TempDir()
-	plistPath := filepath.Join(tmp, "com.agent-remote.plist")
+	plistPath := filepath.Join(tmp, "com.just-terminal.plist")
 	cfg := ServiceConfig{
-		BinaryPath: "/usr/local/bin/agent-remote",
+		BinaryPath: "/usr/local/bin/just-terminal",
 		Addr:       "localhost:8080",
 		Secret:     "s",
 		SafePATH:   "/usr/bin",
@@ -201,10 +201,10 @@ func TestInstall_Darwin_RunsLaunchctl(t *testing.T) {
 
 func TestInstall_Linux_CreatesMissingDirs(t *testing.T) {
 	tmp := t.TempDir()
-	unitPath := filepath.Join(tmp, "deep", "nested", "dir", "agent-remote.service")
-	sessiondPath := filepath.Join(tmp, "deep", "nested", "dir", "agent-remote-sessiond.service")
+	unitPath := filepath.Join(tmp, "deep", "nested", "dir", "just-terminal.service")
+	sessiondPath := filepath.Join(tmp, "deep", "nested", "dir", "just-terminal-sessiond.service")
 	cfg := ServiceConfig{
-		BinaryPath: "/usr/local/bin/agent-remote",
+		BinaryPath: "/usr/local/bin/just-terminal",
 		Addr:       "localhost:8080",
 		Secret:     "s",
 		SafePATH:   "/usr/bin",

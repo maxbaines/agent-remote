@@ -1,4 +1,4 @@
-module github.com/maxbaines/agent-remote
+module github.com/maxbaines/just-terminal
 
 go 1.24.2
 

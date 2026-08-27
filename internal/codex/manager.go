@@ -91,7 +91,7 @@ type persistedState struct {
 
 // Manager owns one Codex app-server child, reconnects its observer, projects
 // JSON-RPC events into Snapshot, and associates integrated terminal launches
-// with Agent Remote workspaces. Callers only need Run, Snapshot, and Claim.
+// with JustTerminal workspaces. Callers only need Run, Snapshot, and Claim.
 type Manager struct {
 	runtimeDir string
 	socketPath string
@@ -269,8 +269,8 @@ func (m *Manager) runOnce(ctx context.Context) error {
 	defer cancel()
 	if _, err := rpc.Call(initCtx, "initialize", map[string]any{
 		"clientInfo": map[string]string{
-			"name":    "agent_remote",
-			"title":   "Agent Remote",
+			"name":    "just_terminal",
+			"title":   "JustTerminal",
 			"version": "1",
 		},
 		"capabilities": map[string]any{"experimentalApi": true},
@@ -394,7 +394,7 @@ func (m *Manager) syncThreads(ctx context.Context, rpc *rpcClient) error {
 		session.UpdatedAt = thread.UpdatedAt
 		m.assignClaimLocked(thread)
 		m.seenThreads[thread.ID] = true
-		// Keep every Agent Remote-owned thread subscribed even while idle. The
+		// Keep every JustTerminal-owned thread subscribed even while idle. The
 		// app-server emits token usage, plans, questions, and approvals only to
 		// subscribed clients; waiting until the next poll observes "active" can
 		// miss an entire short turn. Unmanaged threads remain active-only so we
@@ -414,12 +414,12 @@ func (m *Manager) syncThreads(ctx context.Context, rpc *rpcClient) error {
 
 	for _, threadID := range subscribe {
 		if _, err := rpc.Call(callCtx, "thread/resume", map[string]any{"threadId": threadID}); err != nil {
-			log.Printf("agent-remote: subscribe to Codex thread %s: %v", threadID, err)
+			log.Printf("just-terminal: subscribe to Codex thread %s: %v", threadID, err)
 		}
 	}
 	for _, threadID := range unsubscribe {
 		if _, err := rpc.Call(callCtx, "thread/unsubscribe", map[string]any{"threadId": threadID}); err != nil {
-			log.Printf("agent-remote: unsubscribe from Codex thread %s: %v", threadID, err)
+			log.Printf("just-terminal: unsubscribe from Codex thread %s: %v", threadID, err)
 		}
 	}
 	return nil
@@ -715,7 +715,7 @@ func (m *Manager) saveStateLocked() {
 		return
 	}
 	if err := os.WriteFile(m.statePath, data, 0o600); err != nil {
-		log.Printf("agent-remote: persist Codex workspace assignments: %v", err)
+		log.Printf("just-terminal: persist Codex workspace assignments: %v", err)
 	}
 }
 
@@ -777,7 +777,7 @@ func dialRPC(ctx context.Context, socketPath string, onMessage func(rpcEnvelope)
 func (c *rpcClient) Done() <-chan error { return c.done }
 
 func (c *rpcClient) Close() {
-	_ = c.conn.Close(websocket.StatusNormalClosure, "Agent Remote shutting down")
+	_ = c.conn.Close(websocket.StatusNormalClosure, "JustTerminal shutting down")
 }
 
 func (c *rpcClient) Call(ctx context.Context, method string, params any) (json.RawMessage, error) {

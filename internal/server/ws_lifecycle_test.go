@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/maxbaines/agent-remote/internal/sessiond"
+	"github.com/maxbaines/just-terminal/internal/sessiond"
 )
 
 // ----------------------------------------------------------------------

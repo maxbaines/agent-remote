@@ -1,6 +1,6 @@
-# agent-remote browser tab demo — live status board
+# just-terminal browser tab demo — live status board
 
-A self-contained demo that exercises the agent-remote browser-tab proxy end-to-end:
+A self-contained demo that exercises the just-terminal browser-tab proxy end-to-end:
 HTTP proxying, WebSocket bridging, HMR, pane persistence, and multi-client sync.
 
 ## What this is
@@ -13,7 +13,7 @@ It exposes two endpoints:
 
 **Frontend** (`demo/frontend/`) is a Vite + TypeScript SPA served on port **5173**.  
 It deliberately uses **absolute `localhost` URLs** (`http://localhost:9002/api/items`,
-`ws://localhost:9002/ws`) so the agent-remote proxy must rewrite them — this validates
+`ws://localhost:9002/ws`) so the just-terminal proxy must rewrite them — this validates
 that the proxy shim correctly intercepts `fetch`, `XHR`, and `WebSocket` calls and
 routes them through `/p/9002/`.
 
@@ -31,14 +31,14 @@ cd demo/backend && npm start
 cd demo/frontend && npm run dev
 # → Local: http://localhost:5173/
 
-# 3. Start agent-remote (sessiond + frontend)
-agent-remote local
+# 3. Start just-terminal (sessiond + frontend)
+just-terminal local
 
 # 4. Open a browser pane pointed at the frontend
-agent-remote open-browser 5173
+just-terminal open-browser 5173
 ```
 
-After step 4 you should see a new Browser tab appear inside agent-remote with the
+After step 4 you should see a new Browser tab appear inside just-terminal with the
 live status board loaded via the proxy.
 
 ## What to verify
@@ -46,9 +46,9 @@ live status board loaded via the proxy.
 | Scenario | What it proves |
 |---|---|
 | Page loads without errors | HTTP proxy correctly forwards requests from `/p/5173/` to `localhost:5173` |
-| New items appear every 3 s | WebSocket proxy bridges `ws://localhost:9002/ws` through agent-remote's `/p/9002/ws` |
+| New items appear every 3 s | WebSocket proxy bridges `ws://localhost:9002/ws` through just-terminal's `/p/9002/ws` |
 | Edit a source file and save → UI updates instantly | HMR WebSocket survives proxy round-trip; shim does not break Vite's hot-reload channel |
-| Close the browser pane, reopen agent-remote, pane is back | Browser pane state is stored server-side like terminal panes — survives client disconnect |
+| Close the browser pane, reopen just-terminal, pane is back | Browser pane state is stored server-side like terminal panes — survives client disconnect |
 | Open a second browser window/tab → both show the same board in sync | sessiond broadcasts state; two clients see identical pane composition |
 
 ## Running backend tests
@@ -62,7 +62,7 @@ occupied by a running demo server.
 
 ## Agent-driven workflow
 
-Agents running in agent-remote terminals can automate the open-browser step by watching
+Agents running in just-terminal terminals can automate the open-browser step by watching
 `npm run dev` stdout:
 
 ```
@@ -76,7 +76,7 @@ $ npm run dev
 The agent detects the port (`5173`) from that output and calls:
 
 ```bash
-agent-remote open-browser 5173
+just-terminal open-browser 5173
 ```
 
 No hardcoded port required — the agent reads the actual port Vite chose.
@@ -92,8 +92,8 @@ at the root.
 refreshes always hit `GET /p/5173/` → `index.html`.
 
 **`document.cookie` isolation**  
-Cookies set by the proxied app live on the agent-remote origin, not `localhost:5173`.
-This means `document.cookie` reads in the app's JS see agent-remote cookies, not
+Cookies set by the proxied app live on the just-terminal origin, not `localhost:5173`.
+This means `document.cookie` reads in the app's JS see just-terminal cookies, not
 app-specific ones.  Any demo code that relies on cookies for state (e.g. a
 session cookie) will not work as expected through the proxy.  Use `localStorage`
 or `sessionStorage` instead for demo-only state.

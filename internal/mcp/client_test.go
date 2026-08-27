@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/maxbaines/agent-remote/internal/sessiond"
+	"github.com/maxbaines/just-terminal/internal/sessiond"
 )
 
 // startMCPTestServer starts a real sessiond daemon on a short socket path in
@@ -15,7 +15,7 @@ import (
 // Unix socket path limit and does not assume that /tmp is mounted.
 func startMCPTestServer(t *testing.T) (string, context.CancelFunc) {
 	t.Helper()
-	dir, err := os.MkdirTemp(".", "agent-remote-mcp")
+	dir, err := os.MkdirTemp(".", "just-terminal-mcp")
 	if err != nil {
 		t.Fatalf("MkdirTemp: %v", err)
 	}
@@ -120,7 +120,7 @@ func TestOutputBufferAccumulates(t *testing.T) {
 }
 
 // TestSendBrowserActionResolves and TestSendBrowserActionTimeout were removed
-// when browser pane support was dropped from agent-remote. SendBrowserAction no
+// when browser pane support was dropped from just-terminal. SendBrowserAction no
 // longer exists on Client. See git history for the original test bodies.
 
 // TestWaitForPromptResolves verifies that WaitForPrompt returns exit code 0

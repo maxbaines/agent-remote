@@ -120,7 +120,7 @@ export const DEFAULT_RESOLVED_CONFIG: ResolvedConfig = {
   driver: {
     autostart: false,
     sharedWindowPolicy: 'follow',
-    launch: 'agent-remote-agent',
+    launch: 'just-terminal-agent',
   },
 };
 

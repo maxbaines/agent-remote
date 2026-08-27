@@ -562,13 +562,13 @@ export class MuxSettingsSurface extends LitElement {
 
   private _sendTestNotification(): void {
     try {
-      new Notification('Agent Remote', {
+      new Notification('JustTerminal', {
         body: 'Notifications are working! You\'ll see this when a terminal bell fires in a background pane.',
-        tag: 'agent-remote-test',
+        tag: 'just-terminal-test',
         silent: false,
       });
     } catch (e) {
-      console.error('agent-remote: test notification failed:', e);
+      console.error('just-terminal: test notification failed:', e);
     }
   }
 
@@ -763,7 +763,7 @@ export class MuxSettingsSurface extends LitElement {
       <div class="notif-block">
         <p class="section-title">Desktop Alerts</p>
         <p class="notif-description">
-          Allow Agent Remote to send desktop notifications when a Terminal Session needs your attention.
+          Allow JustTerminal to send desktop notifications when a Terminal Session needs your attention.
         </p>
         ${this._renderNotifPermission()}
       </div>
@@ -901,8 +901,8 @@ export class MuxSettingsSurface extends LitElement {
       </div>
       ${this._aiMessage ? html`<p class="ai-message">${this._aiMessage}</p>` : ''}
       <p class="ai-note">
-        The key is stored locally at <code>$XDG_CONFIG_HOME/agent-remote/anthropic_key</code>
-        (defaults to <code>~/.config/agent-remote/anthropic_key</code> when
+        The key is stored locally at <code>$XDG_CONFIG_HOME/just-terminal/anthropic_key</code>
+        (defaults to <code>~/.config/just-terminal/anthropic_key</code> when
         <code>XDG_CONFIG_HOME</code> is unset) with owner-only permissions, is
         never returned by the server, and is sent only to Anthropic.
       </p>

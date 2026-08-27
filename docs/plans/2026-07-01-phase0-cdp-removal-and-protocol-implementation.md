@@ -7,7 +7,7 @@ marker `surfaceKind: "browser-cdp"` → `"browser"`, add the new client-driven
 `browser-command` / `browser-result` protocol messages (server relays; the
 client owns the engine), make the web client render a non-interactive
 placeholder for `browser` panes, and extract the frozen client contract into
-`docs/agent-remote-client-protocol.md` — the spec both native apps (Phase 1 & Phase 2)
+`docs/just-terminal-client-protocol.md` — the spec both native apps (Phase 1 & Phase 2)
 build against.
 
 **Architecture:** muxterm has three Go layers and one web layer that touch the
@@ -40,7 +40,7 @@ returns `browser-result`. No engine lives on the server.
   renders the placeholder without breaking the dock.
 
 **This phase unblocks Phase 1 (Swift app) and Phase 2 (Android app):** both build
-against the `docs/agent-remote-client-protocol.md` produced in Stage F, and both rely
+against the `docs/just-terminal-client-protocol.md` produced in Stage F, and both rely
 on the `browser-command` / `browser-result` contract added here.
 
 ---
@@ -184,7 +184,7 @@ with:
 ```go
 	// Client-driven browser pane messages (ride /ws; no server-side engine).
 	// The daemon holds only a pane handle and RELAYS commands to the client that
-	// owns the pane. See docs/agent-remote-client-protocol.md.
+	// owns the pane. See docs/just-terminal-client-protocol.md.
 	TypeCreateBrowserPane = "create-browser-pane" // client → daemon: allocate a browser pane handle
 	TypeCloseBrowserPane  = "close-browser-pane"  // client → daemon: close a browser pane
 	TypeBrowserCommand    = "browser-command"     // relayed to workspace subs: {paneId, cid, action, params}
@@ -998,7 +998,7 @@ In the `Message` struct, immediately after the existing MCP relay fields (after
 `ASCII` at line 200, before the `Snapshot`/`Result`/`OK` block at 202–205), add:
 ```go
 	// Params carries the browser-command parameters as raw JSON for passthrough
-	// relay (TypeBrowserCommand). Schema (see docs/agent-remote-client-protocol.md):
+	// relay (TypeBrowserCommand). Schema (see docs/just-terminal-client-protocol.md):
 	//   { "action": "navigate|click|scroll|evaluate|back|forward|reload",
 	//     "selector"?: string,        // CSS selector — element targeting
 	//     "x"?: number, "y"?: number, // CSS px — coordinate targeting
@@ -1463,10 +1463,10 @@ Co-Authored-By: Amplifier <240397093+microsoft-amplifier@users.noreply.github.co
 
 # STAGE F — Extract the frozen client protocol spec
 
-### Task F1: Write `docs/agent-remote-client-protocol.md`
+### Task F1: Write `docs/just-terminal-client-protocol.md`
 
 **Files:**
-- Create: `docs/agent-remote-client-protocol.md`
+- Create: `docs/just-terminal-client-protocol.md`
 
 **Context:** this is the reference deliverable both native apps build against.
 Source the exact shapes from the post-Phase-0 code: `internal/sessiond/protocol.go`
@@ -1611,8 +1611,8 @@ script cannot hang the pane.
 **Verification**
 ```bash
 cd /home/ken/workspace/muxterm
-test -f docs/agent-remote-client-protocol.md && wc -l docs/agent-remote-client-protocol.md
-grep -c "browser-command\|totalSeq\|create-browser-pane\|surfaceKind" docs/agent-remote-client-protocol.md
+test -f docs/just-terminal-client-protocol.md && wc -l docs/just-terminal-client-protocol.md
+grep -c "browser-command\|totalSeq\|create-browser-pane\|surfaceKind" docs/just-terminal-client-protocol.md
 ```
 Expected: the file exists with a non-trivial line count, and the grep count is
 ≥ 4 (the key contract terms are present). Optionally render it in a Markdown
@@ -1620,7 +1620,7 @@ viewer to confirm the tables and fenced blocks are well-formed.
 
 **Commit**
 ```bash
-git add docs/agent-remote-client-protocol.md
+git add docs/just-terminal-client-protocol.md
 git commit -m "docs: extract frozen muxterm-client-protocol.md (native app contract)
 
 The written client contract both native apps (Phase 1 Swift, Phase 2 Android)

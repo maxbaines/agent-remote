@@ -34,7 +34,7 @@ func startTestServer(t *testing.T) (srv *Server, socketPath string, errCh <-chan
 // shortTempDir keeps Unix socket fixtures below macOS's path-length limit.
 func shortTempDir(t *testing.T) string {
 	t.Helper()
-	dir, err := os.MkdirTemp(".", ".agent-remote-")
+	dir, err := os.MkdirTemp(".", ".just-terminal-")
 	if err != nil {
 		t.Fatalf("MkdirTemp: %v", err)
 	}

@@ -240,7 +240,7 @@ try {
       key: 'l', ctrlKey: true, altKey: true, bubbles: true, composed: true, cancelable: true,
     }));
   })()`);
-  waitFor(`JSON.parse(localStorage.getItem('agent-remote.keybindings.v1'))['pane.split-left'] === 'ctrl+alt+l'`);
+  waitFor(`JSON.parse(localStorage.getItem('just-terminal.keybindings.v1'))['pane.split-left'] === 'ctrl+alt+l'`);
   pcli('eval', `(() => { ${APP}._overlayPanel = null; ${APP}.requestUpdate(); })()`);
 
   const beforeLeftIds = positivePaneIds();

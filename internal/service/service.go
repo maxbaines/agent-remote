@@ -7,10 +7,10 @@ import (
 )
 
 var systemdTemplate = template.Must(template.New("systemd").Parse(`[Unit]
-Description=Agent Remote Gateway
+Description=JustTerminal Gateway
 After=network.target
-After=agent-remote-sessiond.service
-Wants=agent-remote-sessiond.service
+After=just-terminal-sessiond.service
+Wants=just-terminal-sessiond.service
 
 [Service]
 Type=simple
@@ -24,7 +24,7 @@ WantedBy=default.target
 `))
 
 var sessiondSystemdTemplate = template.Must(template.New("sessiond-systemd").Parse(`[Unit]
-Description=Agent Remote Session Owner
+Description=JustTerminal Session Owner
 After=network.target
 
 [Service]
@@ -43,7 +43,7 @@ var launchdTemplate = template.Must(template.New("launchd").Parse(`<?xml version
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.agent-remote</string>
+    <string>com.just-terminal</string>
     <key>ProgramArguments</key>
     <array>
         <string>{{.BinaryPath}}</string>
@@ -63,9 +63,9 @@ var launchdTemplate = template.Must(template.New("launchd").Parse(`<?xml version
     <key>KeepAlive</key>
     <true/>
     <key>StandardOutPath</key>
-    <string>/tmp/agent-remote.log</string>
+    <string>/tmp/just-terminal.log</string>
     <key>StandardErrorPath</key>
-    <string>/tmp/agent-remote.log</string>
+    <string>/tmp/just-terminal.log</string>
 </dict>
 </plist>
 `))

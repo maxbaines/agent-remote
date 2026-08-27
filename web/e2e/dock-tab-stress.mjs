@@ -31,7 +31,7 @@
  *
  * Prerequisites:
  *   playwright-cli installed: npm install -g @playwright/cli@latest
- *   (agent-remote server is NOT required — this fixture is purely static HTML)
+ *   (just-terminal server is NOT required — this fixture is purely static HTML)
  */
 
 import { execFileSync } from 'node:child_process';
@@ -177,7 +177,7 @@ async function main() {
     const localPath = urlArg.slice(7);
     if (!existsSync(localPath)) {
       console.error(`ERROR: fixture not found at ${localPath}`);
-      console.error('Run from the agent-remote root directory.');
+      console.error('Run from the just-terminal root directory.');
       process.exit(2);
     }
   }

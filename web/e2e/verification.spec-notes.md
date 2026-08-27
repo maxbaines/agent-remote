@@ -10,7 +10,7 @@ three-source harness introduced in Phase 2.
 ## Prerequisites
 
 1. **Server running** — `make dev` must be up on `http://localhost:8080`
-   (the default `Addr` in `cmd/agent-remote/cli.go`).
+   (the default `Addr` in `cmd/just-terminal/cli.go`).
 2. **tmux session attached in the browser** — open `http://localhost:8080`,
    create at least one live pane so tmux pane `%1` (or whichever you target)
    has actual content.
@@ -36,7 +36,7 @@ right-trimmed by tmux).
 
 ### Source 2 — xterm.js `StructuredSnapshot` (logical render)
 
-Reads the xterm internal buffer via the `window.__agentRemote.snapshot(paneId)` API
+Reads the xterm internal buffer via the `window.__justTerminal.snapshot(paneId)` API
 exposed by the frontend. Returns a `StructuredSnapshot` containing:
 
 - `rowText: string[]` — one entry per visible row (exact characters, right-padded
@@ -49,7 +49,7 @@ characters **and** styles to-the-blank with zero image processing.
 
 ```bash
 playwright-cli open http://localhost:8080
-playwright-cli eval "JSON.stringify(window.__agentRemote.snapshot(1))"
+playwright-cli eval "JSON.stringify(window.__justTerminal.snapshot(1))"
 ```
 
 The `eval` result is a JSON-serialised `StructuredSnapshot` for pane id `1`.
@@ -128,7 +128,7 @@ node web/e2e/content-fidelity.mjs --pane 1
 
 This script:
 1. Runs `tmux capture-pane -p -t %1` to fetch the oracle.
-2. Calls `playwright-cli eval "JSON.stringify(window.__agentRemote.snapshot(1))"` to
+2. Calls `playwright-cli eval "JSON.stringify(window.__justTerminal.snapshot(1))"` to
    fetch the snapshot.
 3. Calls `compareContent(oracle, snapshot)` from `helpers/fidelity.ts`.
 4. Prints `CONTENT OK` on success or a unified diff of any mismatched rows on
@@ -149,7 +149,7 @@ This script:
 3. Fetch the snapshot:
 
    ```bash
-   playwright-cli eval "JSON.stringify(window.__agentRemote.snapshot(1))"
+   playwright-cli eval "JSON.stringify(window.__justTerminal.snapshot(1))"
    ```
 
 4. Call `compareLayout(snapshot, measured)` from `web/e2e/helpers/fidelity.ts`.
@@ -169,7 +169,7 @@ OCR was:
 - **Flaky** — font rendering differed across OS/GPU combinations, causing
   spurious CI failures.
 
-`window.__agentRemote.snapshot(paneId)` reads the **xterm.js internal buffer**
+`window.__justTerminal.snapshot(paneId)` reads the **xterm.js internal buffer**
 directly. It returns exact characters and styles to-the-blank with zero image
 processing — making it strictly superior for content verification.
 

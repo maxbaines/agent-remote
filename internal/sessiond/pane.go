@@ -55,7 +55,7 @@ type Pane struct {
 // ~/.bash_profile, ~/.profile etc., giving users the same environment they get
 // in Ghostty, iTerm2, tmux, and SSH interactive sessions. Without -l, PATH
 // additions from tools like brew, nvm, pyenv and rbenv are missing — especially
-// important when agent-remote runs as a launchd service with a sparse environment.
+// important when just-terminal runs as a launchd service with a sparse environment.
 //
 // bash special-case: a bash login shell (bash -l) sources the profile chain
 // (~/.bash_profile, ~/.bash_login, or ~/.profile — whichever is found first)

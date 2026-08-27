@@ -1,5 +1,5 @@
 /**
- * Agent Remote's bundled terminal themes and theme-derived browser chrome.
+ * JustTerminal's bundled terminal themes and theme-derived browser chrome.
  *
  * cmux is the default. A resolved theme is applied to both
  * xterm.js and the semantic CSS variables consumed by the surrounding UI.
@@ -365,7 +365,7 @@ export function resolvePalette(name: string): Palette {
   return PALETTES[name] ?? PALETTES[DEFAULT_PALETTE_ID];
 }
 
-/** Strip Agent Remote metadata and produce the theme object xterm.js accepts. */
+/** Strip JustTerminal metadata and produce the theme object xterm.js accepts. */
 export function paletteToXtermTheme(p: Palette): Omit<Palette, 'textOpacity'> {
   const { textOpacity: _textOpacity, ...theme } = p;
   return theme;

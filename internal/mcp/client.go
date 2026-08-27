@@ -4,7 +4,7 @@ import (
 	"context"
 	"sync"
 
-	"github.com/maxbaines/agent-remote/internal/sessiond"
+	"github.com/maxbaines/just-terminal/internal/sessiond"
 )
 
 // Client wraps a sessiond.Client with output buffering and prompt-wait
