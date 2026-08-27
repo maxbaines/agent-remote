@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/coder/websocket"
+	codexintegration "github.com/maxbaines/agent-remote/internal/codex"
 	"github.com/maxbaines/agent-remote/internal/sessiond"
 )
 
@@ -49,21 +50,18 @@ type Client struct {
 	wsMu        sync.Mutex
 	workspaceID string
 
-	// attachSeq enforces the frozen "composition FIRST" ordering guarantee
-	// across the goroutine boundary between the daemon connection's read loop
-	// (which delivers the composition reply via request/reply correlation on
-	// one goroutine, then immediately continues its loop and dispatches the
-	// following replay pane-data frames via OnPaneOutput on that SAME
-	// goroutine) and this Client's own handleTextInput goroutine (which
-	// receives the composition reply and must forward it to the browser/app
-	// WebSocket). Without this lock, OnPaneOutput's writeBinary calls for
-	// replay frames race ahead of handleTextInput's sendMessage(composition)
-	// call and reach the wire first, since a buffered-channel handoff to the
-	// pending request does not yield the daemon read-loop goroutine. Held by
-	// handleTextInput for the full Attach()+sendMessage(composition) sequence,
-	// and by OnPaneOutput around every binary relay, so pane-data can never be
-	// written to the WebSocket while a composition send is in flight.
-	attachSeq sync.Mutex
+	// attachMu protects pane output buffered while an Attach is in flight. The
+	// daemon read loop must not block behind the browser goroutine that is itself
+	// waiting for the Attach reply; buffering avoids that cycle while preserving
+	// the frozen "composition FIRST" browser ordering guarantee.
+	attachMu      sync.Mutex
+	attaching     bool
+	attachOutputs []bufferedPaneOutput
+}
+
+type bufferedPaneOutput struct {
+	paneID uint32
+	data   []byte
 }
 
 // setWorkspaceID records the workspace this client is currently attached to.
@@ -79,6 +77,42 @@ func (c *Client) getWorkspaceID() string {
 	c.wsMu.Lock()
 	defer c.wsMu.Unlock()
 	return c.workspaceID
+}
+
+func (c *Client) beginAttach() {
+	c.attachMu.Lock()
+	c.attaching = true
+	c.attachMu.Unlock()
+}
+
+// finishAttach drains output captured during Attach only after the browser has
+// received the composition (or error). Holding attachMu through the drain keeps
+// newly-arriving pane data from overtaking buffered frames.
+func (c *Client) finishAttach() {
+	c.attachMu.Lock()
+	for _, output := range c.attachOutputs {
+		if err := c.writeBinary(EncodeBinaryFrame(output.paneID, output.data)); err != nil {
+			log.Printf("finishAttach: pane output write error: %v", err)
+		}
+	}
+	c.attachOutputs = nil
+	c.attaching = false
+	c.attachMu.Unlock()
+}
+
+func (c *Client) relayPaneOutput(paneID uint32, data []byte) {
+	c.attachMu.Lock()
+	defer c.attachMu.Unlock()
+	if c.attaching {
+		c.attachOutputs = append(c.attachOutputs, bufferedPaneOutput{
+			paneID: paneID,
+			data:   append([]byte(nil), data...),
+		})
+		return
+	}
+	if err := c.writeBinary(EncodeBinaryFrame(paneID, data)); err != nil {
+		log.Printf("attachClient: pane output write error: %v", err)
+	}
 }
 
 // newClient creates a new Client with a cancellable context and real WebSocket
@@ -167,16 +201,11 @@ func (c *Client) handleTextInput(data []byte) {
 
 	switch msg.Type {
 	case sessiond.TypeAttach:
-		// attachSeq must be held for the entire Attach()+sendMessage sequence:
-		// it also gates OnPaneOutput's binary relay (see attachClient), so no
-		// replay pane-data frame can reach the WebSocket before the
-		// composition reply that announces its pane, preserving the frozen
-		// "composition FIRST" wire ordering across the goroutine boundary.
-		c.attachSeq.Lock()
+		c.beginAttach()
 		comp, err := c.daemon.Attach(msg.WorkspaceID, msg.Breakpoint, "interactive")
 		if err != nil {
-			c.attachSeq.Unlock()
 			c.sendError(msg.CID, msg.WorkspaceID, err)
+			c.finishAttach()
 			return
 		}
 		c.setWorkspaceID(comp.WorkspaceID)
@@ -187,7 +216,7 @@ func (c *Client) handleTextInput(data []byte) {
 			Panes:       comp.Panes,
 			Layout:      comp.Layout,
 		})
-		c.attachSeq.Unlock()
+		c.finishAttach()
 
 	case sessiond.TypeListWorkspaces:
 		workspaces, err := c.daemon.ListWorkspaces()
@@ -234,7 +263,20 @@ func (c *Client) handleTextInput(data []byte) {
 		}
 
 	case sessiond.TypeCreatePane:
-		paneID, err := c.daemon.CreatePane(msg.Cmd, msg.Placement, msg.ReferencePaneID)
+		var paneID int
+		var err error
+		if msg.SurfaceKind == "driver" {
+			driverDaemon, ok := c.daemon.(interface {
+				CreatePaneWithSurface([]string, string, int, string) (int, error)
+			})
+			if !ok {
+				c.sendError(msg.CID, msg.WorkspaceID, fmt.Errorf("session daemon does not support driver panes"))
+				return
+			}
+			paneID, err = driverDaemon.CreatePaneWithSurface(msg.Cmd, msg.Placement, msg.ReferencePaneID, "driver")
+		} else {
+			paneID, err = c.daemon.CreatePane(msg.Cmd, msg.Placement, msg.ReferencePaneID)
+		}
 		if err != nil {
 			c.sendError(msg.CID, msg.WorkspaceID, err)
 			return
@@ -417,6 +459,7 @@ type Hub struct {
 	dial           DialFunc
 	resolvedConfig any             // agent-remote-owned resolved config, shipped to clients on connect
 	tunnels        *TunnelRegistry // shared tunnel registry for /t/{id}/ proxy
+	codexSnapshot  *codexintegration.Snapshot
 }
 
 // SetResolvedConfig stores the resolved configuration on the hub. The config is
@@ -460,6 +503,19 @@ func (c *Client) sendAIStatus(status any) {
 	}
 }
 
+// sendCodex writes the serve-local Codex projection. It deliberately has no
+// top-level "type" field so it cannot enter the frozen sessiond dispatcher.
+func (c *Client) sendCodex(snapshot codexintegration.Snapshot) {
+	data, err := json.Marshal(map[string]any{"codex": snapshot})
+	if err != nil {
+		log.Printf("sendCodex: marshal error: %v", err)
+		return
+	}
+	if err := c.writeText(data); err != nil {
+		log.Printf("sendCodex: write error: %v", err)
+	}
+}
+
 // BroadcastAIStatus sends an {"aiStatus":...} frame to every connected client
 // so a key saved in one browser tab flips the capability in all others.
 //
@@ -477,6 +533,23 @@ func (h *Hub) BroadcastAIStatus(status any) {
 
 	for _, c := range clients {
 		c.sendAIStatus(status)
+	}
+}
+
+// BroadcastCodex caches and broadcasts the latest Codex projection. Caching
+// lets a newly-connected browser render the correct session cards before the
+// next app-server event or polling tick.
+func (h *Hub) BroadcastCodex(snapshot codexintegration.Snapshot) {
+	h.mu.Lock()
+	h.codexSnapshot = &snapshot
+	clients := make([]*Client, 0, len(h.clients))
+	for c := range h.clients {
+		clients = append(clients, c)
+	}
+	h.mu.Unlock()
+
+	for _, c := range clients {
+		c.sendCodex(snapshot)
 	}
 }
 
@@ -516,6 +589,7 @@ func (h *Hub) attachClient(c *Client) error {
 	h.mu.RLock()
 	dial := h.dial
 	cfg := h.resolvedConfig
+	codexSnapshot := h.codexSnapshot
 	h.mu.RUnlock()
 
 	if dial == nil {
@@ -530,16 +604,7 @@ func (h *Hub) attachClient(c *Client) error {
 
 	dc.SetHandlers(sessiond.Handlers{
 		OnPaneOutput: func(paneID uint32, data []byte) {
-			// Blocks while an Attach() reply is being forwarded to the
-			// browser/app WebSocket (see attachSeq), so replay frames for the
-			// pane just announced in that composition can never overtake it
-			// on the wire.
-			c.attachSeq.Lock()
-			err := c.writeBinary(EncodeBinaryFrame(paneID, data))
-			c.attachSeq.Unlock()
-			if err != nil {
-				log.Printf("attachClient: pane output write error: %v", err)
-			}
+			c.relayPaneOutput(paneID, data)
 		},
 		OnPaneAdded: func(pane sessiond.PaneInfo) {
 			c.sendMessage(&sessiond.Message{
@@ -630,6 +695,9 @@ func (h *Hub) attachClient(c *Client) error {
 
 	if cfg != nil {
 		c.sendConfig(cfg)
+	}
+	if codexSnapshot != nil {
+		c.sendCodex(*codexSnapshot)
 	}
 
 	workspaces, err := dc.ListWorkspaces()

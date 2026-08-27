@@ -144,10 +144,11 @@ export class MuxSocket {
    * when it carries at least one argument. clientRef is included only when
    * truthy.
    */
-  createPane(cmd?: string[], clientRef?: string): void {
+  createPane(cmd?: string[], clientRef?: string, surfaceKind?: 'terminal' | 'driver'): void {
     const msg: SessiondMessage = { type: SessiondType.CreatePane };
     if (cmd && cmd.length > 0) msg.cmd = cmd;
     if (clientRef) msg.clientRef = clientRef;
+    if (surfaceKind === 'driver') msg.surfaceKind = surfaceKind;
     this.sendSessiond(msg);
   }
 

@@ -25,6 +25,14 @@ func socketDir() string {
 	return filepath.Join(os.TempDir(), fmt.Sprintf("agent-remote-%d", os.Getuid()))
 }
 
+// RuntimeDir returns Agent Remote's private, uid-scoped runtime directory.
+// Serve-layer integrations that manage their own Unix sockets use this same
+// short directory so they inherit sessiond's XDG and long-path safeguards
+// without reaching into the frozen sessiond wire protocol.
+func RuntimeDir() string {
+	return socketDir()
+}
+
 // SocketPath returns the path to the daemon's Unix socket.
 //
 // The (string, error) signature is part of the frozen daemon contract: later

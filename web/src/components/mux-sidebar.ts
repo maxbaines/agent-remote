@@ -4,9 +4,15 @@ import { store } from '../state.js';
 import { workspaceLabel } from './workspace-picker.js';
 import './launcher-menu.js';
 import { icon } from '../lib/icons.js';
-import { Ellipsis, FolderTree } from 'lucide';
+import { Bot, Ellipsis, FolderTree } from 'lucide';
 import { SIDEBAR_MIN_WIDTH, SIDEBAR_MAX_WIDTH } from '../lib/sidebar-width.js';
 import { instanceLabel } from '../lib/instance-identity.js';
+import { terminalRegistry } from '../lib/terminal-registry.js';
+
+interface CodexTerminalHint {
+  contextUsed?: number;
+  question?: string;
+}
 
 // ---------------------------------------------------------------------------
 // Component
@@ -147,6 +153,140 @@ export class MuxSidebar extends LitElement {
       pointer-events: none;
     }
 
+    .ws-card.codex {
+      padding: 9px 10px 10px;
+      border-color: color-mix(in srgb, var(--chrome-accent) 30%, transparent);
+      background: color-mix(in srgb, var(--chrome-accent) 7%, var(--chrome-bar));
+    }
+
+    .ws-card.codex.active {
+      border-color: color-mix(in srgb, var(--chrome-accent) 82%, white);
+      background: color-mix(in srgb, var(--chrome-accent) 58%, var(--chrome-hover));
+    }
+
+    .codex-kicker {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      min-width: 0;
+      margin-bottom: 5px;
+      color: color-mix(in srgb, var(--chrome-accent) 65%, var(--chrome-text-bright));
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .ws-card.codex.active .codex-kicker {
+      color: rgba(255, 255, 255, 0.82);
+    }
+
+    .codex-kicker-name {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .codex-status {
+      margin-left: auto;
+      padding: 2px 5px;
+      border-radius: 999px;
+      background: color-mix(in srgb, var(--mux-ok) 18%, transparent);
+      color: var(--mux-ok);
+      font-size: 9px;
+      letter-spacing: 0.02em;
+      text-transform: none;
+      white-space: nowrap;
+    }
+
+    .codex-status.working {
+      background: color-mix(in srgb, var(--chrome-accent) 20%, transparent);
+      color: color-mix(in srgb, var(--chrome-accent) 55%, white);
+    }
+
+    .codex-status.attention {
+      background: color-mix(in srgb, var(--mux-warn) 22%, transparent);
+      color: var(--mux-warn);
+    }
+
+    .ws-card.codex.active .codex-status {
+      background: rgba(0, 0, 0, 0.18);
+      color: white;
+    }
+
+    .codex-title {
+      color: var(--chrome-text-bright);
+      font-size: 12.5px;
+      font-weight: 600;
+      line-height: 1.35;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .ws-card.codex.active .codex-title {
+      color: white;
+    }
+
+    .codex-detail {
+      margin-top: 5px;
+      color: var(--chrome-text-dim);
+      font-size: 10.5px;
+      line-height: 1.35;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .codex-detail.attention {
+      color: var(--mux-warn);
+      white-space: normal;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+    }
+
+    .ws-card.codex.active .codex-detail {
+      color: rgba(255, 255, 255, 0.76);
+    }
+
+    .codex-context {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 7px;
+      color: var(--chrome-text-dim);
+      font-size: 9.5px;
+    }
+
+    .codex-context-track {
+      flex: 1;
+      height: 3px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: color-mix(in srgb, var(--chrome-text-dim) 22%, transparent);
+    }
+
+    .codex-context-fill {
+      height: 100%;
+      border-radius: inherit;
+      background: var(--chrome-accent);
+    }
+
+    .ws-card.codex.active .codex-context {
+      color: rgba(255, 255, 255, 0.7);
+    }
+
+    .ws-card.codex.active .codex-context-track {
+      background: rgba(0, 0, 0, 0.2);
+    }
+
+    .ws-card.codex.active .codex-context-fill {
+      background: white;
+    }
+
     .ws-header {
       display: flex;
       align-items: center;
@@ -267,6 +407,17 @@ export class MuxSidebar extends LitElement {
       border-color: var(--chrome-accent);
       background: var(--chrome-hover);
     }
+
+    .new-ws-btn.codex-launch {
+      margin-top: 4px;
+      border-style: solid;
+      color: color-mix(in srgb, var(--chrome-accent) 70%, var(--chrome-text-bright));
+    }
+
+    .new-ws-btn.codex-launch:disabled {
+      cursor: not-allowed;
+      opacity: 0.45;
+    }
   `;
 
   // ---------------------------------------------------------------------------
@@ -280,6 +431,7 @@ export class MuxSidebar extends LitElement {
   @property({ type: Boolean }) fileTreeOpen = false;
 
   private _unsub: (() => void) | null = null;
+  private _codexTerminalHints = new Map<string, CodexTerminalHint>();
 
   private _onOutsideClick = (e: MouseEvent): void => {
     if (this._menuOpen && !e.composedPath().includes(this)) {
@@ -361,6 +513,15 @@ export class MuxSidebar extends LitElement {
     );
   }
 
+  private _onNewCodex(): void {
+    this.dispatchEvent(
+      new CustomEvent('codex-workspace-create', {
+        bubbles: true,
+        composed: true,
+      }),
+    );
+  }
+
   private _onWsRemove(e: Event, wsId: string, name: string): void {
     e.stopPropagation();
     const next = new Set(this._pendingClose);
@@ -421,6 +582,54 @@ export class MuxSidebar extends LitElement {
     }
   }
 
+  /**
+   * The remote Codex TUI owns server requests for turns entered in its pane,
+   * so app-server observer clients receive waitingOnUserInput but not the
+   * request body. Capture the small amount of presentation state the TUI
+   * already renders in sessiond's authoritative VT buffer as a fallback.
+   * App-server data always wins when it is available.
+   */
+  private _codexTerminalHint(workspaceId: string, needsQuestion: boolean): CodexTerminalHint {
+    const cached = this._codexTerminalHints.get(workspaceId) ?? {};
+    if (workspaceId !== store.attached) return cached;
+
+    const driverPane = store.panes.find((pane) => pane.surfaceKind === 'driver');
+    const terminal = driverPane ? terminalRegistry.getTerminal(driverPane.paneId) : null;
+    if (!terminal) return cached;
+
+    const buffer = terminal.buffer.active;
+    const lines: string[] = [];
+    for (let row = 0; row < buffer.length; row++) {
+      const line = buffer.getLine(row)?.translateToString(true).trim();
+      if (line) lines.push(line);
+    }
+
+    const contextMatches = [...lines.join('\n').matchAll(/Context\s+(\d+)%\s+used/gi)];
+    const lastContext = contextMatches.length > 0
+      ? contextMatches[contextMatches.length - 1]?.[1]
+      : undefined;
+    if (lastContext !== undefined) {
+      cached.contextUsed = Math.max(0, Math.min(100, Number(lastContext)));
+    }
+
+    if (needsQuestion) {
+      let questionHeader = -1;
+      for (let index = lines.length - 1; index >= 0; index--) {
+        if (/^Question\s+\d+\/\d+/i.test(lines[index])) {
+          questionHeader = index;
+          break;
+        }
+      }
+      const question = questionHeader >= 0 ? lines[questionHeader + 1] : undefined;
+      if (question) cached.question = question;
+    } else {
+      delete cached.question;
+    }
+
+    this._codexTerminalHints.set(workspaceId, cached);
+    return cached;
+  }
+
   // ---------------------------------------------------------------------------
   // Workspace render
   // ---------------------------------------------------------------------------
@@ -434,6 +643,64 @@ export class MuxSidebar extends LitElement {
         const isActive = ws.workspaceId === activeWsId;
         const isPendingClose = this._pendingClose.has(ws.workspaceId);
         const label = workspaceLabel(ws);
+        const codexSession = store.codex.sessions.find((session) => session.workspaceId === ws.workspaceId);
+
+        if (codexSession) {
+          const needsQuestion = (codexSession.questions?.length ?? 0) > 0
+            || !!codexSession.activeFlags?.includes('waitingOnUserInput');
+          const needsApproval = !!codexSession.approval
+            || !!codexSession.activeFlags?.includes('waitingOnApproval');
+          const attention = needsQuestion || needsApproval;
+          const working = codexSession.status === 'active' && !attention;
+          const statusText = needsQuestion
+            ? 'Needs input'
+            : needsApproval
+              ? 'Approval'
+              : working
+                ? 'Working'
+                : codexSession.status === 'idle'
+                  ? 'Ready'
+                  : 'Paused';
+          const terminalHint = this._codexTerminalHint(ws.workspaceId, needsQuestion);
+          const detail = codexSession.questions?.[0]?.question
+            || terminalHint.question
+            || codexSession.approval
+            || codexSession.currentStep
+            || (needsQuestion ? 'Codex is waiting for your answer' : undefined)
+            || (needsApproval ? 'Codex is waiting for approval' : undefined)
+            || codexSession.cwd
+            || 'Codex session';
+          const title = codexSession.name || codexSession.preview || label;
+          const contextUsed = codexSession.contextUsedPercent ?? terminalHint.contextUsed;
+
+          return html`
+            <div
+              class="ws-card codex ${isActive ? 'active' : ''} ${isPendingClose ? 'pending-close' : ''}"
+              @click="${() => this._onWsClick(ws.workspaceId)}"
+            >
+              <div class="codex-kicker">
+                ${icon(Bot, { size: 12 })}
+                <span class="codex-kicker-name">Codex · ${label}</span>
+                <span class="codex-status ${attention ? 'attention' : working ? 'working' : ''}">${statusText}</span>
+                <button
+                  class="ws-remove-btn"
+                  title="Remove workspace"
+                  @click="${(e: Event) => this._onWsRemove(e, ws.workspaceId, label)}"
+                >×</button>
+              </div>
+              <div class="codex-title">${title}</div>
+              <div class="codex-detail ${attention ? 'attention' : ''}">${detail}</div>
+              ${contextUsed !== undefined ? html`
+                <div class="codex-context">
+                  <div class="codex-context-track">
+                    <div class="codex-context-fill" style="width:${Math.max(0, Math.min(100, contextUsed))}%"></div>
+                  </div>
+                  <span>${codexSession.contextRemainingPercent ?? 100 - contextUsed}% left</span>
+                </div>
+              ` : ''}
+            </div>
+          `;
+        }
 
         // Hint row: the attached workspace shows its active pane; inactive
         // workspaces still expose useful density instead of becoming bare names.
@@ -482,6 +749,16 @@ export class MuxSidebar extends LitElement {
       })}
       <button class="new-ws-btn" @click="${() => this._onNewWs()}">
         + New workspace
+      </button>
+      <button
+        class="new-ws-btn codex-launch"
+        ?disabled="${store.codex.state !== 'ready'}"
+        title="${store.codex.state === 'ready'
+          ? 'Start a Codex session'
+          : store.codex.error || 'Codex integration is starting'}"
+        @click="${() => this._onNewCodex()}"
+      >
+        ${icon(Bot, { size: 13 })} New Codex session
       </button>
     `;
   }

@@ -129,7 +129,7 @@ export interface SessiondMessage {
   error?: string;
   breakpoint?: string;
   layout?: string;
-  // Present when type === 'create-pane' or 'pane-added' for browser-cdp panes
+  // Present for non-default terminal surfaces (driver or browser).
   surfaceKind?: SurfaceKind;
   /** Per-pane absolute byte offsets sent by the client on (re)attach so the
    *  server can replay only the delta since the client's last known position. */

@@ -22,6 +22,7 @@ import { applyDocumentTitle } from './lib/instance-identity.js';
 import { injectTerminalFont } from './lib/fonts.js';
 import { voiceInputController } from './lib/voice-input-controller.js';
 import { fetchAIStatus, parseAIStatus, type AIStatus } from './lib/ai.js';
+import { claimCodexWorkspace, parseCodexSnapshot } from './lib/codex.js';
 import {
   TERMINAL_FILE_OPEN_EVENT,
   type TerminalFileOpenDetail,
@@ -499,7 +500,12 @@ export class MuxApp extends LitElement {
   private _showCreateModal = false;
 
   @state()
+  private _createKind: 'terminal' | 'codex' = 'terminal';
+
+  @state()
   private _createModalName = '';
+
+  private _pendingCodexWorkspaceId: string | null = null;
 
   @state()
   private _overlayPanel: 'settings' | 'shortcuts' | 'about' | null = null;
@@ -784,10 +790,18 @@ export class MuxApp extends LitElement {
       // store has zero panes, auto-spawn exactly one. Guarding on the FOLDED
       // getter means an already-overlaid optimistic pane suppresses a double-spawn.
       if (msg.type === SessiondType.Composition && store.panes.length === 0) {
-        this._createPaneOptimistic();
+        if (msg.workspaceId && msg.workspaceId === this._pendingCodexWorkspaceId) {
+          this._pendingCodexWorkspaceId = null;
+          void this._createCodexPane(msg.workspaceId);
+        } else {
+          this._createPaneOptimistic();
+        }
       }
       // Server confirmed the workspace — clear loading state and close modal.
       if (msg.type === SessiondType.WorkspaceCreated && this._creatingWorkspace) {
+        if (this._createKind === 'codex') {
+          this._pendingCodexWorkspaceId = msg.workspaceId ?? null;
+        }
         this._creatingWorkspace = false;
         this._showCreateModal = false;
         this._createModalName = '';
@@ -1058,6 +1072,7 @@ export class MuxApp extends LitElement {
             .fileTreeOpen="${this._fileTreeOpen}"
             @workspace-switch="${this._onWorkspaceSelected}"
             @workspace-create="${this._onOpenCreateModal}"
+            @codex-workspace-create="${this._onOpenCodexCreateModal}"
             @workspace-rename="${this._onWorkspaceRename}"
             @workspace-close="${this._onSidebarWorkspaceClose}"
             @launcher-action="${this._onLauncherAction}"
@@ -1088,7 +1103,7 @@ export class MuxApp extends LitElement {
                   @pane-select="${this._onActivePane}"
                   @pane-close="${this._onClosePane}"
                   @command-invoke="${this._onCommandInvoke}"
-                  @pane-create="${this._createPaneOptimistic}"
+                  @pane-create="${this._onCreatePane}"
                   @pane-rename="${this._onPaneRename}"
                   @workspace-switch="${this._onWorkspaceSelected}"
                   @layout-save="${this._onLayoutSave}"
@@ -1136,7 +1151,7 @@ export class MuxApp extends LitElement {
       ${this._showCreateModal ? html`
         <div class="ws-create-backdrop" @click="${this._cancelCreate}">
           <div class="ws-create-dialog" @click="${(e: Event) => e.stopPropagation()}">
-            <h3>New workspace</h3>
+            <h3>${this._createKind === 'codex' ? 'New Codex session' : 'New workspace'}</h3>
             <input
               class="ws-create-input"
               type="text"
@@ -1154,7 +1169,7 @@ export class MuxApp extends LitElement {
                 class="ws-create-confirm"
                 ?disabled="${this._creatingWorkspace}"
                 @click="${this._submitCreate}"
-              >${this._creatingWorkspace ? 'Creating…' : 'Create'}</button>
+              >${this._creatingWorkspace ? 'Creating…' : this._createKind === 'codex' ? 'Start Codex' : 'Create'}</button>
             </div>
           </div>
         </div>
@@ -1269,6 +1284,14 @@ export class MuxApp extends LitElement {
    * row is inserted — the flag is the only local state change.
    */
   private _onOpenCreateModal = (): void => {
+    this._createKind = 'terminal';
+    this._showCreateModal = true;
+    this._createModalName = '';
+  };
+
+  private _onOpenCodexCreateModal = (): void => {
+    if (store.codex.state !== 'ready' || !store.codex.launchArgv?.length) return;
+    this._createKind = 'codex';
     this._showCreateModal = true;
     this._createModalName = '';
   };
@@ -1301,17 +1324,37 @@ export class MuxApp extends LitElement {
    * the ref on the authoritative pane-added, which settles the pending mutation
    * by exact identity (clientRef match) and replaces the temp with the real id.
    */
-  private _createPaneOptimistic = (): void => {
+  private _createPaneOptimistic = (cmd?: string[], surfaceKind: 'terminal' | 'driver' = 'terminal'): void => {
     const ref = mintClientRef();
     const tempId = _nextTempPaneId--;
     store.mutate({
       workspaceId: ref,
       kind: 'create-pane',
-      optimistic: (draft) => draft.panes.push({ paneId: tempId, cols: 0, rows: 0, clientRef: ref }),
+      optimistic: (draft) => draft.panes.push({
+        paneId: tempId,
+        cols: 0,
+        rows: 0,
+        clientRef: ref,
+        surfaceKind,
+      }),
       settled: (base) => base.panes.some((p) => p.clientRef === ref),
     });
-    this._socket?.createPane(undefined, ref);
+    this._socket?.createPane(cmd, ref, surfaceKind);
   };
+
+  private async _createCodexPane(workspaceId: string): Promise<void> {
+    const argv = store.codex.launchArgv;
+    if (!argv?.length) {
+      this._createPaneOptimistic();
+      return;
+    }
+    try {
+      await claimCodexWorkspace(workspaceId);
+    } catch (error) {
+      console.warn('Could not associate Codex session with workspace', error);
+    }
+    this._createPaneOptimistic(argv, 'driver');
+  }
 
   /** Create a Split beside the current Active Pane using explicit placement. */
   private _createDirectionalSplit(direction: DirectionalSplit): void {
@@ -1348,6 +1391,9 @@ export class MuxApp extends LitElement {
     // derived status only -- never the key.
     if ('aiStatus' in msg) {
       store.setAIStatus(parseAIStatus(msg['aiStatus']));
+    }
+    if ('codex' in msg) {
+      store.setCodex(parseCodexSnapshot(msg['codex']));
     }
   };
 

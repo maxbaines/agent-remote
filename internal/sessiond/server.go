@@ -609,6 +609,9 @@ func (c *conn) createPane(msg Message) {
 		c.replyError(msg.CID, CodePaneSpawnFailed, err.Error())
 		return
 	}
+	if msg.SurfaceKind == "driver" {
+		p.SurfaceKind = "driver"
+	}
 	c.srv.reg.PutPane(wsID, p)
 	c.reply(&Message{Type: TypePaneCreated, CID: msg.CID, PaneID: localID})
 	c.srv.broadcast(wsID, &Message{
@@ -620,6 +623,7 @@ func (c *conn) createPane(msg Message) {
 		ClientRef:       msg.ClientRef,
 		Placement:       msg.Placement,
 		ReferencePaneID: msg.ReferencePaneID,
+		SurfaceKind:     p.SurfaceKind,
 	})
 }
 

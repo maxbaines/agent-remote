@@ -387,11 +387,19 @@ func (c *Client) SaveLayout(workspaceID, breakpoint, layout string) error {
 // and 0 for the default behaviour (append to active pane). The browser spawns
 // its xterm.js instance on the resulting pane-added broadcast, NOT on this ack.
 func (c *Client) CreatePane(cmd []string, placement string, referencePaneID int) (int, error) {
+	return c.CreatePaneWithSurface(cmd, placement, referencePaneID, "")
+}
+
+// CreatePaneWithSurface is the opt-in driver-pane variant used by the Codex
+// integration. The existing CreatePane interface and frozen default-terminal
+// behavior remain unchanged for browsers, MCP clients, and older callers.
+func (c *Client) CreatePaneWithSurface(cmd []string, placement string, referencePaneID int, surfaceKind string) (int, error) {
 	reply, err := c.request(&Message{
 		Type:            TypeCreatePane,
 		Cmd:             cmd,
 		Placement:       placement,
 		ReferencePaneID: referencePaneID,
+		SurfaceKind:     surfaceKind,
 	})
 	if err != nil {
 		return 0, err

@@ -16,7 +16,9 @@ import (
 
 	"github.com/maxbaines/agent-remote/internal/ai"
 	"github.com/maxbaines/agent-remote/internal/authserver"
+	codexintegration "github.com/maxbaines/agent-remote/internal/codex"
 	muxcfg "github.com/maxbaines/agent-remote/internal/config"
+	"github.com/maxbaines/agent-remote/internal/sessiond"
 )
 
 func init() {
@@ -75,6 +77,10 @@ type Server struct {
 	// ai owns the opt-in AI capability: key storage, the enabled flag, and the
 	// lazily-constructed Anthropic client. Never reachable from cfg.
 	ai *ai.Manager
+
+	// codex owns the managed app-server child and projects its versioned
+	// JSON-RPC stream into the stable browser-facing snapshot.
+	codex *codexintegration.Manager
 }
 
 // New creates a Server, registers routes, and optionally serves static files.
@@ -108,6 +114,7 @@ func New(cfg Config) *Server {
 		aiKeyPath = ai.DefaultKeyPath()
 	}
 	s.ai = ai.NewManager(aiKeyPath)
+	s.codex = codexintegration.NewManager(sessiond.RuntimeDir(), hub.BroadcastCodex)
 
 	authMW := NewAuthMiddleware(cfg.AuthServer, cfg.NoAuth, cfg.BehindReverseProxy)
 	protect := func(h http.Handler) http.Handler {
@@ -161,6 +168,8 @@ func New(cfg Config) *Server {
 	s.mux.Handle("PUT /api/ai/key", protect(http.HandlerFunc(s.handleAIPutKey)))
 	s.mux.Handle("DELETE /api/ai/key", protect(http.HandlerFunc(s.handleAIDeleteKey)))
 	s.mux.Handle("POST /api/ai/ping", protect(http.HandlerFunc(s.handleAIPing)))
+	s.mux.Handle("GET /api/codex/status", protect(http.HandlerFunc(s.handleCodexStatus)))
+	s.mux.Handle("POST /api/codex/claims", protect(http.HandlerFunc(s.handleCodexClaim)))
 
 	s.mux.Handle("GET /api/tunnels", protect(http.HandlerFunc(s.handleTunnelList)))
 	s.mux.Handle("POST /api/tunnels", protect(http.HandlerFunc(s.handleTunnelCreate)))
@@ -184,6 +193,8 @@ func (s *Server) Handler() http.Handler {
 // It performs a graceful shutdown with a 5-second timeout and returns nil
 // when the server closes normally.
 func (s *Server) ListenAndServe(ctx context.Context) error {
+	go s.codex.Run(ctx)
+
 	srv := &http.Server{
 		Addr:    s.addr,
 		Handler: s.mux,
@@ -210,6 +221,27 @@ func (s *Server) ListenAndServe(ctx context.Context) error {
 		}
 		return err
 	}
+}
+
+func (s *Server) handleCodexStatus(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(s.codex.Snapshot())
+}
+
+func (s *Server) handleCodexClaim(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		WorkspaceID string `json:"workspaceId"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		http.Error(w, "invalid JSON body", http.StatusBadRequest)
+		return
+	}
+	if err := s.codex.Claim(body.WorkspaceID); err != nil {
+		http.Error(w, err.Error(), http.StatusServiceUnavailable)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_, _ = w.Write([]byte("{}\n"))
 }
 
 // Hub returns the server's WebSocket hub.

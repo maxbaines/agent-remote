@@ -244,7 +244,7 @@ type WorkspaceInfo struct {
 // PaneInfo is one entry in a composition reply or pane-added event.
 type PaneInfo struct {
 	PaneID      int    `json:"paneId"`
-	SurfaceKind string `json:"surfaceKind,omitempty"` // "terminal" | "browser"; absent = "terminal"
+	SurfaceKind string `json:"surfaceKind,omitempty"` // "terminal" | "driver" | "browser"; absent = "terminal"
 	Cols        int    `json:"cols,omitempty"`
 	Rows        int    `json:"rows,omitempty"`
 	Title       string `json:"title,omitempty"`
