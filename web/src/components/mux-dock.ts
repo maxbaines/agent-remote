@@ -559,6 +559,18 @@ export class MuxDock extends LitElement {
           height: 100%;
         }
 
+        /* FitAddon deliberately rounds the terminal grid down to whole rows.
+           Keep xterm's interactive/background root stretched to the panel edge
+           so the fractional remainder does not become a dead strip at the
+           bottom after mobile safe-area and header height changes. The screen
+           and canvases retain their exact cell-grid dimensions. */
+        mux-dock .xterm {
+          height: 100%;
+        }
+        mux-dock .xterm .xterm-viewport {
+          background-color: var(--mux-bg);
+        }
+
         /* xterm's DOM renderer keeps glyphs (including true-colour output) in
            this layer, separate from its opaque viewport background. A palette
            may soften that content to evoke native terminal translucency
