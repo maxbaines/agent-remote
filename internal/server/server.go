@@ -14,7 +14,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/maxbaines/just-terminal/internal/ai"
 	"github.com/maxbaines/just-terminal/internal/authserver"
 	codexintegration "github.com/maxbaines/just-terminal/internal/codex"
 	muxcfg "github.com/maxbaines/just-terminal/internal/config"
@@ -36,12 +35,6 @@ type Config struct {
 	NoAuth        bool          // skip all auth checks, including loopback bypass (dev only)
 	ConfigPath    string        // path to write config.toml on PATCH /api/config (empty = skip writes)
 	InitialConfig muxcfg.Config // initial resolved configuration (zero value = package defaults)
-
-	// AIKeyPath is the file path of the owner-only Anthropic API key. Empty
-	// means ai.DefaultKeyPath(). The key is deliberately NOT part of
-	// InitialConfig: anything in config.Config is published by GET /api/config,
-	// Hub.BroadcastConfig, and MCP get_config by construction.
-	AIKeyPath string
 
 	// AuthServer is nil when the credential store or WebAuthn configuration is
 	// unavailable at startup (see cmd/just-terminal's newAuthServer) — then every
@@ -74,10 +67,6 @@ type Server struct {
 	cfgMu      sync.RWMutex
 	cfg        muxcfg.Config
 
-	// ai owns the opt-in AI capability: key storage, the enabled flag, and the
-	// lazily-constructed Anthropic client. Never reachable from cfg.
-	ai *ai.Manager
-
 	// codex owns the managed app-server child and projects its versioned
 	// JSON-RPC stream into the stable browser-facing snapshot.
 	codex *codexintegration.Manager
@@ -109,11 +98,6 @@ func New(cfg Config) *Server {
 		s.cfg = muxcfg.Defaults()
 	}
 
-	aiKeyPath := cfg.AIKeyPath
-	if aiKeyPath == "" {
-		aiKeyPath = ai.DefaultKeyPath()
-	}
-	s.ai = ai.NewManager(aiKeyPath)
 	s.codex = codexintegration.NewManager(sessiond.RuntimeDir(), hub.BroadcastCodex)
 
 	authMW := NewAuthMiddleware(cfg.AuthServer, cfg.NoAuth, cfg.BehindReverseProxy)
@@ -162,12 +146,6 @@ func New(cfg Config) *Server {
 	s.mux.Handle("GET /api/files", protect(http.HandlerFunc(s.handleFileRead)))
 	s.mux.Handle("GET /api/file-tree", protect(http.HandlerFunc(s.handleFileTree)))
 
-	// Opt-in AI capability. Deliberately a separate route family from
-	// /api/config: the key goes in via PUT and only a derived Status comes out.
-	s.mux.Handle("GET /api/ai/status", protect(http.HandlerFunc(s.handleAIStatus)))
-	s.mux.Handle("PUT /api/ai/key", protect(http.HandlerFunc(s.handleAIPutKey)))
-	s.mux.Handle("DELETE /api/ai/key", protect(http.HandlerFunc(s.handleAIDeleteKey)))
-	s.mux.Handle("POST /api/ai/ping", protect(http.HandlerFunc(s.handleAIPing)))
 	s.mux.Handle("GET /api/codex/status", protect(http.HandlerFunc(s.handleCodexStatus)))
 	s.mux.Handle("POST /api/codex/claims", protect(http.HandlerFunc(s.handleCodexClaim)))
 
