@@ -467,7 +467,7 @@ describe('buildTerminalConfig', () => {
     expect(cfg.cursorStyle).toBe('block');
     expect(cfg.cursorBlink).toBe(true);
     expect(cfg.scrollback).toBe(10000);
-    expect(cfg.theme).toStrictEqual(resolveTerminalPalette('tokyo-night'));
+    expect(cfg.theme).toStrictEqual(resolveTerminalPalette('cmux'));
   });
 
   it('returns overrides when given a custom config', () => {

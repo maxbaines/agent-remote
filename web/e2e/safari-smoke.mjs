@@ -110,7 +110,7 @@ try {
   if (!state.commandIds.includes('terminal.clear-to-start')) {
     throw new Error(`Safari Command registry incomplete: ${JSON.stringify(state.commandIds)}`);
   }
-  if (state.background !== '#1a1b26' || state.accent !== '#7aa2f7') {
+  if (state.background !== '#1e1e1e' || state.accent !== '#0a84ff') {
     throw new Error(`Safari default theme unresolved: ${JSON.stringify(state)}`);
   }
 

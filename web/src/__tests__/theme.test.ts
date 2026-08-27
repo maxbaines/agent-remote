@@ -11,16 +11,16 @@ describe('Tokyo Night terminal palette', () => {
   });
 });
 
-describe('VS Code chrome design tokens', () => {
+describe('default cmux chrome design tokens', () => {
   it('exports CHROME with all token values matching exactly', () => {
-    expect(CHROME.bar).toBe('#16161e');
-    expect(CHROME.body).toBe('#1a1b26');
-    expect(CHROME.border).toBe('#292e42');
-    expect(CHROME.textDim).toBe('#7f89b3');
-    expect(CHROME.textBright).toBe('#c0caf5');
-    expect(CHROME.accent).toBe('#7aa2f7');
-    expect(CHROME.driverAccent).toBe('#bb9af7');
-    expect(CHROME.hover).toBe('#1f2335');
-    expect(CHROME.danger).toBe('#f7768e');
+    expect(CHROME.bar).toBe('#1a1a1a');
+    expect(CHROME.body).toBe('#1e1e1e');
+    expect(CHROME.border).toBe('#303033');
+    expect(CHROME.textDim).toBe('#98989d');
+    expect(CHROME.textBright).toBe('#ffffff');
+    expect(CHROME.accent).toBe('#0a84ff');
+    expect(CHROME.driverAccent).toBe('#bf5af2');
+    expect(CHROME.hover).toBe('#2c2c2e');
+    expect(CHROME.danger).toBe('#ff453a');
   });
 });

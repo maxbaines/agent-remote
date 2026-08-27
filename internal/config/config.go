@@ -217,7 +217,7 @@ func Write(path string, cfg Config) error {
 func Defaults() Config {
 	return Config{
 		Theme: ThemeConfig{
-			Palette: "tokyo-night",
+			Palette: "cmux",
 		},
 		Font: FontConfig{
 			// Match cmux on macOS. The web client supplies a generic monospace

@@ -126,20 +126,20 @@ try {
     return Object.fromEntries(variables.map((name) => [name, style.getPropertyValue(name).trim()]));
   })()`);
   const expected = {
-    '--mux-bg': '#1a1b26',
-    '--mux-fg': '#a9b1d6',
-    '--mux-accent': '#7aa2f7',
-    '--mux-warn': '#e0af68',
-    '--mux-error': '#f7768e',
-    '--mux-ok': '#9ece6a',
-    '--chrome-bar': '#16161e',
-    '--chrome-body': '#1a1b26',
-    '--chrome-border': '#292e42',
-    '--chrome-text-dim': '#7f89b3',
-    '--chrome-text-bright': '#c0caf5',
-    '--chrome-accent': '#7aa2f7',
-    '--chrome-hover': '#1f2335',
-    '--chrome-danger': '#f7768e',
+    '--mux-bg': '#1e1e1e',
+    '--mux-fg': '#ffffff',
+    '--mux-accent': '#0869cb',
+    '--mux-warn': '#cdac08',
+    '--mux-error': '#cc372e',
+    '--mux-ok': '#26a439',
+    '--chrome-bar': '#1a1a1a',
+    '--chrome-body': '#1e1e1e',
+    '--chrome-border': '#303033',
+    '--chrome-text-dim': '#98989d',
+    '--chrome-text-bright': '#ffffff',
+    '--chrome-accent': '#0a84ff',
+    '--chrome-hover': '#2c2c2e',
+    '--chrome-danger': '#ff453a',
     '--mux-titlebar-bg': '',
   };
   assert(JSON.stringify(appearance) === JSON.stringify(expected),
@@ -156,7 +156,7 @@ try {
     'warning and error states use the same colour');
 
   const config = pevalJson(`fetch('/api/config').then((response) => response.json())`);
-  assert(config.theme?.palette === 'tokyo-night',
+  assert(config.theme?.palette === 'cmux',
     `default theme missing from config: ${JSON.stringify(config.theme)}`);
 
   pcli('eval', `(() => {
@@ -209,6 +209,7 @@ try {
       terminalAllowsTransparency: terminal?.allowTransparency ?? false,
       renderedTextOpacity: terminal?.textOpacity ?? '',
       activeTheme: active?.title ?? '',
+      frameTheme: document.querySelector('meta[name="theme-color"]')?.content ?? '',
     };
   })()`);
 
@@ -243,6 +244,8 @@ try {
     `cmux chrome tokens did not apply: ${JSON.stringify(cmux)}`);
   assert(cmux.chromeBody === '#1e1e1e' && cmux.chromeTextDim === '#98989d',
     `cmux native chrome did not apply: ${JSON.stringify(cmux)}`);
+  assert(cmux.frameTheme === '#1a1a1a',
+    `cmux browser frame colour did not apply: ${JSON.stringify(cmux)}`);
   assert(cmux.terminalBackground === '#1e1e1e',
     `existing xterm did not hot-reload opaque cmux: ${JSON.stringify(cmux)}`);
   assert(cmux.terminalSelectionForeground === '#ffffff' && !cmux.terminalAllowsTransparency,
@@ -263,6 +266,8 @@ try {
     `light chrome did not apply: ${JSON.stringify(githubLight)}`);
   assert(githubLight.chromeBody === '#f2f2f7' && githubLight.chromeTextDim === '#636366',
     `accessible light chrome tokens did not apply: ${JSON.stringify(githubLight)}`);
+  assert(githubLight.frameTheme === '#e8e8ed',
+    `light browser frame colour did not apply: ${JSON.stringify(githubLight)}`);
   assert(githubLight.terminalBackground === '#ffffff',
     `existing xterm did not hot-reload GitHub Light: ${JSON.stringify(githubLight)}`);
   assert(githubLight.activeTheme === 'GitHub Light',
@@ -294,11 +299,11 @@ try {
 
   // Return the fixture to the canonical default before checking desktop states
   // and producing the optional visual reference capture.
-  selectTheme('Tokyo Night');
-  waitFor(`getComputedStyle(document.documentElement).getPropertyValue('--mux-bg').trim() === '#1a1b26'`);
+  selectTheme('cmux');
+  waitFor(`getComputedStyle(document.documentElement).getPropertyValue('--mux-bg').trim() === '#1e1e1e'`);
   sleep(750);
   const restoredDefault = pevalJson(`fetch('/api/config').then((response) => response.json())`);
-  assert(restoredDefault.theme?.palette === 'tokyo-night',
+  assert(restoredDefault.theme?.palette === 'cmux',
     `default theme did not persist after restoration: ${JSON.stringify(restoredDefault.theme)}`);
   pcli('eval', `${SETTINGS}.shadowRoot.querySelector('.close-btn').click()`);
   waitFor(`!${SETTINGS}`);
@@ -312,7 +317,7 @@ try {
   const hoverBackground = pevalJson(`getComputedStyle(
     ${APP}.shadowRoot.querySelector('mux-sidebar').shadowRoot.querySelector('.new-ws-btn')
   ).backgroundColor`);
-  assert(hoverBackground === 'rgb(31, 35, 53)', `control hover cue missing: ${hoverBackground}`);
+  assert(hoverBackground === 'rgb(44, 44, 46)', `control hover cue missing: ${hoverBackground}`);
 
   const before = pevalJson(`${STORE}.panes.filter((pane) => pane.paneId > 0).length`);
   pcli('eval', `${APP}.commands.invoke('pane.create-tab')`);
@@ -334,10 +339,10 @@ try {
       title: document.title,
     };
   })()`);
-  assert(states.activeBorder === 'rgb(122, 162, 247)', `active tab focus cue missing: ${states.activeBorder}`);
+  assert(states.activeBorder === 'rgb(10, 132, 255)', `active tab focus cue missing: ${states.activeBorder}`);
   assert(states.activeText !== states.inactiveText,
     `active and inactive tab text are indistinguishable: ${states.activeText}`);
-  assert(states.divider === '#292e42', `pane divider is not tokenized: ${states.divider}`);
+  assert(states.divider === '#303033', `pane divider is not tokenized: ${states.divider}`);
   assert(!/cmux/i.test(`${states.visibleText}\n${states.title}`), 'inherited product branding remains');
 
   if (capture) pcli('screenshot', `--filename=${capture}`);

@@ -107,7 +107,7 @@ export class MuxPanePicker extends LitElement {
     }
 
     .ws-item.active {
-      color: var(--mux-accent, #7aa2f7);
+      color: var(--mux-accent, #0869cb);
       font-weight: 600;
     }
 
@@ -132,7 +132,7 @@ export class MuxPanePicker extends LitElement {
     }
 
     .pane-item.active {
-      color: var(--mux-accent, #7aa2f7);
+      color: var(--mux-accent, #0869cb);
     }
 
     .pane-label {

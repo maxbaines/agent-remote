@@ -106,9 +106,9 @@ try {
   );
   assert(
     JSON.stringify(releaseState.appearance) === JSON.stringify({
-      background: '#1a1b26',
-      foreground: '#a9b1d6',
-      accent: '#7aa2f7',
+      background: '#1e1e1e',
+      foreground: '#ffffff',
+      accent: '#0a84ff',
     }),
     `unexpected default theme: ${JSON.stringify(releaseState.appearance)}`,
   );

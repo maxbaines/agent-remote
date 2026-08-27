@@ -1,6 +1,6 @@
 import { LitElement, html, css } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import { PALETTES } from '../lib/theme.js';
+import { DEFAULT_PALETTE_ID, PALETTES } from '../lib/theme.js';
 import { FONT_FAMILIES, resolveTerminalFontFamily } from '../lib/fonts.js';
 import type { ResolvedConfig } from '../lib/config.js';
 import {
@@ -17,8 +17,8 @@ interface ThemeCard {
 }
 
 const DARK_THEMES: ThemeCard[] = [
-  { id: 'tokyo-night', label: 'Tokyo Night' },
   { id: 'cmux', label: 'cmux' },
+  { id: 'tokyo-night', label: 'Tokyo Night' },
   { id: 'catppuccin', label: 'Catppuccin' },
   { id: 'gruvbox', label: 'Gruvbox' },
   { id: 'dracula', label: 'Dracula' },
@@ -629,7 +629,7 @@ export class MuxSettingsSurface extends LitElement {
   }
 
   private _renderThemeCards() {
-    const current = this.config?.theme.palette ?? 'tokyo-night';
+    const current = this.config?.theme.palette ?? DEFAULT_PALETTE_ID;
     return html`
       <div class="theme-grid">
         ${this._renderThemeGroup(DARK_THEMES, current)}

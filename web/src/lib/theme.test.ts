@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { THEME, PALETTES, resolvePalette, paletteToCSSVars } from './theme';
+import { CMUX, THEME, PALETTES, resolvePalette, paletteToCSSVars } from './theme';
 
 describe('resolvePalette', () => {
   it('returns THEME reference for tokyo-night', () => {
@@ -11,8 +11,8 @@ describe('resolvePalette', () => {
     expect(resolvePalette('gruvbox')).toBe(PALETTES['gruvbox']);
   });
 
-  it('falls back to THEME for unknown palette name', () => {
-    expect(resolvePalette('does-not-exist')).toBe(THEME);
+  it('falls back to the default cmux palette for unknown palette name', () => {
+    expect(resolvePalette('does-not-exist')).toBe(CMUX);
   });
 });
 

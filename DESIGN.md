@@ -17,8 +17,8 @@ real browser against a real Gateway and Session Owner.
 
 | Theme ID | Display name | Mode |
 |---|---|---|
-| `tokyo-night` | Tokyo Night | Dark, default |
-| `cmux` | cmux (Apple System Colors) | Dark, opaque background with 0.92 text fade |
+| `cmux` | cmux (Apple System Colors) | Dark, default; opaque background with 0.92 text fade |
+| `tokyo-night` | Tokyo Night | Dark |
 | `catppuccin` | Catppuccin | Dark |
 | `gruvbox` | Gruvbox | Dark |
 | `dracula` | Dracula | Dark |
@@ -27,7 +27,7 @@ real browser against a real Gateway and Session Owner.
 | `one-light` | One Light | Light |
 | `github-light` | GitHub Light | Light |
 
-Unknown theme IDs safely resolve to Tokyo Night in the browser. The selected ID is stored as
+Unknown theme IDs safely resolve to cmux in the browser. The selected ID is stored as
 `[theme].palette` in the Agent Remote configuration and included in `/api/config` and the initial
 WebSocket config envelope.
 
@@ -41,32 +41,32 @@ of a translucent native terminal without exposing browser content behind the ter
 
 | Role | Value |
 |---|---:|
-| Background / cursor accent | `#1a1b26` |
-| Foreground / white | `#a9b1d6` |
-| Cursor / bright white | `#c0caf5` |
-| Selection | `#283457` |
-| Black | `#15161e` |
-| Bright black | `#414868` |
-| Red / error | `#f7768e` |
-| Green / connected | `#9ece6a` |
-| Yellow / warning / attention | `#e0af68` |
-| Blue / focus accent | `#7aa2f7` |
-| Magenta / driver accent | `#bb9af7` |
-| Cyan | `#7dcfff` |
+| Background | `#1e1e1e` |
+| Foreground / bright white | `#ffffff` |
+| Cursor / white | `#98989d` |
+| Selection | `#3f638b` |
+| Black / cursor accent | `#1a1a1a` / `#ffffff` |
+| Bright black | `#464646` |
+| Red / error | `#cc372e` |
+| Green / connected | `#26a439` |
+| Yellow / warning / attention | `#cdac08` |
+| Blue / focus accent | `#0869cb` / `#0a84ff` |
+| Magenta / driver accent | `#9647bf` / `#bf5af2` |
+| Cyan | `#479ec2` |
 
 ### Dark browser chrome
 
 | Token | Value | Use |
 |---|---:|---|
-| `--chrome-bar` | `#16161e` | Sidebar, tab strip, headers |
-| `--chrome-body` | `#1a1b26` | Pane and settings body |
-| `--chrome-border` | `#292e42` | Hairline separators and pane dividers |
-| `--chrome-text-bright` | `#c0caf5` | Active labels and primary controls |
-| `--chrome-text-dim` | `#7f89b3` | Inactive labels and secondary copy |
-| `--chrome-accent` | `#7aa2f7` | Active tab edge, focus, selected Workspace |
-| `--chrome-driver-accent` | `#bb9af7` | Driver-specific focus |
-| `--chrome-hover` | `#1f2335` | Pointer hover surface |
-| `--chrome-danger` | `#f7768e` | Destructive hover and errors |
+| `--chrome-bar` | `#1a1a1a` | Sidebar, tab strip, headers, browser/PWA frame |
+| `--chrome-body` | `#1e1e1e` | Pane and settings body |
+| `--chrome-border` | `#303033` | Hairline separators and pane dividers |
+| `--chrome-text-bright` | `#ffffff` | Active labels and primary controls |
+| `--chrome-text-dim` | `#98989d` | Inactive labels and secondary copy |
+| `--chrome-accent` | `#0a84ff` | Active tab edge, focus, selected Workspace |
+| `--chrome-driver-accent` | `#bf5af2` | Driver-specific focus |
+| `--chrome-hover` | `#2c2c2e` | Pointer hover surface |
+| `--chrome-danger` | `#ff453a` | Destructive hover and errors |
 
 Primary and inactive text both maintain at least 4.5:1 contrast on their intended surfaces.
 Accent, connected, warning, and error colours maintain at least 3:1 contrast on the terminal

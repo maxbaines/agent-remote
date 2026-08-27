@@ -1,7 +1,7 @@
 /**
  * Agent Remote's bundled terminal themes and theme-derived browser chrome.
  *
- * Tokyo Night remains the safe default. A resolved theme is applied to both
+ * cmux is the default. A resolved theme is applied to both
  * xterm.js and the semantic CSS variables consumed by the surrounding UI.
  */
 
@@ -76,11 +76,11 @@ export function isLightTheme(palette: string): boolean {
   return LIGHT_THEME_IDS.has(palette);
 }
 
-// VS Code tab + chrome design tokens — kept as static dark reference for any
-// code that directly imports CHROME (type-checked constant access).
+// Default cmux chrome design tokens — kept as a static reference for any code
+// that directly imports CHROME (type-checked constant access).
 // At runtime, always use CSS custom properties (var(--chrome-*)) which are
 // updated by applyChromeTokens() when the theme changes.
-export const CHROME: ChromeTokens = CHROME_DARK;
+export const CHROME: ChromeTokens = CHROME_CMUX;
 
 export interface Palette {
   background: string;
@@ -359,8 +359,10 @@ export const PALETTES: Record<string, Palette> = {
   'github-light': GITHUB_LIGHT,
 };
 
+export const DEFAULT_PALETTE_ID = 'cmux';
+
 export function resolvePalette(name: string): Palette {
-  return PALETTES[name] ?? THEME;
+  return PALETTES[name] ?? PALETTES[DEFAULT_PALETTE_ID];
 }
 
 /** Strip Agent Remote metadata and produce the theme object xterm.js accepts. */
@@ -433,4 +435,9 @@ export function applyChromeTokens(
   root.style.setProperty('--chrome-driver-accent', tokens.driverAccent);
   root.style.setProperty('--chrome-hover',         tokens.hover);
   root.style.setProperty('--chrome-danger',        tokens.danger);
+
+  // Keep the browser/PWA frame coordinated with the in-app title bar. This is
+  // visible as the status/title bar in installed and mobile browser contexts.
+  root.ownerDocument.querySelector<HTMLMetaElement>('meta[name="theme-color"]')
+    ?.setAttribute('content', tokens.bar);
 }

@@ -1,3 +1,5 @@
+import { DEFAULT_PALETTE_ID } from './theme.js';
+
 // ── Persistence helpers ──────────────────────────────────────────────────────
 
 /**
@@ -90,7 +92,7 @@ export interface ResolvedConfig {
 
 // DEFAULT_RESOLVED_CONFIG mirrors Go internal/config.Defaults() exactly.
 export const DEFAULT_RESOLVED_CONFIG: ResolvedConfig = {
-  theme: { palette: 'tokyo-night' },
+  theme: { palette: DEFAULT_PALETTE_ID },
   font: {
     // Match cmux on macOS. Browsers without Monaco use the monospace fallback
     // applied by resolveTerminalFontFamily().

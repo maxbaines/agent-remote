@@ -23,8 +23,8 @@ func TestDefaults(t *testing.T) {
 	cfg := config.Defaults()
 
 	// Theme
-	if cfg.Theme.Palette != "tokyo-night" {
-		t.Errorf("Theme.Palette: got %q, want %q", cfg.Theme.Palette, "tokyo-night")
+	if cfg.Theme.Palette != "cmux" {
+		t.Errorf("Theme.Palette: got %q, want %q", cfg.Theme.Palette, "cmux")
 	}
 
 	// Font
@@ -95,8 +95,8 @@ func TestLoadMissingFileReturnsDefaults(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load() returned unexpected error: %v", err)
 	}
-	if cfg.Theme.Palette != "tokyo-night" {
-		t.Errorf("Theme.Palette: got %q, want %q", cfg.Theme.Palette, "tokyo-night")
+	if cfg.Theme.Palette != "cmux" {
+		t.Errorf("Theme.Palette: got %q, want %q", cfg.Theme.Palette, "cmux")
 	}
 	if cfg.Terminal.Scrollback != 10000 {
 		t.Errorf("Terminal.Scrollback: got %d, want 10000", cfg.Terminal.Scrollback)
@@ -170,8 +170,8 @@ func TestLoadMalformedFallsBackToDefaults(t *testing.T) {
 		t.Fatalf("Load() returned unexpected error: %v", err)
 	}
 	// 2. Fell back to default theme palette.
-	if cfg.Theme.Palette != "tokyo-night" {
-		t.Errorf("Theme.Palette: got %q, want %q", cfg.Theme.Palette, "tokyo-night")
+	if cfg.Theme.Palette != "cmux" {
+		t.Errorf("Theme.Palette: got %q, want %q", cfg.Theme.Palette, "cmux")
 	}
 	// 3. Fully reset to defaults, not partially parsed.
 	if cfg.Terminal.Scrollback != 10000 {
