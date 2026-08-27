@@ -878,6 +878,46 @@ export class MuxDock extends LitElement {
         }
         mux-dock .mux-file-line::marker { color: color-mix(in srgb, var(--chrome-text-dim) 65%, transparent); }
         mux-dock .mux-file-line code { color: var(--mux-fg); font: inherit; }
+        mux-dock .mux-code-lines .hljs-comment,
+        mux-dock .mux-code-lines .hljs-quote { color: var(--chrome-text-dim); font-style: italic; }
+        mux-dock .mux-code-lines .hljs-keyword,
+        mux-dock .mux-code-lines .hljs-selector-tag,
+        mux-dock .mux-code-lines .hljs-literal,
+        mux-dock .mux-code-lines .hljs-section,
+        mux-dock .mux-code-lines .hljs-link { color: var(--chrome-accent); }
+        mux-dock .mux-code-lines .hljs-string,
+        mux-dock .mux-code-lines .hljs-regexp,
+        mux-dock .mux-code-lines .hljs-addition,
+        mux-dock .mux-code-lines .hljs-attribute,
+        mux-dock .mux-code-lines .hljs-meta .hljs-string {
+          color: color-mix(in srgb, var(--mux-ok) 82%, var(--chrome-text-bright));
+        }
+        mux-dock .mux-code-lines .hljs-number,
+        mux-dock .mux-code-lines .hljs-symbol,
+        mux-dock .mux-code-lines .hljs-bullet,
+        mux-dock .mux-code-lines .hljs-variable,
+        mux-dock .mux-code-lines .hljs-template-variable {
+          color: color-mix(in srgb, var(--mux-warn) 82%, var(--chrome-text-bright));
+        }
+        mux-dock .mux-code-lines .hljs-title,
+        mux-dock .mux-code-lines .hljs-title.class_,
+        mux-dock .mux-code-lines .hljs-title.function_,
+        mux-dock .mux-code-lines .hljs-selector-id,
+        mux-dock .mux-code-lines .hljs-selector-class {
+          color: color-mix(in srgb, var(--chrome-accent) 55%, var(--mux-ok));
+        }
+        mux-dock .mux-code-lines .hljs-built_in,
+        mux-dock .mux-code-lines .hljs-type,
+        mux-dock .mux-code-lines .hljs-name,
+        mux-dock .mux-code-lines .hljs-attr,
+        mux-dock .mux-code-lines .hljs-selector-attr,
+        mux-dock .mux-code-lines .hljs-selector-pseudo {
+          color: color-mix(in srgb, var(--chrome-accent) 58%, var(--chrome-text-bright));
+        }
+        mux-dock .mux-code-lines .hljs-meta,
+        mux-dock .mux-code-lines .hljs-deletion { color: var(--mux-error); }
+        mux-dock .mux-code-lines .hljs-emphasis { font-style: italic; }
+        mux-dock .mux-code-lines .hljs-strong { font-weight: 700; }
         mux-dock .mux-file-line-selected {
           background: color-mix(in srgb, var(--chrome-accent) 16%, transparent);
           box-shadow: inset 2px 0 var(--chrome-accent);

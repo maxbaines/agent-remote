@@ -1,4 +1,30 @@
 import DOMPurify from 'dompurify';
+import hljs from 'highlight.js/lib/core';
+import bash from 'highlight.js/lib/languages/bash';
+import c from 'highlight.js/lib/languages/c';
+import cpp from 'highlight.js/lib/languages/cpp';
+import csharp from 'highlight.js/lib/languages/csharp';
+import css from 'highlight.js/lib/languages/css';
+import diff from 'highlight.js/lib/languages/diff';
+import dockerfile from 'highlight.js/lib/languages/dockerfile';
+import go from 'highlight.js/lib/languages/go';
+import graphql from 'highlight.js/lib/languages/graphql';
+import ini from 'highlight.js/lib/languages/ini';
+import java from 'highlight.js/lib/languages/java';
+import javascript from 'highlight.js/lib/languages/javascript';
+import json from 'highlight.js/lib/languages/json';
+import kotlin from 'highlight.js/lib/languages/kotlin';
+import makefile from 'highlight.js/lib/languages/makefile';
+import php from 'highlight.js/lib/languages/php';
+import python from 'highlight.js/lib/languages/python';
+import ruby from 'highlight.js/lib/languages/ruby';
+import rust from 'highlight.js/lib/languages/rust';
+import scss from 'highlight.js/lib/languages/scss';
+import sql from 'highlight.js/lib/languages/sql';
+import swift from 'highlight.js/lib/languages/swift';
+import typescript from 'highlight.js/lib/languages/typescript';
+import xml from 'highlight.js/lib/languages/xml';
+import yaml from 'highlight.js/lib/languages/yaml';
 import { marked } from 'marked';
 import type {
   GroupPanelPartInitParameters,
@@ -18,8 +44,88 @@ interface FileResponse {
   content: string;
 }
 
+interface CodeLanguage {
+  id: string;
+  label: string;
+}
+
+const CODE_LANGUAGES = {
+  bash, c, cpp, csharp, css, diff, dockerfile, go, graphql, ini, java,
+  javascript, json, kotlin, makefile, php, python, ruby, rust, scss, sql,
+  swift, typescript, xml, yaml,
+};
+
+for (const [name, language] of Object.entries(CODE_LANGUAGES)) {
+  hljs.registerLanguage(name, language);
+}
+
+const CODE_EXTENSIONS: Record<string, CodeLanguage> = {
+  bash: { id: 'bash', label: 'Bash' },
+  c: { id: 'c', label: 'C' },
+  cc: { id: 'cpp', label: 'C++' },
+  cjs: { id: 'javascript', label: 'JavaScript' },
+  conf: { id: 'ini', label: 'Config' },
+  cpp: { id: 'cpp', label: 'C++' },
+  cs: { id: 'csharp', label: 'C#' },
+  csh: { id: 'bash', label: 'Shell' },
+  css: { id: 'css', label: 'CSS' },
+  cts: { id: 'typescript', label: 'TypeScript' },
+  diff: { id: 'diff', label: 'Diff' },
+  env: { id: 'ini', label: 'Environment' },
+  go: { id: 'go', label: 'Go' },
+  gql: { id: 'graphql', label: 'GraphQL' },
+  graphql: { id: 'graphql', label: 'GraphQL' },
+  h: { id: 'c', label: 'C' },
+  hh: { id: 'cpp', label: 'C++' },
+  hpp: { id: 'cpp', label: 'C++' },
+  htm: { id: 'xml', label: 'HTML' },
+  html: { id: 'xml', label: 'HTML' },
+  ini: { id: 'ini', label: 'INI' },
+  java: { id: 'java', label: 'Java' },
+  js: { id: 'javascript', label: 'JavaScript' },
+  json: { id: 'json', label: 'JSON' },
+  jsonl: { id: 'json', label: 'JSON Lines' },
+  jsx: { id: 'javascript', label: 'JSX' },
+  kt: { id: 'kotlin', label: 'Kotlin' },
+  kts: { id: 'kotlin', label: 'Kotlin' },
+  mjs: { id: 'javascript', label: 'JavaScript' },
+  mts: { id: 'typescript', label: 'TypeScript' },
+  php: { id: 'php', label: 'PHP' },
+  py: { id: 'python', label: 'Python' },
+  rb: { id: 'ruby', label: 'Ruby' },
+  rs: { id: 'rust', label: 'Rust' },
+  scss: { id: 'scss', label: 'SCSS' },
+  sh: { id: 'bash', label: 'Shell' },
+  sql: { id: 'sql', label: 'SQL' },
+  svelte: { id: 'xml', label: 'Svelte' },
+  svg: { id: 'xml', label: 'SVG' },
+  swift: { id: 'swift', label: 'Swift' },
+  toml: { id: 'ini', label: 'TOML' },
+  ts: { id: 'typescript', label: 'TypeScript' },
+  tsx: { id: 'typescript', label: 'TSX' },
+  vue: { id: 'xml', label: 'Vue' },
+  xml: { id: 'xml', label: 'XML' },
+  yaml: { id: 'yaml', label: 'YAML' },
+  yml: { id: 'yaml', label: 'YAML' },
+  zsh: { id: 'bash', label: 'Shell' },
+};
+
+const CODE_FILENAMES: Record<string, CodeLanguage> = {
+  dockerfile: { id: 'dockerfile', label: 'Dockerfile' },
+  gemfile: { id: 'ruby', label: 'Ruby' },
+  makefile: { id: 'makefile', label: 'Makefile' },
+};
+
 function isMarkdownPath(path: string): boolean {
   return /\.(?:md|markdown|mdown|mkdn)$/i.test(path);
+}
+
+function codeLanguageForPath(path: string): CodeLanguage | null {
+  const name = basename(path).toLowerCase();
+  const namedLanguage = CODE_FILENAMES[name];
+  if (namedLanguage) return namedLanguage;
+  const extension = name.includes('.') ? name.slice(name.lastIndexOf('.') + 1) : '';
+  return CODE_EXTENSIONS[extension] ?? null;
 }
 
 function basename(path: string): string {
@@ -87,7 +193,7 @@ export class FileViewerRenderer implements IContentRenderer {
     }
   }
 
-  private _renderChrome(path: string): { scroller: HTMLElement; body: HTMLElement } {
+  private _renderChrome(path: string, modeLabel: string): { scroller: HTMLElement; body: HTMLElement } {
     this.element.replaceChildren();
     const toolbar = document.createElement('div');
     toolbar.className = 'mux-file-viewer-toolbar';
@@ -99,7 +205,7 @@ export class FileViewerRenderer implements IContentRenderer {
 
     const mode = document.createElement('span');
     mode.className = 'mux-file-viewer-mode';
-    mode.textContent = this._kind === 'markdown' ? 'Markdown' : 'Text';
+    mode.textContent = modeLabel;
 
     const reload = document.createElement('button');
     reload.type = 'button';
@@ -119,8 +225,8 @@ export class FileViewerRenderer implements IContentRenderer {
   }
 
   private _renderFile(file: FileResponse): void {
-    const { scroller, body } = this._renderChrome(file.path);
     if (this._kind === 'markdown' || isMarkdownPath(file.path)) {
+      const { body } = this._renderChrome(file.path, 'Markdown');
       body.classList.add('mux-markdown-body');
       const rendered = marked.parse(file.content, { async: false }) as string;
       body.innerHTML = DOMPurify.sanitize(rendered, { USE_PROFILES: { html: true } });
@@ -131,10 +237,13 @@ export class FileViewerRenderer implements IContentRenderer {
       return;
     }
 
+    const language = codeLanguageForPath(file.path);
+    const { scroller, body } = this._renderChrome(file.path, language?.label ?? 'Text');
     body.classList.add('mux-text-body');
     const lines = file.content.split('\n');
+    const highlightedLines = language ? this._highlightLines(file.content, language.id) : null;
     const list = document.createElement('ol');
-    list.className = 'mux-file-lines';
+    list.className = `mux-file-lines${language ? ' mux-code-lines' : ''}`;
     const selectedLine = Math.min(Math.max(this._request?.line ?? 0, 0), lines.length);
     let selectedElement: HTMLLIElement | null = null;
     const fragment = document.createDocumentFragment();
@@ -143,7 +252,12 @@ export class FileViewerRenderer implements IContentRenderer {
       item.className = 'mux-file-line';
       item.value = index + 1;
       const code = document.createElement('code');
-      code.textContent = lines[index] || '\u200b';
+      if (highlightedLines) {
+        code.append(...(highlightedLines[index] ?? []));
+        if (!code.hasChildNodes()) code.textContent = '\u200b';
+      } else {
+        code.textContent = lines[index] || '\u200b';
+      }
       item.appendChild(code);
       if (index + 1 === selectedLine) {
         item.classList.add('mux-file-line-selected');
@@ -158,6 +272,43 @@ export class FileViewerRenderer implements IContentRenderer {
     } else {
       scroller.scrollTop = 0;
     }
+  }
+
+  private _highlightLines(content: string, language: string): DocumentFragment[][] {
+    const highlighted = hljs.highlight(content, { language, ignoreIllegals: true });
+    const source = document.createElement('code');
+    source.innerHTML = DOMPurify.sanitize(highlighted.value, {
+      ALLOWED_TAGS: ['span'],
+      ALLOWED_ATTR: ['class'],
+    });
+
+    const lines: DocumentFragment[][] = [[]];
+    const appendText = (text: string, classes: string[]): void => {
+      const chunks = text.split('\n');
+      for (let index = 0; index < chunks.length; index++) {
+        if (index > 0) lines.push([]);
+        if (!chunks[index]) continue;
+        const fragment = document.createDocumentFragment();
+        const node = classes.length > 0 ? document.createElement('span') : document.createTextNode(chunks[index]);
+        if (node instanceof HTMLElement) {
+          node.classList.add(...classes);
+          node.textContent = chunks[index];
+        }
+        fragment.appendChild(node);
+        lines[lines.length - 1].push(fragment);
+      }
+    };
+    const visit = (node: Node, classes: string[]): void => {
+      if (node.nodeType === Node.TEXT_NODE) {
+        appendText(node.textContent ?? '', classes);
+        return;
+      }
+      if (!(node instanceof HTMLElement)) return;
+      const nextClasses = [...classes, ...node.classList];
+      for (const child of node.childNodes) visit(child, nextClasses);
+    };
+    for (const node of source.childNodes) visit(node, []);
+    return lines;
   }
 
   private _renderStatus(message: string, error = false): void {
