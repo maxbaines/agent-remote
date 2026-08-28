@@ -145,6 +145,7 @@ func New(cfg Config) *Server {
 	s.mux.Handle("PATCH /api/config", protect(http.HandlerFunc(s.handlePatchConfig)))
 	s.mux.Handle("GET /api/files", protect(http.HandlerFunc(s.handleFileRead)))
 	s.mux.Handle("GET /api/file-tree", protect(http.HandlerFunc(s.handleFileTree)))
+	s.mux.Handle("POST /api/directories", protect(http.HandlerFunc(s.handleDirectoryEnsure)))
 
 	s.mux.Handle("GET /api/codex/status", protect(http.HandlerFunc(s.handleCodexStatus)))
 	s.mux.Handle("POST /api/codex/claims", protect(http.HandlerFunc(s.handleCodexClaim)))

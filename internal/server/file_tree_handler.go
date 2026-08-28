@@ -37,6 +37,44 @@ type fileTreeResponse struct {
 	Git     *fileTreeGit    `json:"git,omitempty"`
 }
 
+type ensureDirectoryRequest struct {
+	Path string `json:"path"`
+}
+
+type ensureDirectoryResponse struct {
+	Path string `json:"path"`
+}
+
+// handleDirectoryEnsure creates an absolute Session Owner directory, including
+// missing parents, or confirms that it already exists. The route shares the
+// terminal's authentication boundary, so it grants no filesystem authority
+// beyond what the signed-in user already has through a shell pane.
+func (s *Server) handleDirectoryEnsure(w http.ResponseWriter, r *http.Request) {
+	var body ensureDirectoryRequest
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		http.Error(w, "invalid JSON body", http.StatusBadRequest)
+		return
+	}
+
+	path, err := resolveRootDirectoryPath(body.Path)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if err := os.MkdirAll(path, 0o755); err != nil {
+		if os.IsPermission(err) {
+			http.Error(w, "root folder could not be created: permission denied", http.StatusForbidden)
+			return
+		}
+		http.Error(w, "root folder could not be created", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-store")
+	_ = json.NewEncoder(w).Encode(ensureDirectoryResponse{Path: path})
+}
+
 // handleFileTree returns one lazily-requested directory from the active
 // terminal's local working tree. The caller supplies the pane cwd because the
 // serve layer deliberately does not own sessiond's process table. When cwd is
@@ -106,6 +144,21 @@ func resolveFileTreeDirectory(raw string) (string, error) {
 		return "", errors.New("pane working directory is not a directory")
 	}
 	return path, nil
+}
+
+func resolveRootDirectoryPath(raw string) (string, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" || strings.IndexByte(raw, 0) >= 0 {
+		return "", errors.New("root folder is required")
+	}
+	expanded, err := expandViewerHome(raw)
+	if err != nil {
+		return "", err
+	}
+	if !filepath.IsAbs(expanded) {
+		return "", errors.New("root folder must be absolute")
+	}
+	return filepath.Clean(expanded), nil
 }
 
 func discoverFileTreeRoot(parent context.Context, cwd string) (string, *fileTreeGit) {

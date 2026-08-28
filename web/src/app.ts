@@ -244,6 +244,13 @@ export class MuxApp extends LitElement {
 
     .ws-create-input:disabled { opacity: 0.5; }
 
+    .ws-create-error {
+      margin-top: -10px;
+      color: var(--chrome-danger, #f87171);
+      font-size: 13px;
+      line-height: 1.4;
+    }
+
     .ws-create-row {
       display: flex;
       gap: 8px;
@@ -506,6 +513,9 @@ export class MuxApp extends LitElement {
 
   @state()
   private _createModalRootFolder = '';
+
+  @state()
+  private _createModalError = '';
 
   private _pendingCodexWorkspaceId: string | null = null;
   private _pendingCodexRootFolder = '';
@@ -1172,6 +1182,9 @@ export class MuxApp extends LitElement {
                 @keydown="${this._onCreateModalKeyDown}"
               />
             ` : ''}
+            ${this._createModalError ? html`
+              <div class="ws-create-error" role="alert">${this._createModalError}</div>
+            ` : ''}
             <div class="ws-create-row">
               <button
                 class="ws-create-cancel"
@@ -1299,6 +1312,7 @@ export class MuxApp extends LitElement {
     this._showCreateModal = true;
     this._createModalName = '';
     this._createModalRootFolder = '';
+    this._createModalError = '';
   };
 
   private _onOpenCodexCreateModal = (): void => {
@@ -1307,6 +1321,7 @@ export class MuxApp extends LitElement {
     this._showCreateModal = true;
     this._createModalName = '';
     this._createModalRootFolder = '';
+    this._createModalError = '';
   };
 
   private _onCreateModalKeyDown = (e: KeyboardEvent): void => {
@@ -1314,7 +1329,7 @@ export class MuxApp extends LitElement {
     if (e.key === 'Escape') { e.preventDefault(); this._cancelCreate(); }
   };
 
-  private _submitCreate = (): void => {
+  private _submitCreate = async (): Promise<void> => {
     // Read directly from the DOM — more reliable than state on mobile where
     // IME/autocorrect can delay @input events, leaving _createModalName stale.
     const input = this.shadowRoot?.querySelector<HTMLInputElement>('.ws-create-input');
@@ -1332,6 +1347,32 @@ export class MuxApp extends LitElement {
       ? `/${rootFolder}`
       : rootFolder;
     this._creatingWorkspace = true;
+
+    if (this._createKind === 'codex' && this._createModalRootFolder) {
+      this._createModalError = '';
+      try {
+        const response = await fetch('/api/directories', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ path: this._createModalRootFolder }),
+        });
+        if (!response.ok) {
+          const detail = (await response.text()).trim();
+          this._createModalError = detail || 'Root folder could not be created.';
+          this._creatingWorkspace = false;
+          return;
+        }
+        const result = await response.json() as { path?: unknown };
+        if (typeof result.path === 'string' && result.path) {
+          this._createModalRootFolder = result.path;
+        }
+      } catch {
+        this._createModalError = 'Could not create the root folder. Please try again.';
+        this._creatingWorkspace = false;
+        return;
+      }
+    }
+
     this._socket?.createWorkspace(name);
   };
 
@@ -1340,6 +1381,7 @@ export class MuxApp extends LitElement {
     this._showCreateModal = false;
     this._createModalName = '';
     this._createModalRootFolder = '';
+    this._createModalError = '';
   };
 
   /**
