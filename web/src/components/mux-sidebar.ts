@@ -4,7 +4,7 @@ import { store } from '../state.js';
 import { workspaceLabel } from './workspace-picker.js';
 import './launcher-menu.js';
 import { icon } from '../lib/icons.js';
-import { Bot, Ellipsis } from 'lucide';
+import { Bot, Ellipsis, Plus } from 'lucide';
 import { SIDEBAR_MIN_WIDTH, SIDEBAR_MAX_WIDTH } from '../lib/sidebar-width.js';
 import { instanceLabel } from '../lib/instance-identity.js';
 import { terminalRegistry } from '../lib/terminal-registry.js';
@@ -76,6 +76,16 @@ export class MuxSidebar extends LitElement {
 
     .launcher-btn:hover {
       background: var(--chrome-hover);
+    }
+
+    .launcher-btn:disabled {
+      color: var(--chrome-text-dim);
+      cursor: not-allowed;
+      opacity: 0.45;
+    }
+
+    .launcher-btn:disabled:hover {
+      background: transparent;
     }
 
     .launcher-btn.active {
@@ -372,38 +382,6 @@ export class MuxSidebar extends LitElement {
 
     .ws-card.active .ws-hint {
       color: rgba(255, 255, 255, 0.76);
-    }
-
-    .new-ws-btn {
-      display: block;
-      width: calc(100% - 12px);
-      margin: 6px 6px 4px;
-      padding: 7px 10px;
-      background: transparent;
-      border: 1px dashed color-mix(in srgb, var(--chrome-text-dim) 55%, transparent);
-      border-radius: 5px;
-      color: var(--chrome-accent);
-      font: inherit;
-      font-size: 12px;
-      text-align: left;
-      cursor: pointer;
-      transition: border-color 0.12s, background 0.12s;
-    }
-
-    .new-ws-btn:hover {
-      border-color: var(--chrome-accent);
-      background: var(--chrome-hover);
-    }
-
-    .new-ws-btn.codex-launch {
-      margin-top: 4px;
-      border-style: solid;
-      color: color-mix(in srgb, var(--chrome-accent) 70%, var(--chrome-text-bright));
-    }
-
-    .new-ws-btn.codex-launch:disabled {
-      cursor: not-allowed;
-      opacity: 0.45;
     }
   `;
 
@@ -727,19 +705,6 @@ export class MuxSidebar extends LitElement {
           </div>
         `;
       })}
-      <button class="new-ws-btn" @click="${() => this._onNewWs()}">
-        + New workspace
-      </button>
-      <button
-        class="new-ws-btn codex-launch"
-        ?disabled="${store.codex.state !== 'ready'}"
-        title="${store.codex.state === 'ready'
-          ? 'Start a Codex session'
-          : store.codex.error || 'Codex integration is starting'}"
-        @click="${() => this._onNewCodex()}"
-      >
-        ${icon(Bot, { size: 13 })} New Codex session
-      </button>
     `;
   }
 
@@ -755,7 +720,23 @@ export class MuxSidebar extends LitElement {
         <div class="header-actions">
           <button
             class="launcher-btn"
+            title="New workspace"
+            aria-label="New workspace"
+            @click="${() => this._onNewWs()}"
+          >${icon(Plus, { size: 15 })}</button>
+          <button
+            class="launcher-btn"
+            ?disabled="${store.codex.state !== 'ready'}"
+            title="${store.codex.state === 'ready'
+              ? 'New Codex session'
+              : store.codex.error || 'Codex integration is starting'}"
+            aria-label="New Codex session"
+            @click="${() => this._onNewCodex()}"
+          >${icon(Bot, { size: 15 })}</button>
+          <button
+            class="launcher-btn"
             title="Open menu"
+            aria-label="Open menu"
             @click="${() => { this._menuOpen = !this._menuOpen; }}"
           >${icon(Ellipsis, { size: 15 })}</button>
         </div>
