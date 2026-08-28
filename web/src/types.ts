@@ -33,6 +33,7 @@ export const SessiondType = {
   Resize: 'resize',
   PaneFocus: 'pane-focus',
   GetPaneCWD: 'get-pane-cwd',
+  GetPaneContext: 'get-pane-context',
   PasteImage: 'paste-image',
   RenamePane: 'rename-pane',
   SaveLayout: 'save-layout',
@@ -44,6 +45,7 @@ export const SessiondType = {
   PaneCreated: 'pane-created',
   Ok: 'ok',
   PaneCWD: 'pane-cwd',
+  PaneContext: 'pane-context',
   ImageSaved: 'image-saved',
   // Events (server -> all clients)
   PaneAdded: 'pane-added',
@@ -121,6 +123,9 @@ export interface SessiondMessage {
   title?: string;
   /** Pane launch directory on create-pane; live directory on pane-cwd. */
   cwd?: string;
+  command?: string;
+  gitBranch?: string;
+  gitChanges?: number;
   mimeType?: string;
   data?: string;
   path?: string;
@@ -140,6 +145,14 @@ export interface SessiondMessage {
   placement?: string;
   /** Reference pane id for split placement (0 = active pane). */
   referencePaneId?: number;
+}
+
+export interface PaneContext {
+  paneId: number;
+  cwd?: string;
+  command?: string;
+  gitBranch?: string;
+  gitChanges: number;
 }
 
 // ---------------------------------------------------------------------------

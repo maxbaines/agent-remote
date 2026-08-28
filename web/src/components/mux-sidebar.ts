@@ -4,7 +4,7 @@ import { store } from '../state.js';
 import { workspaceLabel } from './workspace-picker.js';
 import './launcher-menu.js';
 import { icon } from '../lib/icons.js';
-import { Bot, Check, Ellipsis, Plus } from 'lucide';
+import { Bot, Check, Ellipsis, Folder, GitBranch, Plus, TerminalSquare } from 'lucide';
 import { SIDEBAR_MIN_WIDTH, SIDEBAR_MAX_WIDTH } from '../lib/sidebar-width.js';
 import { instanceLabel } from '../lib/instance-identity.js';
 import { terminalRegistry } from '../lib/terminal-registry.js';
@@ -396,6 +396,14 @@ export class MuxSidebar extends LitElement {
       text-overflow: ellipsis;
     }
 
+    .terminal-kicker { display:flex; align-items:center; gap:5px; color:var(--chrome-text-dim);
+      font-size:9px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; margin-bottom:4px; }
+    .terminal-dir { color:var(--chrome-text-bright); font-size:12px; white-space:nowrap;
+      overflow:hidden; text-overflow:ellipsis; display:flex; align-items:center; gap:5px; padding-left:12px; }
+    .terminal-git { color:var(--chrome-text-dim); font-size:10.5px; display:flex; gap:5px;
+      align-items:center; margin-top:4px; padding-left:12px; }
+    .git-dirty { color:var(--mux-warn); }
+
     .ws-card.active .ws-hint {
       color: rgba(255, 255, 255, 0.76);
     }
@@ -633,8 +641,23 @@ export class MuxSidebar extends LitElement {
         const isPendingClose = this._pendingClose.has(ws.workspaceId);
         const label = workspaceLabel(ws);
         const codexSession = store.codex.sessions.find((session) => session.workspaceId === ws.workspaceId);
+        const paneContext = store.paneContext(ws.workspaceId);
+        const terminalCodex = !codexSession && /(^|[/\\\s])codex(?:\s|$)/i.test(paneContext?.command ?? '');
 
-        if (codexSession) {
+        if (codexSession || terminalCodex) {
+          if (!codexSession) {
+            const directory = paneContext?.cwd?.split('/').filter(Boolean).pop() || paneContext?.cwd || 'Terminal';
+            return html`<div class="ws-card codex ${isActive ? 'active' : ''} ${isPendingClose ? 'pending-close' : ''}"
+              @click="${() => this._onWsClick(ws.workspaceId)}">
+              <div class="codex-kicker">${icon(Bot, { size: 12 })}<span class="codex-kicker-name">Codex · ${label}</span>
+                <span class="codex-status working">Running</span>
+                <button class="ws-remove-btn" title="Remove workspace" @click="${(e: Event) => this._onWsRemove(e, ws.workspaceId, label)}">×</button>
+              </div>
+              <div class="codex-task-label">Directory</div>
+              <div class="codex-title" title="${paneContext?.cwd ?? ''}">${directory}</div>
+              ${paneContext?.gitBranch ? html`<div class="codex-detail">${paneContext.gitBranch}${paneContext.gitChanges ? ` · ${paneContext.gitChanges} changes` : ' · clean'}</div>` : ''}
+            </div>`;
+          }
           const needsQuestion = (codexSession.questions?.length ?? 0) > 0
             || !!codexSession.activeFlags?.includes('waitingOnUserInput');
           const needsApproval = !!codexSession.approval
@@ -721,6 +744,7 @@ export class MuxSidebar extends LitElement {
           const extra = panes.length - 1;
           hintText = extra > 0 ? `${title}  +${extra}` : title;
         }
+        const directory = paneContext?.cwd?.split('/').filter(Boolean).pop() || paneContext?.cwd;
 
         return html`
           <div
@@ -750,6 +774,11 @@ export class MuxSidebar extends LitElement {
                 @click="${(e: Event) => this._onWsRemove(e, ws.workspaceId, label)}"
               >×</button>
             </div>
+            <div class="terminal-kicker">${icon(TerminalSquare, { size: 11 })} Terminal</div>
+            ${directory ? html`<div class="terminal-dir" title="${paneContext?.cwd ?? ''}">${icon(Folder, { size: 11 })}${directory}</div>` : ''}
+            ${paneContext?.gitBranch ? html`<div class="terminal-git ${paneContext.gitChanges ? 'git-dirty' : ''}">
+              ${icon(GitBranch, { size: 11 })}<span>${paneContext.gitBranch}</span><span>${paneContext.gitChanges ? `${paneContext.gitChanges} changes` : 'clean'}</span>
+            </div>` : ''}
             ${hintText
               ? html`<div class="ws-hint">${hintText}</div>`
               : ''}

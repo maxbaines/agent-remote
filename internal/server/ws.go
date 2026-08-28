@@ -318,6 +318,15 @@ func (c *Client) handleTextInput(data []byte) {
 			CWD:    cwd,
 		})
 
+	case sessiond.TypeGetPaneContext:
+		paneContext, err := c.daemon.PaneContext(msg.PaneID)
+		if err != nil {
+			c.sendError(msg.CID, msg.WorkspaceID, err)
+			return
+		}
+		paneContext.CID = msg.CID
+		c.sendMessage(paneContext)
+
 	case sessiond.TypePasteImage:
 		path, err := c.daemon.SaveClipboardImage(msg.PaneID, msg.MimeType, msg.Data)
 		if err != nil {

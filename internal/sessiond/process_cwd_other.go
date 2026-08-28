@@ -14,3 +14,7 @@ func foregroundProcessID(_ *os.File) (int, error) {
 func processWorkingDirectory(_ int) (string, error) {
 	return "", fmt.Errorf("process cwd lookup is unsupported on this platform")
 }
+
+func processCommand(_ int) (string, error) {
+	return "", fmt.Errorf("process command lookup is unsupported on this platform")
+}

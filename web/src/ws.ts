@@ -1,4 +1,4 @@
-import { SessiondType, encodePaneFrame, decodePaneFrame, type SessiondMessage } from './types';
+import { SessiondType, encodePaneFrame, decodePaneFrame, type PaneContext, type SessiondMessage } from './types';
 import type { MuxStore } from './state';
 
 export type PaneOutputCallback = (paneId: number, data: Uint8Array) => void;
@@ -21,6 +21,10 @@ export class MuxSocket {
   private _nextRequestCid = 1;
   private _pendingPaneCWD = new Map<number, {
     resolve: (cwd: string | undefined) => void;
+    timeout: ReturnType<typeof setTimeout>;
+  }>();
+  private _pendingPaneContext = new Map<number, {
+    resolve: (context: PaneContext | undefined) => void;
     timeout: ReturnType<typeof setTimeout>;
   }>();
   private _pendingImagePastes = new Map<number, {
@@ -207,6 +211,16 @@ export class MuxSocket {
     });
   }
 
+  paneContext(paneId: number): Promise<PaneContext | undefined> {
+    if (!this.connected) return Promise.resolve(undefined);
+    const cid = this._nextRequestCid++;
+    return new Promise((resolve) => {
+      const timeout = setTimeout(() => { this._pendingPaneContext.delete(cid); resolve(undefined); }, 3000);
+      this._pendingPaneContext.set(cid, { resolve, timeout });
+      this.sendSessiond({ type: SessiondType.GetPaneContext, cid, paneId });
+    });
+  }
+
   /** Persist an explicitly pasted browser clipboard image on the Session Owner
    * host. The returned path resolves on the same host as the pane's PTY. */
   async pasteImage(paneId: number, image: Blob): Promise<string> {
@@ -315,6 +329,17 @@ export class MuxSocket {
             this._pendingPaneCWD.delete(cid);
             pending.resolve(raw.type === SessiondType.PaneCWD && typeof raw.cwd === 'string'
               ? raw.cwd
+              : undefined);
+          }
+          const pendingContext = this._pendingPaneContext.get(cid);
+          if (pendingContext) {
+            clearTimeout(pendingContext.timeout);
+            this._pendingPaneContext.delete(cid);
+            pendingContext.resolve(raw.type === SessiondType.PaneContext && typeof raw.paneId === 'number'
+              ? { paneId: raw.paneId, cwd: typeof raw.cwd === 'string' ? raw.cwd : undefined,
+                  command: typeof raw.command === 'string' ? raw.command : undefined,
+                  gitBranch: typeof raw.gitBranch === 'string' ? raw.gitBranch : undefined,
+                  gitChanges: typeof raw.gitChanges === 'number' ? raw.gitChanges : 0 }
               : undefined);
           }
         }

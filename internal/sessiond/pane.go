@@ -2,12 +2,14 @@ package sessiond
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -433,6 +435,39 @@ func (p *Pane) CurrentWorkingDirectory() (string, error) {
 		return "", fmt.Errorf("sessiond: resolve pane cwd: %w", err)
 	}
 	return filepath.Clean(cwd), nil
+}
+
+func (p *Pane) Context() (cwd, command, gitBranch string, gitChanges int) {
+	if p.ptmx == nil || p.cmd == nil || p.cmd.Process == nil {
+		return
+	}
+	pid := p.cmd.Process.Pid
+	if foregroundPID, err := foregroundProcessID(p.ptmx); err == nil && foregroundPID > 0 {
+		pid = foregroundPID
+	}
+	cwd, _ = processWorkingDirectory(pid)
+	command, _ = processCommand(pid)
+	if cwd == "" {
+		cwd, _ = p.CurrentWorkingDirectory()
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 750*time.Millisecond)
+	defer cancel()
+	raw, err := exec.CommandContext(ctx, "git", "-C", cwd, "status", "--porcelain=v1", "--branch").Output()
+	if err != nil {
+		return
+	}
+	lines := strings.Split(strings.TrimSpace(string(raw)), "\n")
+	if len(lines) > 0 && strings.HasPrefix(lines[0], "## ") {
+		gitBranch = strings.TrimPrefix(lines[0], "## ")
+		if at := strings.Index(gitBranch, "..."); at >= 0 {
+			gitBranch = gitBranch[:at]
+		}
+		if strings.HasPrefix(gitBranch, "HEAD (no branch)") {
+			gitBranch = "detached"
+		}
+		gitChanges = len(lines) - 1
+	}
+	return
 }
 
 // Close kills the child (if any) and closes the PTY, which ends the read loop

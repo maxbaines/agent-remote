@@ -639,6 +639,23 @@ export class MuxApp extends LitElement {
   private _closingPanes = new Set<number>();
 
   private _socket: MuxSocket | null = null;
+  private _paneContextTimer: ReturnType<typeof setInterval> | undefined;
+  private _paneContextPending = false;
+
+  private async _refreshPaneContext(): Promise<void> {
+    const workspaceId = store.attached;
+    const paneId = store.activePaneId;
+    if (!workspaceId || paneId <= 0 || this._paneContextPending) return;
+    const pane = store.panes.find(item => item.paneId === paneId);
+    if (pane?.surfaceKind === 'browser' || pane?.surfaceKind === 'settings') return;
+    this._paneContextPending = true;
+    try {
+      const context = await this._socket?.paneContext(paneId);
+      if (context && store.attached === workspaceId) store.setPaneContext(workspaceId, context);
+    } finally {
+      this._paneContextPending = false;
+    }
+  }
   private _resolvePaneCWD = (paneId: number): Promise<string | undefined> =>
     this._socket?.paneCWD(paneId) ?? Promise.resolve(undefined);
   private _unsubscribe: (() => void) | null = null;
@@ -868,6 +885,8 @@ export class MuxApp extends LitElement {
       this._controller?.bootstrap();
     };
     this._socket.connect();
+    void this._refreshPaneContext();
+    this._paneContextTimer = setInterval(() => void this._refreshPaneContext(), 2000);
     this._connectionStatus = 'reconnecting';
     this._pollConnectionStatus();
 
@@ -901,6 +920,8 @@ export class MuxApp extends LitElement {
     this._disposePaneFocusListeners?.();
     this._disposePaneFocusListeners = null;
     this._paneFocusCoordinator = null;
+    if (this._paneContextTimer !== undefined) clearInterval(this._paneContextTimer);
+    this._paneContextTimer = undefined;
     disposeAppShortcuts?.();
     disposeAppShortcuts = undefined;
     disposeCommandShortcuts?.();

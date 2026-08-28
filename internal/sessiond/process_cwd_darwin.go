@@ -5,6 +5,8 @@ package sessiond
 import (
 	"bytes"
 	"fmt"
+	"os/exec"
+	"strings"
 	"syscall"
 	"unsafe"
 )
@@ -43,4 +45,9 @@ func processWorkingDirectory(pid int) (string, error) {
 		return "", fmt.Errorf("proc_info returned an empty cwd")
 	}
 	return string(path), nil
+}
+
+func processCommand(pid int) (string, error) {
+	raw, err := exec.Command("ps", "-o", "command=", "-p", fmt.Sprint(pid)).Output()
+	return strings.TrimSpace(string(raw)), err
 }

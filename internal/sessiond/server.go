@@ -417,6 +417,18 @@ func (c *conn) handle(msg Message) {
 		}
 		cwd, _ := pane.CurrentWorkingDirectory()
 		c.reply(&Message{Type: TypePaneCWD, CID: msg.CID, PaneID: msg.PaneID, CWD: cwd})
+	case TypeGetPaneContext:
+		if c.attached == "" {
+			c.replyError(msg.CID, CodeUnknownWorkspace, "not attached to a workspace")
+			return
+		}
+		pane, ok := c.srv.reg.Pane(c.attached, msg.PaneID)
+		if !ok {
+			c.replyError(msg.CID, CodePaneNotFound, "pane not found")
+			return
+		}
+		cwd, command, branch, changes := pane.Context()
+		c.reply(&Message{Type: TypePaneContext, CID: msg.CID, PaneID: msg.PaneID, CWD: cwd, Command: command, GitBranch: branch, GitChanges: changes})
 	case TypePasteImage:
 		if c.attached == "" {
 			c.replyError(msg.CID, CodeUnknownWorkspace, "not attached to a workspace")

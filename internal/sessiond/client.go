@@ -348,6 +348,10 @@ func (c *Client) PaneCWD(paneID int) (string, error) {
 	return reply.CWD, nil
 }
 
+func (c *Client) PaneContext(paneID int) (*Message, error) {
+	return c.request(&Message{Type: TypeGetPaneContext, PaneID: paneID})
+}
+
 // SaveClipboardImage persists an explicitly user-pasted image on the Session
 // Owner host and returns its absolute path. The daemon validates the decoded
 // size and image signature before writing a private session-lifetime file.

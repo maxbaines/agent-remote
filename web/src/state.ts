@@ -2,6 +2,7 @@ import type {
   SessiondMessage,
   SessiondWorkspaceInfo,
   SessiondPaneInfo,
+  PaneContext,
 } from './types';
 import { SessiondType } from './types';
 import type { Composition } from './lib/arrangement-store.js';
@@ -73,6 +74,7 @@ export class MuxStore {
   private _bellWorkspaces: Set<string> = new Set();
   /** Pane IDs that have an unacknowledged activity bell. */
   private _bellPanes: Set<number> = new Set();
+  private _paneContexts = new Map<string, PaneContext>();
 
 
   get config(): ResolvedConfig {
@@ -130,6 +132,17 @@ export class MuxStore {
   get panes(): SessiondPaneInfo[] {
     // Fold the pending optimistic overlay over a fresh copy of the base.
     return this._foldedView().panes;
+  }
+
+  paneContext(workspaceId: string): PaneContext | undefined {
+    return this._paneContexts.get(workspaceId);
+  }
+
+  setPaneContext(workspaceId: string, context: PaneContext): void {
+    const previous = this._paneContexts.get(workspaceId);
+    if (previous && JSON.stringify(previous) === JSON.stringify(context)) return;
+    this._paneContexts.set(workspaceId, context);
+    this._notify();
   }
 
   // Pure device-independent projection of the frozen PaneInfo[] for the layout
@@ -235,6 +248,9 @@ export class MuxStore {
           if (!this._workspaces.some((w) => w.workspaceId === wsId)) {
             this._bellWorkspaces.delete(wsId);
           }
+        }
+        for (const wsId of this._paneContexts.keys()) {
+          if (!this._workspaces.some((w) => w.workspaceId === wsId)) this._paneContexts.delete(wsId);
         }
         // If the currently attached workspace was removed, clear attachment state.
         if (this._attached !== null && !this._workspaces.some(w => w.workspaceId === this._attached)) {

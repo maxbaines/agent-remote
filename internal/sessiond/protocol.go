@@ -33,10 +33,11 @@ const (
 	TypePaneFocus       = "pane-focus"
 	TypeRenamePane      = "rename-pane"
 	TypeSaveLayout      = "save-layout"
-	TypeScreenSnapshot  = "screen-snapshot" // request: MCP → daemon, VT grid for a pane
-	TypeGetLayout       = "get-layout"      // request: MCP → daemon, ASCII layout diagram
-	TypeGetPaneCWD      = "get-pane-cwd"    // request: current working directory of a pane's foreground process
-	TypePasteImage      = "paste-image"     // request: persist an explicit user-pasted clipboard image on the Session Owner host
+	TypeScreenSnapshot  = "screen-snapshot"  // request: MCP → daemon, VT grid for a pane
+	TypeGetLayout       = "get-layout"       // request: MCP → daemon, ASCII layout diagram
+	TypeGetPaneCWD      = "get-pane-cwd"     // request: current working directory of a pane's foreground process
+	TypeGetPaneContext  = "get-pane-context" // request: live cwd, foreground command, and git summary
+	TypePasteImage      = "paste-image"      // request: persist an explicit user-pasted clipboard image on the Session Owner host
 
 	// Replies (daemon -> client, echo request cid).
 	TypeWorkspaceCreated     = "workspace-created"
@@ -47,6 +48,7 @@ const (
 	TypeScreenSnapshotResult = "screen-snapshot-result"
 	TypeLayoutResult         = "layout-result"
 	TypePaneCWD              = "pane-cwd"
+	TypePaneContext          = "pane-context"
 	TypeImageSaved           = "image-saved"
 
 	// Events (daemon -> all subscribers, cid=0).
@@ -168,6 +170,9 @@ type Message struct {
 	Cmd         []string        `json:"cmd,omitempty"`         // argv, empty => default $SHELL
 	Title       string          `json:"title,omitempty"`       //
 	CWD         string          `json:"cwd,omitempty"`         // launch directory on create-pane; current directory on get-pane-cwd reply
+	Command     string          `json:"command,omitempty"`     // foreground process command on pane-context reply
+	GitBranch   string          `json:"gitBranch,omitempty"`   // current branch or detached HEAD on pane-context reply
+	GitChanges  int             `json:"gitChanges,omitempty"`  // changed/untracked entries on pane-context reply
 	MimeType    string          `json:"mimeType,omitempty"`    // clipboard image media type (paste-image request)
 	Data        string          `json:"data,omitempty"`        // base64 clipboard image bytes (paste-image request)
 	Path        string          `json:"path,omitempty"`        // absolute Session Owner path (image-saved reply)
