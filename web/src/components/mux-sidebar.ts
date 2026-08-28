@@ -221,10 +221,9 @@ export class MuxSidebar extends LitElement {
       font-size: 12.5px;
       font-weight: 600;
       line-height: 1.35;
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
+      white-space: nowrap;
       overflow: hidden;
+      text-overflow: ellipsis;
     }
 
 
@@ -653,17 +652,24 @@ export class MuxSidebar extends LitElement {
                   : 'Paused';
           const terminalHint = this._codexTerminalHint(ws.workspaceId, needsQuestion);
           const question = codexSession.questions?.[0];
-          const detail = question?.question
+          const waitingReason = question?.question
             || terminalHint.question
             || codexSession.approval
-            || codexSession.currentStep
             || (needsQuestion ? 'Codex is waiting for your answer' : undefined)
             || (needsApproval ? 'Codex is waiting for approval' : undefined)
-            || codexSession.cwd
-            || 'Codex session';
-          const title = codexSession.name || codexSession.preview || label;
+            || 'Codex is waiting for you';
+          const task = codexSession.name || codexSession.preview;
+          const distinctTask = task?.trim().toLocaleLowerCase() === label.trim().toLocaleLowerCase()
+            ? undefined
+            : task;
+          const headlineLabel = attention ? 'Decision' : codexSession.currentStep ? 'Current step' : 'Task';
+          const headline = attention
+            ? waitingReason
+            : codexSession.currentStep || distinctTask || codexSession.cwd || 'Codex session';
           const defaultChoice = question?.options?.[0];
-          const waitingDetail = defaultChoice ? `${detail} · Default: ${defaultChoice}` : detail;
+          const detail = attention
+            ? defaultChoice ? `Default: ${defaultChoice}` : 'Accept selected default'
+            : codexSession.currentStep && distinctTask ? `Task: ${distinctTask}` : codexSession.cwd;
           const contextUsed = codexSession.contextUsedPercent ?? terminalHint.contextUsed;
 
           return html`
@@ -681,18 +687,18 @@ export class MuxSidebar extends LitElement {
                   @click="${(e: Event) => this._onWsRemove(e, ws.workspaceId, label)}"
                 >×</button>
               </div>
-              <div class="codex-task-label">Task</div>
-              <div class="codex-title">${title}</div>
+              <div class="codex-task-label">${headlineLabel}</div>
+              <div class="codex-title" title="${headline}">${headline}</div>
               ${attention ? html`
                 <div class="codex-attention-row">
-                  <div class="codex-detail attention">${waitingDetail}</div>
+                  <div class="codex-detail attention">${detail}</div>
                   <button class="codex-ack-btn" title="Accept the selected default and continue"
                     aria-label="Accept Codex default and continue"
                     ?disabled="${this._acknowledging.has(ws.workspaceId)}"
                     @click="${(e: Event) => void this._onCodexAcknowledge(e, ws.workspaceId)}"
                   >${icon(Check, { size: 16 })}</button>
                 </div>
-              ` : html`<div class="codex-detail">${detail}</div>`}
+              ` : detail ? html`<div class="codex-detail">${detail}</div>` : ''}
               ${contextUsed !== undefined ? html`
                 <div class="codex-context">
                   <div class="codex-context-track">
