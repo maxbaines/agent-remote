@@ -120,6 +120,10 @@ function isMarkdownPath(path: string): boolean {
   return /\.(?:md|markdown|mdown|mkdn)$/i.test(path);
 }
 
+function isImagePath(path: string): boolean {
+  return /\.(?:png|jpe?g|gif|webp|avif|bmp|ico)$/i.test(path);
+}
+
 function codeLanguageForPath(path: string): CodeLanguage | null {
   const name = basename(path).toLowerCase();
   const namedLanguage = CODE_FILENAMES[name];
@@ -135,11 +139,11 @@ function basename(path: string): string {
 
 export class FileViewerRenderer implements IContentRenderer {
   readonly element: HTMLElement;
-  private readonly _kind: 'markdown' | 'text';
+  private readonly _kind: 'markdown' | 'text' | 'image';
   private _request: FileViewerRequest | null = null;
   private _abort: AbortController | null = null;
 
-  constructor(kind: 'markdown' | 'text') {
+  constructor(kind: 'markdown' | 'text' | 'image') {
     this._kind = kind;
     const element = document.createElement('div');
     element.className = `mux-file-viewer mux-file-viewer-${kind}`;
@@ -176,6 +180,7 @@ export class FileViewerRenderer implements IContentRenderer {
 
     const query = new URLSearchParams({ path: request.path });
     if (request.cwd) query.set('cwd', request.cwd);
+    if (this._kind === 'image' || isImagePath(request.path)) query.set('format', 'image');
     try {
       const response = await fetch(`/api/files?${query}`, {
         signal: this._abort.signal,
@@ -185,12 +190,32 @@ export class FileViewerRenderer implements IContentRenderer {
         const message = (await response.text()).trim();
         throw new Error(message || `Could not open file (${response.status})`);
       }
-      const body = await response.json() as FileResponse;
-      this._renderFile(body);
+      if (this._kind === 'image' || isImagePath(request.path)) {
+        this._renderImage(request.path, await response.blob());
+      } else {
+        const body = await response.json() as FileResponse;
+        this._renderFile(body);
+      }
     } catch (error) {
       if ((error as Error).name === 'AbortError') return;
       this._renderStatus(error instanceof Error ? error.message : 'Could not open file', true);
     }
+  }
+
+  private _renderImage(path: string, blob: Blob): void {
+    const { body } = this._renderChrome(path, 'Image');
+    body.classList.add('mux-image-body');
+    const image = document.createElement('img');
+    image.className = 'mux-image-preview';
+    image.alt = basename(path);
+    const objectUrl = URL.createObjectURL(blob);
+    image.src = objectUrl;
+    image.addEventListener('load', () => URL.revokeObjectURL(objectUrl), { once: true });
+    image.addEventListener('error', () => {
+      URL.revokeObjectURL(objectUrl);
+      this._renderStatus('The image could not be decoded', true);
+    }, { once: true });
+    body.appendChild(image);
   }
 
   private _renderChrome(path: string, modeLabel: string): { scroller: HTMLElement; body: HTMLElement } {
@@ -333,4 +358,4 @@ export class FileViewerRenderer implements IContentRenderer {
   }
 }
 
-export { basename, isMarkdownPath };
+export { basename, isImagePath, isMarkdownPath };

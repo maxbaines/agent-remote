@@ -50,6 +50,18 @@ func (s *Server) handleFileRead(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "file is too large to preview (3 MiB maximum)", http.StatusRequestEntityTooLarge)
 		return
 	}
+	imageType := viewerImageType(path)
+	if r.URL.Query().Get("format") == "image" {
+		if imageType == "" {
+			http.Error(w, "unsupported image format", http.StatusUnsupportedMediaType)
+			return
+		}
+		w.Header().Set("Content-Type", imageType)
+		w.Header().Set("Cache-Control", "no-store")
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		_, _ = io.Copy(w, f)
+		return
+	}
 
 	data, err := io.ReadAll(io.LimitReader(f, maxViewerFileBytes+1))
 	if err != nil {
@@ -68,6 +80,27 @@ func (s *Server) handleFileRead(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
 	_ = json.NewEncoder(w).Encode(viewerFileResponse{Path: path, Content: string(data)})
+}
+
+func viewerImageType(path string) string {
+	switch strings.ToLower(filepath.Ext(path)) {
+	case ".png":
+		return "image/png"
+	case ".jpg", ".jpeg":
+		return "image/jpeg"
+	case ".gif":
+		return "image/gif"
+	case ".webp":
+		return "image/webp"
+	case ".avif":
+		return "image/avif"
+	case ".bmp":
+		return "image/bmp"
+	case ".ico":
+		return "image/x-icon"
+	default:
+		return ""
+	}
 }
 
 func resolveViewerPath(rawPath, rawCWD string) (string, error) {

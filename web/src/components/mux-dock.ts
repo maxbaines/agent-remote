@@ -11,6 +11,7 @@ import { store } from '../state.js';
 import {
   FileViewerRenderer,
   basename,
+  isImagePath,
   isMarkdownPath,
   type FileViewerRequest,
 } from '../lib/file-viewer-renderer.js';
@@ -865,6 +866,21 @@ export class MuxDock extends LitElement {
           color: var(--mux-fg);
         }
         mux-dock .mux-text-body { padding: 12px 0 40px; }
+        mux-dock .mux-image-body {
+          min-width: 100%;
+          min-height: 100%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 24px;
+        }
+        mux-dock .mux-image-preview {
+          display: block;
+          max-width: 100%;
+          max-height: 100%;
+          object-fit: contain;
+          box-shadow: 0 8px 28px rgb(0 0 0 / 28%);
+        }
         mux-dock .mux-file-lines {
           margin: 0;
           padding: 0 0 0 60px;
@@ -997,6 +1013,7 @@ export class MuxDock extends LitElement {
       createComponent: (opts) => {
         if (opts.name === 'browser') return new PlaceholderRenderer(opts.id);
         if (opts.name === 'markdown') return new FileViewerRenderer('markdown');
+        if (opts.name === 'image') return new FileViewerRenderer('image');
         if (opts.name === 'text') return new FileViewerRenderer('text');
         return new TerminalRenderer(opts.id, (paneId) => paneId === this.activePaneId);
       },
@@ -1467,7 +1484,7 @@ export class MuxDock extends LitElement {
       const active = this._dv.activePanel;
       const panel = this._dv.addPanel({
         id,
-        component: isMarkdownPath(request.path) ? 'markdown' : 'text',
+        component: isMarkdownPath(request.path) ? 'markdown' : isImagePath(request.path) ? 'image' : 'text',
         title: basename(request.path),
         params: request,
         ...(active ? { position: { referencePanel: active, direction: 'within' as const } } : {}),

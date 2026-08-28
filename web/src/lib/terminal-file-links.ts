@@ -16,7 +16,7 @@ interface ParsedFileLink {
   column?: number;
 }
 
-const RAW_FILE_LINK_RE = /(?:file:\/\/[^\s<>"'`]+|(?:~\/|\.{1,2}\/|\/)[^\s<>"'`]+|(?:[\w@.+-]+\/)+[\w@.+-]+(?::\d+(?::\d+)?)?|[\w@+-]+\.(?:md|markdown|mdown|mkdn|txt|log|json|jsonl|ya?ml|toml|ini|conf|go|rs|py|rb|php|java|kt|kts|swift|c|cc|cpp|h|hpp|m|mm|cs|fs|js|jsx|mjs|cjs|ts|tsx|css|scss|sass|less|html?|vue|svelte|sh|bash|zsh|fish|sql|graphql|proto|xml)(?::\d+(?::\d+)?)?)/gi;
+const RAW_FILE_LINK_RE = /(?:file:\/\/[^\s<>"'`]+|(?:~\/|\.{1,2}\/|\/)[^\s<>"'`]+|(?:[\w@.+-]+\/)+[\w@.+-]+(?::\d+(?::\d+)?)?|[\w@+-]+\.(?:md|markdown|mdown|mkdn|txt|log|json|jsonl|ya?ml|toml|ini|conf|go|rs|py|rb|php|java|kt|kts|swift|c|cc|cpp|h|hpp|m|mm|cs|fs|js|jsx|mjs|cjs|ts|tsx|css|scss|sass|less|html?|vue|svelte|sh|bash|zsh|fish|sql|graphql|proto|xml|png|jpe?g|gif|webp|avif|bmp|ico)(?::\d+(?::\d+)?)?)/gi;
 
 function trimTerminalPunctuation(value: string): string {
   let result = value.replace(/^[`'"(<[]+/, '');
