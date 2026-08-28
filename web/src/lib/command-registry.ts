@@ -54,32 +54,27 @@ export interface DirectionalSplitCommandMetadata extends CommandMetadata {
   direction: DirectionalSplit;
 }
 
-/**
- * The stable create-tab presentation and default Keybindings. Cmd+T remains
- * limited to the installed PWA because browsers reserve it; Cmd+Ctrl+T is the
- * browser-safe macOS fallback retained from the existing interaction model.
- */
+/** Stable create-tab presentation with the shared Cmd/Ctrl+Shift key family. */
 export const CREATE_TAB_COMMAND: CommandMetadata = Object.freeze({
   id: CREATE_TAB_COMMAND_ID,
   title: 'Create tab',
   category: 'Layout',
   configurable: true,
   defaultShortcuts: Object.freeze([
-    Object.freeze({ chord: 'ctrl+meta+t', label: 'Cmd+Ctrl+T', platform: 'macos', scope: 'always' }),
-    Object.freeze({ chord: 'meta+t', label: 'Cmd+T', platform: 'macos', scope: 'standalone' }),
-    Object.freeze({ chord: 'ctrl+t', label: 'Ctrl+T', platform: 'other', scope: 'standalone' }),
+    Object.freeze({ chord: 'shift+meta+d', label: 'Cmd+Shift+D', platform: 'macos', scope: 'always' }),
+    Object.freeze({ chord: 'ctrl+shift+d', label: 'Ctrl+Shift+D', platform: 'other', scope: 'always' }),
   ]),
 });
 
-/** Workspace creation shortcuts use browser-safe chords in both tab and PWA modes. */
+/** Workspace creation follows the shared Cmd/Ctrl+Shift key family. */
 export const CREATE_WORKSPACE_COMMAND: CommandMetadata = Object.freeze({
   id: CREATE_WORKSPACE_COMMAND_ID,
   title: 'New workspace',
   category: 'Workspace',
   configurable: true,
   defaultShortcuts: Object.freeze([
-    Object.freeze({ chord: 'ctrl+alt+n', label: 'Ctrl+Alt+N', platform: 'macos', scope: 'always' }),
-    Object.freeze({ chord: 'ctrl+alt+n', label: 'Ctrl+Alt+N', platform: 'other', scope: 'always' }),
+    Object.freeze({ chord: 'shift+meta+n', label: 'Cmd+Shift+N', platform: 'macos', scope: 'always' }),
+    Object.freeze({ chord: 'ctrl+shift+n', label: 'Ctrl+Shift+N', platform: 'other', scope: 'always' }),
   ]),
 });
 
@@ -89,13 +84,13 @@ export const CREATE_CODEX_SESSION_COMMAND: CommandMetadata = Object.freeze({
   category: 'Workspace',
   configurable: true,
   defaultShortcuts: Object.freeze([
-    Object.freeze({ chord: 'ctrl+alt+c', label: 'Ctrl+Alt+C', platform: 'macos', scope: 'always' }),
-    Object.freeze({ chord: 'ctrl+alt+c', label: 'Ctrl+Alt+C', platform: 'other', scope: 'always' }),
+    Object.freeze({ chord: 'shift+meta+c', label: 'Cmd+Shift+C', platform: 'macos', scope: 'always' }),
+    Object.freeze({ chord: 'ctrl+shift+c', label: 'Ctrl+Shift+C', platform: 'other', scope: 'always' }),
   ]),
 });
 
 const SPLIT_RIGHT_DEFAULT_SHORTCUTS: readonly CommandShortcut[] = Object.freeze([
-  Object.freeze({ chord: 'ctrl+shift+\\', label: 'Ctrl+Shift+\\', platform: 'macos', scope: 'always' }),
+  Object.freeze({ chord: 'shift+meta+\\', label: 'Cmd+Shift+\\', platform: 'macos', scope: 'always' }),
   Object.freeze({ chord: 'ctrl+shift+\\', label: 'Ctrl+Shift+\\', platform: 'other', scope: 'always' }),
 ]);
 
@@ -135,14 +130,15 @@ export const DIRECTIONAL_SPLIT_COMMANDS: readonly DirectionalSplitCommandMetadat
   }),
 ]);
 
-/** Browser-local macOS Terminal-style presentation clear. */
+/** Browser-local presentation clear in the shared Cmd/Ctrl+Shift key family. */
 export const CLEAR_TO_START_COMMAND: CommandMetadata = Object.freeze({
   id: CLEAR_TO_START_COMMAND_ID,
   title: 'Clear to start',
   category: 'Terminal',
   configurable: true,
   defaultShortcuts: Object.freeze([
-    Object.freeze({ chord: 'meta+k', label: 'Cmd+K', platform: 'macos', scope: 'always' }),
+    Object.freeze({ chord: 'shift+meta+k', label: 'Cmd+Shift+K', platform: 'macos', scope: 'always' }),
+    Object.freeze({ chord: 'ctrl+shift+k', label: 'Ctrl+Shift+K', platform: 'other', scope: 'always' }),
   ]),
 });
 

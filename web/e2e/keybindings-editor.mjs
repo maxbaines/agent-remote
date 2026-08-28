@@ -138,7 +138,7 @@ try {
 
   assert(editor.heading.includes('Keyboard Shortcuts'), `unexpected editor heading: ${editor.heading}`);
   assert(editor.command === 'Create tab', `registered command missing from editor: ${editor.command}`);
-  assert(editor.shortcut.includes('Cmd+Ctrl+T'), `default shortcut is not inspectable: ${editor.shortcut}`);
+  assert(editor.shortcut.includes('Cmd+Shift+D'), `default shortcut is not inspectable: ${editor.shortcut}`);
   assert(editor.editLabel === 'Change shortcut for Create tab', `edit control missing: ${editor.editLabel}`);
 
   console.log('PASS: registered Command and default Keybinding are inspectable and editable');
@@ -215,7 +215,7 @@ try {
   assert(isolated === null, `another browser origin received the Keybinding: ${isolated}`);
   openEditor();
   const isolatedLabel = pevalJson(`${EDITOR}.shadowRoot.querySelector('[data-command-id="pane.create-tab"] .shortcut-value')?.textContent?.trim()`);
-  assert(isolatedLabel.includes('Cmd+Ctrl+T'), `another browser origin did not retain defaults: ${isolatedLabel}`);
+  assert(isolatedLabel.includes('Cmd+Shift+D'), `another browser origin did not retain defaults: ${isolatedLabel}`);
 
   pcli('eval', `location.href = ${JSON.stringify(url)}`);
   waitFor(`${DOCK} && ${STORE}?.activePaneId > 0`, 15_000);
@@ -226,7 +226,7 @@ try {
   console.log('PASS: reload retains the local preference and another browser origin keeps defaults');
 
   pcli('eval', `${EDITOR}.shadowRoot.querySelector('[data-command-id="pane.create-tab"] .reset-shortcut').click()`);
-  waitFor(`${EDITOR}.shadowRoot.querySelector('[data-command-id="pane.create-tab"] .shortcut-value')?.textContent?.includes('Cmd+Ctrl+T')`);
+  waitFor(`${EDITOR}.shadowRoot.querySelector('[data-command-id="pane.create-tab"] .shortcut-value')?.textContent?.includes('Cmd+Shift+D')`);
   assert(pevalJson(`localStorage.getItem('just-terminal.keybindings.v1')`) === null, 'individual reset left persisted overrides');
   const panesBeforeOldChord = pevalJson(`${POSITIVE_PANES}.length`);
   pcli('eval', `${EDITOR}.shadowRoot.querySelector('.close-btn').click()`);
@@ -240,7 +240,7 @@ try {
   recordShortcut('u', { ctrlKey: true, altKey: true });
   waitFor(`${EDITOR}.shadowRoot.querySelector('[data-command-id="pane.create-tab"] .shortcut-value')?.textContent?.trim() === 'Ctrl+Alt+U'`);
   pcli('eval', `${EDITOR}.shadowRoot.querySelector('.reset-all').click()`);
-  waitFor(`${EDITOR}.shadowRoot.querySelector('[data-command-id="pane.create-tab"] .shortcut-value')?.textContent?.includes('Cmd+Ctrl+T')`);
+  waitFor(`${EDITOR}.shadowRoot.querySelector('[data-command-id="pane.create-tab"] .shortcut-value')?.textContent?.includes('Cmd+Shift+D')`);
   assert(pevalJson(`localStorage.getItem('just-terminal.keybindings.v1')`) === null, 'restore-all left persisted overrides');
 
   console.log('PASS: individual and all-default resets restore product Keybindings');

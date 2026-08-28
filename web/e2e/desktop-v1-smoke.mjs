@@ -101,8 +101,8 @@ try {
     `unexpected Command registry: ${JSON.stringify(releaseState.commandIds)}`,
   );
   assert(
-    releaseState.clearShortcut?.some((shortcut) => shortcut.chord === 'meta+k'),
-    `Cmd+K is absent: ${JSON.stringify(releaseState.clearShortcut)}`,
+    releaseState.clearShortcut?.some((shortcut) => shortcut.chord === 'shift+meta+k'),
+    `Cmd+Shift+K is absent: ${JSON.stringify(releaseState.clearShortcut)}`,
   );
   assert(
     JSON.stringify(releaseState.appearance) === JSON.stringify({

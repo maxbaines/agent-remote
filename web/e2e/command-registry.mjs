@@ -101,8 +101,8 @@ try {
   assert(command?.available === true, 'create-tab should be available with an Active Pane');
   assert(
     Array.isArray(command?.defaultShortcuts) &&
-      command.defaultShortcuts.some((shortcut) => shortcut.chord === 'ctrl+meta+t'),
-    `missing browser-safe default shortcut metadata: ${JSON.stringify(command?.defaultShortcuts)}`,
+      command.defaultShortcuts.some((shortcut) => shortcut.chord === 'shift+meta+d'),
+    `missing macOS default shortcut metadata: ${JSON.stringify(command?.defaultShortcuts)}`,
   );
 
   const initialIds = pevalJson(`${POSITIVE_PANES}.map((pane) => pane.paneId)`);
@@ -115,7 +115,7 @@ try {
 
   const afterPointerIds = pevalJson(`${POSITIVE_PANES}.map((pane) => pane.paneId)`);
   pcli('eval', `window.dispatchEvent(new KeyboardEvent('keydown', {
-    key: 't', metaKey: true, ctrlKey: true, bubbles: true, cancelable: true,
+    key: 'D', ctrlKey: true, shiftKey: true, bubbles: true, cancelable: true,
   }))`);
   waitFor(`${POSITIVE_PANES}?.length === ${afterPointerIds.length + 1}`);
 

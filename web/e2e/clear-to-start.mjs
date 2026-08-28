@@ -101,8 +101,8 @@ try {
   assert(command?.available === true, 'clear should be available with an Active Pane');
   assert(
     command.defaultShortcuts.some((shortcut) =>
-      shortcut.chord === 'meta+k' && shortcut.platform === 'macos'),
-    `missing macOS Cmd+K default: ${JSON.stringify(command.defaultShortcuts)}`,
+      shortcut.chord === 'shift+meta+k' && shortcut.platform === 'macos'),
+    `missing macOS Cmd+Shift+K default: ${JSON.stringify(command.defaultShortcuts)}`,
   );
 
   const paneId = pevalJsonFor(primarySession, `${STORE}.activePaneId`);
