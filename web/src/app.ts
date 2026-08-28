@@ -1166,7 +1166,7 @@ export class MuxApp extends LitElement {
               <input
                 class="ws-create-input ws-create-root-folder"
                 type="text"
-                placeholder="Root folder (optional, e.g. code/proj)"
+                placeholder="Root folder (optional, e.g. /workspace/project)"
                 aria-label="Root folder"
                 ?disabled="${this._creatingWorkspace}"
                 @keydown="${this._onCreateModalKeyDown}"
@@ -1321,7 +1321,16 @@ export class MuxApp extends LitElement {
     const name = (input?.value ?? this._createModalName).trim();
     if (!name || this._creatingWorkspace) return;
     const rootFolderInput = this.shadowRoot?.querySelector<HTMLInputElement>('.ws-create-root-folder');
-    this._createModalRootFolder = rootFolderInput?.value.trim() ?? '';
+    const rootFolder = rootFolderInput?.value.trim() ?? '';
+    // Root folder names are Session Owner filesystem paths. Accept the common
+    // container shorthand "workspace/project" as "/workspace/project" while
+    // preserving explicit absolute and home-relative paths.
+    this._createModalRootFolder = rootFolder
+      && !rootFolder.startsWith('/')
+      && rootFolder !== '~'
+      && !rootFolder.startsWith('~/')
+      ? `/${rootFolder}`
+      : rootFolder;
     this._creatingWorkspace = true;
     this._socket?.createWorkspace(name);
   };
@@ -1373,7 +1382,12 @@ export class MuxApp extends LitElement {
     } catch (error) {
       console.warn('Could not associate Codex session with workspace', error);
     }
-    this._createPaneOptimistic(argv, 'driver', rootFolder);
+    // The remote TUI initially inherits the pane cwd, but the managed Codex
+    // app-server owns the eventual thread root. Pass the resolved Session Owner
+    // path explicitly so the thread does not fall back to the app-server's own
+    // working directory after it connects.
+    const launchArgv = rootFolder ? [...argv, '--cd', rootFolder] : argv;
+    this._createPaneOptimistic(launchArgv, 'driver', rootFolder);
   }
 
   /** Create a Split beside the current Active Pane using explicit placement. */

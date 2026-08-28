@@ -267,13 +267,19 @@ func (c *Client) handleTextInput(data []byte) {
 		var err error
 		if msg.SurfaceKind == "driver" {
 			driverDaemon, ok := c.daemon.(interface {
-				CreatePaneWithSurface([]string, string, int, string) (int, error)
+				CreatePaneWithSurface([]string, string, int, string, string) (int, error)
 			})
 			if !ok {
 				c.sendError(msg.CID, msg.WorkspaceID, fmt.Errorf("session daemon does not support driver panes"))
 				return
 			}
-			paneID, err = driverDaemon.CreatePaneWithSurface(msg.Cmd, msg.Placement, msg.ReferencePaneID, "driver")
+			paneID, err = driverDaemon.CreatePaneWithSurface(
+				msg.Cmd,
+				msg.Placement,
+				msg.ReferencePaneID,
+				"driver",
+				msg.CWD,
+			)
 		} else {
 			paneID, err = c.daemon.CreatePane(msg.Cmd, msg.Placement, msg.ReferencePaneID)
 		}
