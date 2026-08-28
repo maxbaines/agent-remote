@@ -11,7 +11,9 @@ import { makeKeyHandler, installAppShortcuts, installCommandShortcuts, type UIAc
 import {
   CLEAR_TO_START_COMMAND,
   CommandRegistry,
+  CREATE_CODEX_SESSION_COMMAND,
   CREATE_TAB_COMMAND,
+  CREATE_WORKSPACE_COMMAND,
   DIRECTIONAL_SPLIT_COMMANDS,
   type DirectionalSplit,
   type CommandInvocation,
@@ -583,6 +585,20 @@ export class MuxApp extends LitElement {
 
   /** Public Command seam consumed by UI surfaces, shortcut dispatch, and E2E. */
   readonly commands = new CommandRegistry([
+    {
+      ...CREATE_WORKSPACE_COMMAND,
+      isAvailable: () => !this._showCreateModal && !this._creatingWorkspace,
+      execute: () => this._onOpenCreateModal(),
+    },
+    {
+      ...CREATE_CODEX_SESSION_COMMAND,
+      isAvailable: () =>
+        !this._showCreateModal &&
+        !this._creatingWorkspace &&
+        store.codex.state === 'ready' &&
+        !!store.codex.launchArgv?.length,
+      execute: () => this._onOpenCodexCreateModal(),
+    },
     {
       ...CREATE_TAB_COMMAND,
       isAvailable: () => store.attached !== null && store.activePaneId > 0,

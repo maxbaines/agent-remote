@@ -4,6 +4,8 @@ export const SPLIT_RIGHT_COMMAND_ID = 'pane.split-right' as const;
 export const SPLIT_UP_COMMAND_ID = 'pane.split-up' as const;
 export const SPLIT_DOWN_COMMAND_ID = 'pane.split-down' as const;
 export const CLEAR_TO_START_COMMAND_ID = 'terminal.clear-to-start' as const;
+export const CREATE_WORKSPACE_COMMAND_ID = 'workspace.create' as const;
+export const CREATE_CODEX_SESSION_COMMAND_ID = 'workspace.create-codex-session' as const;
 
 export type DirectionalSplit = 'left' | 'right' | 'up' | 'down';
 export type CommandId =
@@ -12,8 +14,10 @@ export type CommandId =
   | typeof SPLIT_RIGHT_COMMAND_ID
   | typeof SPLIT_UP_COMMAND_ID
   | typeof SPLIT_DOWN_COMMAND_ID
-  | typeof CLEAR_TO_START_COMMAND_ID;
-export type CommandCategory = 'Layout' | 'Terminal';
+  | typeof CLEAR_TO_START_COMMAND_ID
+  | typeof CREATE_WORKSPACE_COMMAND_ID
+  | typeof CREATE_CODEX_SESSION_COMMAND_ID;
+export type CommandCategory = 'Workspace' | 'Layout' | 'Terminal';
 export type CommandShortcutPlatform = 'macos' | 'other';
 export type CommandShortcutScope = 'always' | 'standalone';
 
@@ -64,6 +68,29 @@ export const CREATE_TAB_COMMAND: CommandMetadata = Object.freeze({
     Object.freeze({ chord: 'ctrl+meta+t', label: 'Cmd+Ctrl+T', platform: 'macos', scope: 'always' }),
     Object.freeze({ chord: 'meta+t', label: 'Cmd+T', platform: 'macos', scope: 'standalone' }),
     Object.freeze({ chord: 'ctrl+t', label: 'Ctrl+T', platform: 'other', scope: 'standalone' }),
+  ]),
+});
+
+/** Workspace creation shortcuts use browser-safe chords in both tab and PWA modes. */
+export const CREATE_WORKSPACE_COMMAND: CommandMetadata = Object.freeze({
+  id: CREATE_WORKSPACE_COMMAND_ID,
+  title: 'New workspace',
+  category: 'Workspace',
+  configurable: true,
+  defaultShortcuts: Object.freeze([
+    Object.freeze({ chord: 'ctrl+alt+n', label: 'Ctrl+Alt+N', platform: 'macos', scope: 'always' }),
+    Object.freeze({ chord: 'ctrl+alt+n', label: 'Ctrl+Alt+N', platform: 'other', scope: 'always' }),
+  ]),
+});
+
+export const CREATE_CODEX_SESSION_COMMAND: CommandMetadata = Object.freeze({
+  id: CREATE_CODEX_SESSION_COMMAND_ID,
+  title: 'New Codex session',
+  category: 'Workspace',
+  configurable: true,
+  defaultShortcuts: Object.freeze([
+    Object.freeze({ chord: 'ctrl+alt+c', label: 'Ctrl+Alt+C', platform: 'macos', scope: 'always' }),
+    Object.freeze({ chord: 'ctrl+alt+c', label: 'Ctrl+Alt+C', platform: 'other', scope: 'always' }),
   ]),
 });
 
