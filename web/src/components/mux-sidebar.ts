@@ -4,7 +4,7 @@ import { store } from '../state.js';
 import { workspaceLabel } from './workspace-picker.js';
 import './launcher-menu.js';
 import { icon } from '../lib/icons.js';
-import { Bot, Check, Ellipsis, Folder, GitBranch, Plus, TerminalSquare } from 'lucide';
+import { Bot, Check, Ellipsis, Folder, GitBranch, Plus } from 'lucide';
 import { SIDEBAR_MIN_WIDTH, SIDEBAR_MAX_WIDTH } from '../lib/sidebar-width.js';
 import { instanceLabel } from '../lib/instance-identity.js';
 import { terminalRegistry } from '../lib/terminal-registry.js';
@@ -256,11 +256,6 @@ export class MuxSidebar extends LitElement {
     }
     .codex-ack-btn:hover { background: color-mix(in srgb, var(--mux-ok) 26%, var(--chrome-bar)); }
     .codex-ack-btn:disabled { opacity: 0.5; cursor: wait; }
-    .codex-task-label {
-      color: var(--chrome-text-dim); font-size: 9px; font-weight: 700;
-      letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 2px;
-    }
-
     .ws-card.codex.active .codex-detail {
       color: rgba(255, 255, 255, 0.76);
     }
@@ -385,28 +380,11 @@ export class MuxSidebar extends LitElement {
       color: white;
       background: rgba(0, 0, 0, 0.16);
     }
-
-    .ws-hint {
-      font-size: 11px;
-      color: var(--chrome-text-dim);
-      margin-top: 2px;
-      padding-left: 12px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .terminal-kicker { display:flex; align-items:center; gap:5px; color:var(--chrome-text-dim);
-      font-size:9px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; margin-bottom:4px; }
     .terminal-dir { color:var(--chrome-text-bright); font-size:12px; white-space:nowrap;
       overflow:hidden; text-overflow:ellipsis; display:flex; align-items:center; gap:5px; padding-left:12px; }
     .terminal-git { color:var(--chrome-text-dim); font-size:10.5px; display:flex; gap:5px;
       align-items:center; margin-top:4px; padding-left:12px; }
     .git-dirty { color:var(--mux-warn); }
-
-    .ws-card.active .ws-hint {
-      color: rgba(255, 255, 255, 0.76);
-    }
   `;
 
   // ---------------------------------------------------------------------------
@@ -633,7 +611,6 @@ export class MuxSidebar extends LitElement {
 
   private _renderWorkspaces() {
     const activeWsId = store.attached ?? '';
-    const panes = store.panes;
 
     return html`
       ${store.workspaces.map((ws) => {
@@ -653,7 +630,6 @@ export class MuxSidebar extends LitElement {
                 <span class="codex-status working">Running</span>
                 <button class="ws-remove-btn" title="Remove workspace" @click="${(e: Event) => this._onWsRemove(e, ws.workspaceId, label)}">×</button>
               </div>
-              <div class="codex-task-label">Directory</div>
               <div class="codex-title" title="${paneContext?.cwd ?? ''}">${directory}</div>
               ${paneContext?.gitBranch ? html`<div class="codex-detail">${paneContext.gitBranch}${paneContext.gitChanges ? ` · ${paneContext.gitChanges} changes` : ' · clean'}</div>` : ''}
             </div>`;
@@ -685,14 +661,20 @@ export class MuxSidebar extends LitElement {
           const distinctTask = task?.trim().toLocaleLowerCase() === label.trim().toLocaleLowerCase()
             ? undefined
             : task;
-          const headlineLabel = attention ? 'Decision' : codexSession.currentStep ? 'Current step' : 'Task';
           const headline = attention
             ? waitingReason
             : codexSession.currentStep || distinctTask || codexSession.cwd || 'Codex session';
           const defaultChoice = question?.options?.[0];
-          const detail = attention
+          let detail = attention
             ? defaultChoice ? `Default: ${defaultChoice}` : 'Accept selected default'
             : codexSession.currentStep && distinctTask ? `Task: ${distinctTask}` : codexSession.cwd;
+          if (!attention && detail?.trim().toLocaleLowerCase() === headline.trim().toLocaleLowerCase()) {
+            detail = working
+              ? 'Working on the current step'
+              : codexSession.status === 'idle'
+                ? 'Ready for next step'
+                : 'Session paused';
+          }
           const contextUsed = codexSession.contextUsedPercent ?? terminalHint.contextUsed;
 
           return html`
@@ -710,7 +692,6 @@ export class MuxSidebar extends LitElement {
                   @click="${(e: Event) => this._onWsRemove(e, ws.workspaceId, label)}"
                 >×</button>
               </div>
-              <div class="codex-task-label">${headlineLabel}</div>
               <div class="codex-title" title="${headline}">${headline}</div>
               ${attention ? html`
                 <div class="codex-attention-row">
@@ -734,16 +715,6 @@ export class MuxSidebar extends LitElement {
           `;
         }
 
-        // Hint row: the attached workspace shows its active pane; inactive
-        // workspaces still expose useful density instead of becoming bare names.
-        let hintText = ws.paneCount === 1 ? '1 pane' : `${ws.paneCount} panes`;
-        if (isActive && panes.length > 0) {
-          const activePane =
-            panes.find((p) => p.paneId === store.activePaneId) ?? panes[0];
-          const title = activePane.title?.trim() || `Pane ${activePane.paneId}`;
-          const extra = panes.length - 1;
-          hintText = extra > 0 ? `${title}  +${extra}` : title;
-        }
         const directory = paneContext?.cwd?.split('/').filter(Boolean).pop() || paneContext?.cwd;
 
         return html`
@@ -774,14 +745,10 @@ export class MuxSidebar extends LitElement {
                 @click="${(e: Event) => this._onWsRemove(e, ws.workspaceId, label)}"
               >×</button>
             </div>
-            <div class="terminal-kicker">${icon(TerminalSquare, { size: 11 })} Terminal</div>
             ${directory ? html`<div class="terminal-dir" title="${paneContext?.cwd ?? ''}">${icon(Folder, { size: 11 })}${directory}</div>` : ''}
             ${paneContext?.gitBranch ? html`<div class="terminal-git ${paneContext.gitChanges ? 'git-dirty' : ''}">
               ${icon(GitBranch, { size: 11 })}<span>${paneContext.gitBranch}</span><span>${paneContext.gitChanges ? `${paneContext.gitChanges} changes` : 'clean'}</span>
             </div>` : ''}
-            ${hintText
-              ? html`<div class="ws-hint">${hintText}</div>`
-              : ''}
           </div>
         `;
       })}
