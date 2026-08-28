@@ -35,7 +35,7 @@ func serveSessiond(ctx context.Context, socketPath string) error {
 		return fmt.Errorf("create socket dir: %w", err)
 	}
 
-	srv, err := sessiond.NewServer(socketPath)
+	srv, err := sessiond.NewPersistentServer(socketPath, sessiond.WorkspaceStatePath())
 	if err != nil {
 		return fmt.Errorf("create sessiond server: %w", err)
 	}

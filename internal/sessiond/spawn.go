@@ -33,6 +33,19 @@ func RuntimeDir() string {
 	return socketDir()
 }
 
+// WorkspaceStatePath returns the durable workspace/sidebar metadata path.
+func WorkspaceStatePath() string {
+	base := os.Getenv("XDG_STATE_HOME")
+	if base == "" {
+		if home, err := os.UserHomeDir(); err == nil {
+			base = filepath.Join(home, ".local", "state")
+		} else {
+			base = os.TempDir()
+		}
+	}
+	return filepath.Join(base, "just-terminal", "workspaces.json")
+}
+
 // SocketPath returns the path to the daemon's Unix socket.
 //
 // The (string, error) signature is part of the frozen daemon contract: later

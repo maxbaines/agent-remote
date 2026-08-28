@@ -87,7 +87,7 @@ Do not persist `/run/just-terminal`; it contains runtime-only sockets. Treat the
 
 The Session Owner survives Remote Client disconnects and Gateway restarts, so live shells continue through a web-server restart or binary redeploy that leaves the Session Owner running.
 
-A Host reboot, container replacement, or Session Owner stop still terminates live PTYs and their processes. Persistent volumes preserve files, configuration, and resumable agent history; they cannot preserve a running shell process.
+A Host reboot, container replacement, or Session Owner stop still terminates live PTYs and their processes. Persistent volumes preserve files, configuration, resumable agent history, and the workspace names shown in the sidebar. Restored workspaces start with fresh panes; volumes cannot preserve a running shell process.
 
 ## Expose a local web app
 

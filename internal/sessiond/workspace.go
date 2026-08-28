@@ -13,6 +13,7 @@ func (r *Registry) EnsureDefault() *Workspace {
 	defer r.mu.Unlock()
 	if len(r.workspaces) == 0 {
 		id := r.addWorkspaceLocked("", "")
+		r.persistBestEffortLocked()
 		return r.workspaces[id]
 	}
 	return r.workspaces[r.lowestIDLocked()]
@@ -29,6 +30,7 @@ func (r *Registry) RenameWorkspace(id, name string) bool {
 		return false
 	}
 	ws.Name = name
+	r.persistBestEffortLocked()
 	return true
 }
 
@@ -45,7 +47,9 @@ func (r *Registry) ReapIfEmpty(wsID string) (bool, *Workspace) {
 		return false, nil
 	}
 	delete(r.workspaces, wsID)
-	return true, r.recreateDefaultIfEmptyLocked()
+	recreated := r.recreateDefaultIfEmptyLocked()
+	r.persistBestEffortLocked()
+	return true, recreated
 }
 
 // CloseWorkspace removes the workspace id and returns its panes so the caller
@@ -69,7 +73,9 @@ func (r *Registry) CloseWorkspace(id string) (panes []*Pane, recreatedDefault *W
 		panes = append(panes, ws.Panes[pid])
 	}
 	delete(r.workspaces, id)
-	return panes, r.recreateDefaultIfEmptyLocked(), true
+	recreatedDefault = r.recreateDefaultIfEmptyLocked()
+	r.persistBestEffortLocked()
+	return panes, recreatedDefault, true
 }
 
 // lowestIDLocked returns the lowest workspace id sorted as a string. The caller

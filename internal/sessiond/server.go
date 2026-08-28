@@ -35,11 +35,24 @@ const maxClipboardImageBytes = 5 << 20
 // NewServer returns a Server bound to socketPath with a fresh Registry. It
 // errors on an empty socket path.
 func NewServer(socketPath string) (*Server, error) {
+	return newServer(socketPath, NewRegistry())
+}
+
+// NewPersistentServer restores durable workspace/sidebar metadata from statePath.
+func NewPersistentServer(socketPath, statePath string) (*Server, error) {
+	reg, err := NewPersistentRegistry(statePath)
+	if err != nil {
+		return nil, err
+	}
+	return newServer(socketPath, reg)
+}
+
+func newServer(socketPath string, reg *Registry) (*Server, error) {
 	if socketPath == "" {
 		return nil, errors.New("sessiond: empty socket path")
 	}
 	s := &Server{
-		reg:    NewRegistry(),
+		reg:    reg,
 		socket: socketPath,
 		subs:   make(map[string]map[*conn]bool),
 		conns:  make(map[*conn]bool),

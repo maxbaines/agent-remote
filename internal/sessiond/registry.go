@@ -1,7 +1,11 @@
 package sessiond
 
 import (
+	"encoding/json"
 	"fmt"
+	"log"
+	"os"
+	"path/filepath"
 	"sort"
 	"sync"
 )
@@ -24,12 +28,94 @@ type Registry struct {
 	mu         sync.Mutex
 	workspaces map[string]*Workspace
 	nextWSID   int
+	statePath  string
+}
+
+type persistedRegistry struct {
+	NextWSID   int                  `json:"nextWorkspaceId"`
+	Workspaces []persistedWorkspace `json:"workspaces"`
+}
+
+type persistedWorkspace struct {
+	ID   string `json:"id"`
+	Name string `json:"name,omitempty"`
 }
 
 // NewRegistry returns an empty Registry ready for use.
 func NewRegistry() *Registry {
 	return &Registry{
 		workspaces: make(map[string]*Workspace),
+	}
+}
+
+// NewPersistentRegistry restores workspace identity and names from path. Pane
+// processes and layouts deliberately remain session-lifetime state, so every
+// restored workspace starts empty after a daemon/container restart.
+func NewPersistentRegistry(path string) (*Registry, error) {
+	r := NewRegistry()
+	r.statePath = path
+	data, err := os.ReadFile(path)
+	if os.IsNotExist(err) {
+		return r, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("read workspace state: %w", err)
+	}
+	var state persistedRegistry
+	if err := json.Unmarshal(data, &state); err != nil {
+		return nil, fmt.Errorf("decode workspace state: %w", err)
+	}
+	for _, saved := range state.Workspaces {
+		if saved.ID == "" {
+			continue
+		}
+		r.workspaces[saved.ID] = &Workspace{ID: saved.ID, Name: saved.Name, Panes: make(map[int]*Pane), Layouts: make(map[string]string)}
+	}
+	r.nextWSID = state.NextWSID
+	return r, nil
+}
+
+// persistLocked atomically records only the durable sidebar model. Runtime
+// pane and layout state is intentionally excluded.
+func (r *Registry) persistLocked() error {
+	if r.statePath == "" {
+		return nil
+	}
+	state := persistedRegistry{NextWSID: r.nextWSID}
+	for _, ws := range r.workspaces {
+		state.Workspaces = append(state.Workspaces, persistedWorkspace{ID: ws.ID, Name: ws.Name})
+	}
+	sort.Slice(state.Workspaces, func(i, j int) bool { return state.Workspaces[i].ID < state.Workspaces[j].ID })
+	data, err := json.MarshalIndent(state, "", "  ")
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(r.statePath), 0o700); err != nil {
+		return err
+	}
+	tmp, err := os.CreateTemp(filepath.Dir(r.statePath), ".workspaces-*")
+	if err != nil {
+		return err
+	}
+	tmpName := tmp.Name()
+	defer os.Remove(tmpName)
+	if err := tmp.Chmod(0o600); err != nil {
+		tmp.Close()
+		return err
+	}
+	if _, err := tmp.Write(data); err != nil {
+		tmp.Close()
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	return os.Rename(tmpName, r.statePath)
+}
+
+func (r *Registry) persistBestEffortLocked() {
+	if err := r.persistLocked(); err != nil {
+		log.Printf("sessiond: persist workspace state: %v", err)
 	}
 }
 
@@ -54,7 +140,9 @@ func (r *Registry) addWorkspaceLocked(name, clientRef string) string {
 func (r *Registry) AddWorkspace(name, clientRef string) string {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	return r.addWorkspaceLocked(name, clientRef)
+	id := r.addWorkspaceLocked(name, clientRef)
+	r.persistBestEffortLocked()
+	return id
 }
 
 // Get returns the workspace for id and whether it exists.
@@ -233,5 +321,3 @@ func (r *Registry) RemovePane(wsID string, paneID int) (*Pane, int, bool) {
 	delete(ws.Panes, paneID)
 	return p, len(ws.Panes), true
 }
-
-
