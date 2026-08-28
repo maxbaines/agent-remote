@@ -57,6 +57,7 @@ export class MuxStore {
   private _listeners: Set<() => void> = new Set();
   private _config: ResolvedConfig = DEFAULT_RESOLVED_CONFIG;
   private _codex: CodexSnapshot = DEFAULT_CODEX_SNAPSHOT;
+  private _codexAttention: Set<string> = new Set();
 
   // --- sessiond multiplexer path --------------------------------------------
   // Frozen wire state for the sessiond control protocol. A pure Composition is
@@ -92,6 +93,27 @@ export class MuxStore {
   }
 
   setCodex(snapshot: CodexSnapshot): void {
+    const nextAttention = new Set<string>();
+    for (const session of snapshot.sessions) {
+      if (!session.workspaceId) continue;
+      const waiting = (session.questions?.length ?? 0) > 0 || !!session.approval
+        || !!session.activeFlags?.some(flag => flag === 'waitingOnUserInput' || flag === 'waitingOnApproval');
+      if (!waiting) continue;
+      nextAttention.add(session.workspaceId);
+      if (this._codexAttention.has(session.workspaceId)) continue;
+      this._bellWorkspaces.add(session.workspaceId);
+      if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+        const workspace = this._workspaces.find(item => item.workspaceId === session.workspaceId);
+        const task = session.name || session.preview || workspace?.name || 'Codex session';
+        const reason = session.questions?.[0]?.question || session.approval || 'Codex is waiting for you';
+        try {
+          new Notification(`Codex needs input · ${task}`, {
+            body: reason, tag: `just-terminal-codex-${session.workspaceId}`, silent: true,
+          });
+        } catch { /* Restricted/embedded browsers may reject notifications. */ }
+      }
+    }
+    this._codexAttention = nextAttention;
     this._codex = snapshot;
     this._notify();
   }

@@ -684,6 +684,28 @@ func (m *Manager) publish() {
 	}
 }
 
+// IsWaiting reports whether workspaceID belongs to a managed Codex thread that
+// is currently stopped on a user-input or approval request.
+func (m *Manager) IsWaiting(workspaceID string) bool {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	for _, session := range m.sessions {
+		if session.WorkspaceID != workspaceID {
+			continue
+		}
+		if len(session.Questions) > 0 || session.Approval != "" {
+			return true
+		}
+		for _, flag := range session.ActiveFlags {
+			if flag == "waitingOnUserInput" || flag == "waitingOnApproval" {
+				return true
+			}
+		}
+		return false
+	}
+	return false
+}
+
 func cloneSnapshot(snapshot Snapshot) Snapshot {
 	clone := snapshot
 	clone.LaunchArgv = append([]string(nil), snapshot.LaunchArgv...)

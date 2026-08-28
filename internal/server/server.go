@@ -149,6 +149,7 @@ func New(cfg Config) *Server {
 
 	s.mux.Handle("GET /api/codex/status", protect(http.HandlerFunc(s.handleCodexStatus)))
 	s.mux.Handle("POST /api/codex/claims", protect(http.HandlerFunc(s.handleCodexClaim)))
+	s.mux.Handle("POST /api/codex/acknowledge", protect(http.HandlerFunc(s.handleCodexAcknowledge)))
 
 	s.mux.Handle("GET /api/tunnels", protect(http.HandlerFunc(s.handleTunnelList)))
 	s.mux.Handle("POST /api/tunnels", protect(http.HandlerFunc(s.handleTunnelCreate)))
@@ -221,6 +222,47 @@ func (s *Server) handleCodexClaim(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	_, _ = w.Write([]byte("{}\n"))
+}
+
+// handleCodexAcknowledge accepts the selected default in a managed Codex TUI
+// without visibly attaching the browser to that workspace.
+func (s *Server) handleCodexAcknowledge(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		WorkspaceID string `json:"workspaceId"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.WorkspaceID == "" {
+		http.Error(w, "invalid JSON body", http.StatusBadRequest)
+		return
+	}
+	if !s.codex.IsWaiting(body.WorkspaceID) {
+		http.Error(w, "Codex is not waiting in this workspace", http.StatusConflict)
+		return
+	}
+	dc, err := s.hub.Dial()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusServiceUnavailable)
+		return
+	}
+	defer dc.Close()
+	go func() { _ = dc.Run() }()
+	comp, err := dc.Attach(body.WorkspaceID, "", "agent")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadGateway)
+		return
+	}
+	for _, pane := range comp.Panes {
+		if pane.SurfaceKind != "driver" {
+			continue
+		}
+		if err := dc.Input(uint32(pane.PaneID), []byte{'\r'}); err != nil {
+			http.Error(w, err.Error(), http.StatusBadGateway)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte("{}\n"))
+		return
+	}
+	http.Error(w, "Codex driver pane not found", http.StatusConflict)
 }
 
 // Hub returns the server's WebSocket hub.

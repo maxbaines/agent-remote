@@ -111,3 +111,11 @@ export async function claimCodexWorkspace(workspaceId: string): Promise<void> {
     throw new Error((await response.text()).trim() || 'Codex integration is unavailable');
   }
 }
+
+export async function acknowledgeCodexDefault(workspaceId: string): Promise<void> {
+  const response = await fetch('/api/codex/acknowledge', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ workspaceId }),
+  });
+  if (!response.ok) throw new Error((await response.text()).trim() || 'Could not acknowledge Codex');
+}

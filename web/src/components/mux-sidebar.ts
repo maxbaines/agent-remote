@@ -4,10 +4,11 @@ import { store } from '../state.js';
 import { workspaceLabel } from './workspace-picker.js';
 import './launcher-menu.js';
 import { icon } from '../lib/icons.js';
-import { Bot, Ellipsis, Plus } from 'lucide';
+import { Bot, Check, Ellipsis, Plus } from 'lucide';
 import { SIDEBAR_MIN_WIDTH, SIDEBAR_MAX_WIDTH } from '../lib/sidebar-width.js';
 import { instanceLabel } from '../lib/instance-identity.js';
 import { terminalRegistry } from '../lib/terminal-registry.js';
+import { acknowledgeCodexDefault } from '../lib/codex.js';
 
 interface CodexTerminalHint {
   contextUsed?: number;
@@ -245,6 +246,22 @@ export class MuxSidebar extends LitElement {
       -webkit-box-orient: vertical;
     }
 
+    .codex-attention-row { display: flex; align-items: center; gap: 7px; margin-top: 5px; }
+    .codex-attention-row .codex-detail { flex: 1; min-width: 0; margin-top: 0; }
+    .codex-ack-btn {
+      width: 28px; height: 28px; display: inline-flex; align-items: center;
+      justify-content: center; flex: 0 0 auto; padding: 0;
+      border: 1px solid color-mix(in srgb, var(--mux-ok) 55%, transparent);
+      border-radius: 7px; background: color-mix(in srgb, var(--mux-ok) 16%, var(--chrome-bar));
+      color: var(--mux-ok); cursor: pointer; touch-action: manipulation;
+    }
+    .codex-ack-btn:hover { background: color-mix(in srgb, var(--mux-ok) 26%, var(--chrome-bar)); }
+    .codex-ack-btn:disabled { opacity: 0.5; cursor: wait; }
+    .codex-task-label {
+      color: var(--chrome-text-dim); font-size: 9px; font-weight: 700;
+      letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 2px;
+    }
+
     .ws-card.codex.active .codex-detail {
       color: rgba(255, 255, 255, 0.76);
     }
@@ -393,6 +410,7 @@ export class MuxSidebar extends LitElement {
   @state() private _renaming: string | null = null;
   @state() private _pendingClose = new Set<string>();
   @state() private _menuOpen = false;
+  @state() private _acknowledging = new Set<string>();
 
   private _unsub: (() => void) | null = null;
   private _codexTerminalHints = new Map<string, CodexTerminalHint>();
@@ -478,6 +496,20 @@ export class MuxSidebar extends LitElement {
         composed: true,
       }),
     );
+  }
+
+  private async _onCodexAcknowledge(e: Event, workspaceId: string): Promise<void> {
+    e.stopPropagation();
+    if (this._acknowledging.has(workspaceId)) return;
+    this._acknowledging = new Set(this._acknowledging).add(workspaceId);
+    try {
+      await acknowledgeCodexDefault(workspaceId);
+      store.ackWorkspace(workspaceId);
+    } catch (error) {
+      console.warn('Could not acknowledge Codex default', error);
+    } finally {
+      const next = new Set(this._acknowledging); next.delete(workspaceId); this._acknowledging = next;
+    }
   }
 
   private _onWsRemove(e: Event, wsId: string, name: string): void {
@@ -620,7 +652,8 @@ export class MuxSidebar extends LitElement {
                   ? 'Ready'
                   : 'Paused';
           const terminalHint = this._codexTerminalHint(ws.workspaceId, needsQuestion);
-          const detail = codexSession.questions?.[0]?.question
+          const question = codexSession.questions?.[0];
+          const detail = question?.question
             || terminalHint.question
             || codexSession.approval
             || codexSession.currentStep
@@ -629,6 +662,8 @@ export class MuxSidebar extends LitElement {
             || codexSession.cwd
             || 'Codex session';
           const title = codexSession.name || codexSession.preview || label;
+          const defaultChoice = question?.options?.[0];
+          const waitingDetail = defaultChoice ? `${detail} · Default: ${defaultChoice}` : detail;
           const contextUsed = codexSession.contextUsedPercent ?? terminalHint.contextUsed;
 
           return html`
@@ -646,8 +681,18 @@ export class MuxSidebar extends LitElement {
                   @click="${(e: Event) => this._onWsRemove(e, ws.workspaceId, label)}"
                 >×</button>
               </div>
+              <div class="codex-task-label">Task</div>
               <div class="codex-title">${title}</div>
-              <div class="codex-detail ${attention ? 'attention' : ''}">${detail}</div>
+              ${attention ? html`
+                <div class="codex-attention-row">
+                  <div class="codex-detail attention">${waitingDetail}</div>
+                  <button class="codex-ack-btn" title="Accept the selected default and continue"
+                    aria-label="Accept Codex default and continue"
+                    ?disabled="${this._acknowledging.has(ws.workspaceId)}"
+                    @click="${(e: Event) => void this._onCodexAcknowledge(e, ws.workspaceId)}"
+                  >${icon(Check, { size: 16 })}</button>
+                </div>
+              ` : html`<div class="codex-detail">${detail}</div>`}
               ${contextUsed !== undefined ? html`
                 <div class="codex-context">
                   <div class="codex-context-track">
