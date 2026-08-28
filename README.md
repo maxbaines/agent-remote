@@ -89,6 +89,38 @@ The Session Owner survives Remote Client disconnects and Gateway restarts, so li
 
 A Host reboot, container replacement, or Session Owner stop still terminates live PTYs and their processes. Persistent volumes preserve files, configuration, and resumable agent history; they cannot preserve a running shell process.
 
+## Expose a local web app
+
+Web apps running on the JustTerminal Host or inside its container can be reached through the existing JustTerminal URL. Start the app on a local port, for example:
+
+```bash
+npm run dev -- --host 127.0.0.1 --port 5173
+```
+
+Register that port with JustTerminal:
+
+```bash
+curl -sS \
+  -X POST \
+  -H 'Content-Type: application/json' \
+  -d '{"port":5173}' \
+  http://localhost:8311/api/tunnels
+```
+
+The response includes a short tunnel ID:
+
+```json
+{"id":"a7k2q","port":5173}
+```
+
+Open the app at `/t/<id>/` on the same JustTerminal origin, for example:
+
+```text
+https://my-instance.js.actor/t/a7k2q/
+```
+
+No additional container port needs to be published. Tunnel registrations last until the JustTerminal Gateway restarts.
+
 ## Agent integration with MCP
 
 `just-terminal mcp` exposes a [Model Context Protocol](https://modelcontextprotocol.io) server over JSON-RPC 2.0 on stdio. It connects to a running local JustTerminal instance and currently provides 17 tools:
