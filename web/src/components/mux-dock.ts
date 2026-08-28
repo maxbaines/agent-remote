@@ -176,6 +176,10 @@ const SPLIT_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="1
   <rect x="9" y="2" width="6" height="12" rx="1" stroke="currentColor" stroke-width="1.3"/>
 </svg>`;
 
+const FILE_TREE_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M3 3h6l2 3h10v15H3z"/><path d="M8 10v7"/><path d="M8 13h4"/><path d="M12 13v4"/><path d="M12 17h4"/>
+</svg>`;
+
 class HeaderButton {
   readonly element: HTMLElement;
 
@@ -251,6 +255,38 @@ class SplitHeaderMenu {
   }
 }
 
+class RightHeaderActions {
+  readonly element: HTMLElement;
+  private readonly _splitMenu: SplitHeaderMenu;
+  private readonly _fileTreeButton: HeaderButton;
+
+  constructor(fileTreeOpen: boolean, onSplitCommand: (commandId: CommandId) => void, onFileTreeToggle: () => void) {
+    const root = document.createElement('div');
+    root.className = 'mux-right-header-actions';
+    this._splitMenu = new SplitHeaderMenu(onSplitCommand);
+    this._fileTreeButton = new HeaderButton(
+      FILE_TREE_ICON,
+      `${fileTreeOpen ? 'Hide' : 'Show'} file tree (⌥⌘B)`,
+      () => {
+        const open = this._fileTreeButton.element.classList.toggle('active');
+        this._fileTreeButton.element.title = `${open ? 'Hide' : 'Show'} file tree (⌥⌘B)`;
+        onFileTreeToggle();
+      },
+    );
+    this._fileTreeButton.element.classList.toggle('active', fileTreeOpen);
+    root.append(this._splitMenu.element, this._fileTreeButton.element);
+    this.element = root;
+  }
+
+  init(): void {}
+
+  dispose(): void {
+    this._splitMenu.dispose();
+    this._fileTreeButton.dispose();
+    this.element.remove();
+  }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // MuxDock
 // ─────────────────────────────────────────────────────────────────────────────
@@ -269,6 +305,7 @@ export class MuxDock extends LitElement {
   @property({ attribute: false }) activePaneId = -1;
   @property({ attribute: false }) workspaceKey = '';
   @property({ attribute: false }) layout = '';
+  @property({ attribute: false, type: Boolean }) fileTreeOpen = false;
 
   /** Temporarily maximize the active group while a touch software keyboard is
    * visible. This is presentation-only and must never enter the saved layout. */
@@ -721,6 +758,16 @@ export class MuxDock extends LitElement {
         mux-dock .mux-header-btn:active {
           background: color-mix(in srgb, var(--chrome-accent) 25%, transparent);
         }
+        mux-dock .mux-header-btn.active {
+          background: color-mix(in srgb, var(--chrome-accent) 15%, transparent);
+          color: var(--chrome-accent);
+        }
+
+        mux-dock .mux-right-header-actions {
+          display: flex;
+          align-items: center;
+          height: 100%;
+        }
 
         mux-dock .mux-split-control {
           position: relative;
@@ -1032,7 +1079,11 @@ export class MuxDock extends LitElement {
         if (this.narrow) {
           return new HeaderButton('', '', () => {});
         }
-        return new SplitHeaderMenu((commandId) => this._invokeCommand(commandId));
+        return new RightHeaderActions(
+          this.fileTreeOpen,
+          (commandId) => this._invokeCommand(commandId),
+          () => this.dispatchEvent(new CustomEvent('file-tree-toggle', { bubbles: true, composed: true })),
+        );
       },
     });
     this._dv.onDidLayoutChange(() => this._scheduleLayoutSave());

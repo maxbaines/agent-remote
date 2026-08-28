@@ -1,10 +1,10 @@
 import { LitElement, html, css, unsafeCSS } from 'lit';
-import { customElement, property, state } from 'lit/decorators.js';
+import { customElement, state } from 'lit/decorators.js';
 import { store } from '../state.js';
 import { workspaceLabel } from './workspace-picker.js';
 import './launcher-menu.js';
 import { icon } from '../lib/icons.js';
-import { Bot, Ellipsis, FolderTree } from 'lucide';
+import { Bot, Ellipsis } from 'lucide';
 import { SIDEBAR_MIN_WIDTH, SIDEBAR_MAX_WIDTH } from '../lib/sidebar-width.js';
 import { instanceLabel } from '../lib/instance-identity.js';
 import { terminalRegistry } from '../lib/terminal-registry.js';
@@ -129,11 +129,8 @@ export class MuxSidebar extends LitElement {
     }
 
     .ws-card.active {
-      background: color-mix(in srgb, var(--chrome-accent) 68%, var(--chrome-hover));
       border-color: color-mix(in srgb, var(--chrome-accent) 82%, white);
-      box-shadow:
-        inset 0 1px rgba(255, 255, 255, 0.1),
-        0 1px 2px rgba(0, 0, 0, 0.18);
+      box-shadow: 0 0 0 1px color-mix(in srgb, var(--chrome-accent) 18%, transparent);
     }
 
     .ws-card.active::before {
@@ -161,7 +158,7 @@ export class MuxSidebar extends LitElement {
 
     .ws-card.codex.active {
       border-color: color-mix(in srgb, var(--chrome-accent) 82%, white);
-      background: color-mix(in srgb, var(--chrome-accent) 58%, var(--chrome-hover));
+      background: color-mix(in srgb, var(--chrome-accent) 7%, var(--chrome-bar));
     }
 
     .codex-kicker {
@@ -177,9 +174,6 @@ export class MuxSidebar extends LitElement {
       text-transform: uppercase;
     }
 
-    .ws-card.codex.active .codex-kicker {
-      color: rgba(255, 255, 255, 0.82);
-    }
 
     .codex-kicker-name {
       min-width: 0;
@@ -210,10 +204,6 @@ export class MuxSidebar extends LitElement {
       color: var(--mux-warn);
     }
 
-    .ws-card.codex.active .codex-status {
-      background: rgba(0, 0, 0, 0.18);
-      color: white;
-    }
 
     .codex-title {
       color: var(--chrome-text-bright);
@@ -226,9 +216,6 @@ export class MuxSidebar extends LitElement {
       overflow: hidden;
     }
 
-    .ws-card.codex.active .codex-title {
-      color: white;
-    }
 
     .codex-detail {
       margin-top: 5px;
@@ -428,7 +415,6 @@ export class MuxSidebar extends LitElement {
   @state() private _renaming: string | null = null;
   @state() private _pendingClose = new Set<string>();
   @state() private _menuOpen = false;
-  @property({ type: Boolean }) fileTreeOpen = false;
 
   private _unsub: (() => void) | null = null;
   private _codexTerminalHints = new Map<string, CodexTerminalHint>();
@@ -450,12 +436,6 @@ export class MuxSidebar extends LitElement {
     }));
   }
 
-  private _toggleFileTree(): void {
-    this.dispatchEvent(new CustomEvent('file-tree-toggle', {
-      bubbles: true,
-      composed: true,
-    }));
-  }
 
   // ---------------------------------------------------------------------------
   // Lifecycle
@@ -773,11 +753,6 @@ export class MuxSidebar extends LitElement {
       <div class="header">
         <span title="${window.location.hostname}">${instanceLabel()}</span>
         <div class="header-actions">
-          <button
-            class="launcher-btn ${this.fileTreeOpen ? 'active' : ''}"
-            title="${this.fileTreeOpen ? 'Hide file tree' : 'Show file tree'} (⌥⌘B)"
-            @click="${this._toggleFileTree}"
-          >${icon(FolderTree, { size: 15 })}</button>
           <button
             class="launcher-btn"
             title="Open menu"

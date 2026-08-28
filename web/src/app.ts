@@ -1097,14 +1097,12 @@ export class MuxApp extends LitElement {
       <div class="content-area ${showMobileKeyboard ? 'keyboard-focus' : ''}">
         ${isWide ? html`
           <mux-sidebar
-            .fileTreeOpen="${this._fileTreeOpen}"
             @workspace-switch="${this._onWorkspaceSelected}"
             @workspace-create="${this._onOpenCreateModal}"
             @codex-workspace-create="${this._onOpenCodexCreateModal}"
             @workspace-rename="${this._onWorkspaceRename}"
             @workspace-close="${this._onSidebarWorkspaceClose}"
             @launcher-action="${this._onLauncherAction}"
-            @file-tree-toggle="${this._toggleFileTree}"
           ></mux-sidebar>
         ` : ''}
         <div class="workspace-area">
@@ -1126,6 +1124,7 @@ export class MuxApp extends LitElement {
                   .activePaneId="${store.activePaneId}"
                   .workspaceKey="${store.attached ?? ''}"
                   .layout="${store.layout}"
+                  .fileTreeOpen="${this._fileTreeOpen}"
                   .narrow="${!isWide}"
                   .keyboardFocusMode="${showMobileKeyboard}"
                   @pane-select="${this._onActivePane}"
@@ -1135,6 +1134,7 @@ export class MuxApp extends LitElement {
                   @pane-rename="${this._onPaneRename}"
                   @workspace-switch="${this._onWorkspaceSelected}"
                   @layout-save="${this._onLayoutSave}"
+                  @file-tree-toggle="${this._toggleFileTree}"
                 ></mux-dock>
               `}
           ${showMobileKeyboard ? html`
