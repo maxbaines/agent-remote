@@ -100,6 +100,22 @@ func NewPane(
 	onExit func(localID int, exitCode int, runtimeMilliseconds int64),
 	onPrompt func(localID int, msg *Message),
 ) (*Pane, error) {
+	return NewPaneInDir(localID, argv, "", cols, rows, buf, onData, onExit, onPrompt)
+}
+
+// NewPaneInDir starts a pane in cwd. Relative paths are resolved from the
+// Session Owner's home directory, matching the default pane launch location.
+// An empty cwd preserves the default home-directory behavior.
+func NewPaneInDir(
+	localID int,
+	argv []string,
+	cwd string,
+	cols, rows int,
+	buf PaneBuffer,
+	onData func(localID int, data []byte),
+	onExit func(localID int, exitCode int, runtimeMilliseconds int64),
+	onPrompt func(localID int, msg *Message),
+) (*Pane, error) {
 	if buf == nil {
 		// Production default: VTBuffer (screen-state replay). Raw byte replay
 		// (RawBuffer) garbles the terminal on reconnect when the client's
@@ -116,6 +132,19 @@ func NewPane(
 	c.Env = append(os.Environ(), "TERM=xterm-256color")
 	if home := os.Getenv("HOME"); home != "" {
 		c.Dir = home
+		if cwd != "" {
+			if cwd == "~" {
+				c.Dir = home
+			} else if len(cwd) > 2 && cwd[:2] == "~/" {
+				c.Dir = filepath.Join(home, cwd[2:])
+			} else if filepath.IsAbs(cwd) {
+				c.Dir = filepath.Clean(cwd)
+			} else {
+				c.Dir = filepath.Join(home, cwd)
+			}
+		}
+	} else if cwd != "" {
+		c.Dir = cwd
 	}
 
 	ptmx, err := pty.StartWithSize(c, &pty.Winsize{Rows: uint16(rows), Cols: uint16(cols)})

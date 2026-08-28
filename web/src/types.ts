@@ -119,6 +119,7 @@ export interface SessiondMessage {
   rows?: number;
   cmd?: string[];
   title?: string;
+  /** Pane launch directory on create-pane; live directory on pane-cwd. */
   cwd?: string;
   mimeType?: string;
   data?: string;

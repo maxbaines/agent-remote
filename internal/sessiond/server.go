@@ -594,9 +594,10 @@ func (c *conn) createPane(msg Message) {
 		m.PaneID = id
 		c.srv.broadcast(wsID, m)
 	}
-	p, err := NewPane(
+	p, err := NewPaneInDir(
 		localID,
 		msg.Cmd,
+		msg.CWD,
 		cols, rows,
 		nil, // nil → NewPane installs VTBuffer. get_screen / TypeScreenSnapshot requires VTBuffer.
 		// Emulator reply drain goroutine in NewPane forwards query responses back to the PTY

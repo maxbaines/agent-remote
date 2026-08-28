@@ -56,6 +56,7 @@ One struct; the `type` field discriminates. All fields `omitempty`.
 | Cols / Rows | `cols` / `rows` | |
 | Cmd | `cmd` | argv; empty = default $SHELL |
 | Title | `title` | |
+| CWD | `cwd` | launch directory on create-pane; live directory on pane-cwd reply |
 | Breakpoint | `breakpoint` | responsive layout key (opaque to daemon) |
 | Layout | `layout` | opaque layout JSON blob (per-breakpoint) |
 | Workspaces | `workspaces` | []WorkspaceInfo |

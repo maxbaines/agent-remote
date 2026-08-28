@@ -167,7 +167,7 @@ type Message struct {
 	Rows        int             `json:"rows,omitempty"`        //
 	Cmd         []string        `json:"cmd,omitempty"`         // argv, empty => default $SHELL
 	Title       string          `json:"title,omitempty"`       //
-	CWD         string          `json:"cwd,omitempty"`         // current working directory returned by get-pane-cwd
+	CWD         string          `json:"cwd,omitempty"`         // launch directory on create-pane; current directory on get-pane-cwd reply
 	MimeType    string          `json:"mimeType,omitempty"`    // clipboard image media type (paste-image request)
 	Data        string          `json:"data,omitempty"`        // base64 clipboard image bytes (paste-image request)
 	Path        string          `json:"path,omitempty"`        // absolute Session Owner path (image-saved reply)

@@ -59,7 +59,7 @@ Each row defines a component's **authoritative state**, the events it **produces
 | Message | Trigger | Payload |
 |---|---|---|
 | `attach` | `bootstrap()`, `_onWorkspaceSelected`, recovery | `workspaceId`, `breakpoint`, `offsets[]` |
-| `create-pane` | `_createPaneOptimistic` | `clientRef`, optional `cmd` |
+| `create-pane` | `_createPaneOptimistic` | `clientRef`, optional `cmd`, optional `cwd` (relative paths resolve from Session Owner home) |
 | `resize` | ResizeObserver → `reportResize` | `paneId`, `cols`, `rows` |
 | `create-workspace` | `_submitCreate`, recovery (no survivors) | `name`, optional `clientRef` |
 | `list-workspaces` | `bootstrap()` (no localStorage), recovery | — |

@@ -140,15 +140,16 @@ export class MuxSocket {
   }
 
   /**
-   * Create a connection-scoped pane (NO workspaceId). cmd is included only
-   * when it carries at least one argument. clientRef is included only when
-   * truthy.
+   * Create a connection-scoped pane (NO workspaceId). Optional fields are
+   * included only when populated. A relative cwd is resolved by sessiond from
+   * the Session Owner's home directory.
    */
-  createPane(cmd?: string[], clientRef?: string, surfaceKind?: 'terminal' | 'driver'): void {
+  createPane(cmd?: string[], clientRef?: string, surfaceKind?: 'terminal' | 'driver', cwd?: string): void {
     const msg: SessiondMessage = { type: SessiondType.CreatePane };
     if (cmd && cmd.length > 0) msg.cmd = cmd;
     if (clientRef) msg.clientRef = clientRef;
     if (surfaceKind === 'driver') msg.surfaceKind = surfaceKind;
+    if (cwd) msg.cwd = cwd;
     this.sendSessiond(msg);
   }
 

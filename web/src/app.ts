@@ -504,7 +504,11 @@ export class MuxApp extends LitElement {
   @state()
   private _createModalName = '';
 
+  @state()
+  private _createModalRootFolder = '';
+
   private _pendingCodexWorkspaceId: string | null = null;
+  private _pendingCodexRootFolder = '';
 
   @state()
   private _overlayPanel: 'settings' | 'shortcuts' | 'about' | null = null;
@@ -786,7 +790,9 @@ export class MuxApp extends LitElement {
       if (msg.type === SessiondType.Composition && store.panes.length === 0) {
         if (msg.workspaceId && msg.workspaceId === this._pendingCodexWorkspaceId) {
           this._pendingCodexWorkspaceId = null;
-          void this._createCodexPane(msg.workspaceId);
+          const rootFolder = this._pendingCodexRootFolder;
+          this._pendingCodexRootFolder = '';
+          void this._createCodexPane(msg.workspaceId, rootFolder);
         } else {
           this._createPaneOptimistic();
         }
@@ -795,10 +801,12 @@ export class MuxApp extends LitElement {
       if (msg.type === SessiondType.WorkspaceCreated && this._creatingWorkspace) {
         if (this._createKind === 'codex') {
           this._pendingCodexWorkspaceId = msg.workspaceId ?? null;
+          this._pendingCodexRootFolder = this._createModalRootFolder;
         }
         this._creatingWorkspace = false;
         this._showCreateModal = false;
         this._createModalName = '';
+        this._createModalRootFolder = '';
       }
     };
     this._socket.onPaneOutput((paneId: number, data: Uint8Array) => {
@@ -1150,9 +1158,20 @@ export class MuxApp extends LitElement {
               class="ws-create-input"
               type="text"
               placeholder="Workspace name"
+              aria-label="Workspace name"
               ?disabled="${this._creatingWorkspace}"
               @keydown="${this._onCreateModalKeyDown}"
             />
+            ${this._createKind === 'codex' ? html`
+              <input
+                class="ws-create-input ws-create-root-folder"
+                type="text"
+                placeholder="Root folder (optional, e.g. code/proj)"
+                aria-label="Root folder"
+                ?disabled="${this._creatingWorkspace}"
+                @keydown="${this._onCreateModalKeyDown}"
+              />
+            ` : ''}
             <div class="ws-create-row">
               <button
                 class="ws-create-cancel"
@@ -1279,6 +1298,7 @@ export class MuxApp extends LitElement {
     this._createKind = 'terminal';
     this._showCreateModal = true;
     this._createModalName = '';
+    this._createModalRootFolder = '';
   };
 
   private _onOpenCodexCreateModal = (): void => {
@@ -1286,6 +1306,7 @@ export class MuxApp extends LitElement {
     this._createKind = 'codex';
     this._showCreateModal = true;
     this._createModalName = '';
+    this._createModalRootFolder = '';
   };
 
   private _onCreateModalKeyDown = (e: KeyboardEvent): void => {
@@ -1299,6 +1320,8 @@ export class MuxApp extends LitElement {
     const input = this.shadowRoot?.querySelector<HTMLInputElement>('.ws-create-input');
     const name = (input?.value ?? this._createModalName).trim();
     if (!name || this._creatingWorkspace) return;
+    const rootFolderInput = this.shadowRoot?.querySelector<HTMLInputElement>('.ws-create-root-folder');
+    this._createModalRootFolder = rootFolderInput?.value.trim() ?? '';
     this._creatingWorkspace = true;
     this._socket?.createWorkspace(name);
   };
@@ -1307,6 +1330,7 @@ export class MuxApp extends LitElement {
     if (this._creatingWorkspace) return;
     this._showCreateModal = false;
     this._createModalName = '';
+    this._createModalRootFolder = '';
   };
 
   /**
@@ -1316,7 +1340,11 @@ export class MuxApp extends LitElement {
    * the ref on the authoritative pane-added, which settles the pending mutation
    * by exact identity (clientRef match) and replaces the temp with the real id.
    */
-  private _createPaneOptimistic = (cmd?: string[], surfaceKind: 'terminal' | 'driver' = 'terminal'): void => {
+  private _createPaneOptimistic = (
+    cmd?: string[],
+    surfaceKind: 'terminal' | 'driver' = 'terminal',
+    cwd?: string,
+  ): void => {
     const ref = mintClientRef();
     const tempId = _nextTempPaneId--;
     store.mutate({
@@ -1331,10 +1359,10 @@ export class MuxApp extends LitElement {
       }),
       settled: (base) => base.panes.some((p) => p.clientRef === ref),
     });
-    this._socket?.createPane(cmd, ref, surfaceKind);
+    this._socket?.createPane(cmd, ref, surfaceKind, cwd);
   };
 
-  private async _createCodexPane(workspaceId: string): Promise<void> {
+  private async _createCodexPane(workspaceId: string, rootFolder?: string): Promise<void> {
     const argv = store.codex.launchArgv;
     if (!argv?.length) {
       this._createPaneOptimistic();
@@ -1345,7 +1373,7 @@ export class MuxApp extends LitElement {
     } catch (error) {
       console.warn('Could not associate Codex session with workspace', error);
     }
-    this._createPaneOptimistic(argv, 'driver');
+    this._createPaneOptimistic(argv, 'driver', rootFolder);
   }
 
   /** Create a Split beside the current Active Pane using explicit placement. */
