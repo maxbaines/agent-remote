@@ -46,6 +46,14 @@ func WorkspaceStatePath() string {
 	return filepath.Join(base, "just-terminal", "workspaces.json")
 }
 
+// CodexWorkspaceStatePath returns the durable workspace-to-thread association
+// path. It intentionally lives beside workspaces.json rather than in the XDG
+// runtime directory so Gateway, sessiond, and container restarts do not erase
+// the sidebar identity model.
+func CodexWorkspaceStatePath() string {
+	return filepath.Join(filepath.Dir(WorkspaceStatePath()), "codex-workspaces.json")
+}
+
 // SocketPath returns the path to the daemon's Unix socket.
 //
 // The (string, error) signature is part of the frozen daemon contract: later

@@ -23,7 +23,7 @@ import { applyThemeTokens, applyChromeTokens, resolvePalette } from './lib/theme
 import { applyDocumentTitle } from './lib/instance-identity.js';
 import { injectTerminalFont } from './lib/fonts.js';
 import { voiceInputController } from './lib/voice-input-controller.js';
-import { claimCodexWorkspace, parseCodexSnapshot } from './lib/codex.js';
+import { claimCodexWorkspace, isCodexCommand, parseCodexSnapshot } from './lib/codex.js';
 import {
   TERMINAL_FILE_OPEN_EVENT,
   type TerminalFileOpenDetail,
@@ -641,6 +641,7 @@ export class MuxApp extends LitElement {
   private _socket: MuxSocket | null = null;
   private _paneContextTimer: ReturnType<typeof setInterval> | undefined;
   private _paneContextPending = false;
+  private _claimedCodexLaunches = new Set<string>();
 
   private async _refreshPaneContext(): Promise<void> {
     const workspaceId = store.attached;
@@ -651,7 +652,23 @@ export class MuxApp extends LitElement {
     this._paneContextPending = true;
     try {
       const context = await this._socket?.paneContext(paneId);
-      if (context && store.attached === workspaceId) store.setPaneContext(workspaceId, context);
+      if (context && store.attached === workspaceId) {
+        const previous = store.paneContext(workspaceId);
+        store.setPaneContext(workspaceId, context);
+        if (!isCodexCommand(previous?.command) && isCodexCommand(context.command)) {
+          const managedLaunch = this._claimedCodexLaunches.delete(workspaceId);
+          const alreadyAssociated = store.codex.sessions.some(
+            session => session.workspaceId === workspaceId,
+          );
+          if (!managedLaunch && !(previous === undefined && alreadyAssociated)) {
+            try {
+              await claimCodexWorkspace(workspaceId);
+            } catch (error) {
+              console.warn('Could not associate restarted Codex session with workspace', error);
+            }
+          }
+        }
+      }
     } finally {
       this._paneContextPending = false;
     }
@@ -1458,6 +1475,7 @@ export class MuxApp extends LitElement {
     }
     try {
       await claimCodexWorkspace(workspaceId);
+      this._claimedCodexLaunches.add(workspaceId);
     } catch (error) {
       console.warn('Could not associate Codex session with workspace', error);
     }

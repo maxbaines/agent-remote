@@ -104,20 +104,18 @@ type Manager struct {
 	sessions    map[string]*Session
 	assignments map[string]string // workspace id -> thread id
 	claims      []claim
-	seenThreads map[string]bool
 	subscribed  map[string]bool
 }
 
-func NewManager(runtimeDir string, onUpdate func(Snapshot)) *Manager {
+func NewManager(runtimeDir, statePath string, onUpdate func(Snapshot)) *Manager {
 	m := &Manager{
 		runtimeDir:  runtimeDir,
 		socketPath:  managedSocketPath(runtimeDir),
 		logPath:     filepath.Join(runtimeDir, "codex-app-server.log"),
-		statePath:   filepath.Join(runtimeDir, "codex-workspaces.json"),
+		statePath:   statePath,
 		onUpdate:    onUpdate,
 		sessions:    make(map[string]*Session),
 		assignments: make(map[string]string),
-		seenThreads: make(map[string]bool),
 		subscribed:  make(map[string]bool),
 		snapshot: Snapshot{
 			State:       stateStarting,
@@ -156,8 +154,9 @@ func (m *Manager) Snapshot() Snapshot {
 	return cloneSnapshot(m.snapshot)
 }
 
-// Claim records that the next newly-created CLI thread belongs to workspaceID.
-// The browser calls this immediately before creating the driver pane.
+// Claim records that the next newly-created or newly-observed CLI thread
+// belongs to workspaceID. A new claim replaces any older thread association
+// for the workspace so restarting Codex in an existing terminal can rebind it.
 func (m *Manager) Claim(workspaceID string) error {
 	workspaceID = strings.TrimSpace(workspaceID)
 	if workspaceID == "" {
@@ -172,6 +171,13 @@ func (m *Manager) Claim(workspaceID string) error {
 		if pending.WorkspaceID == workspaceID {
 			return nil
 		}
+	}
+	if threadID, ok := m.assignments[workspaceID]; ok {
+		delete(m.assignments, workspaceID)
+		if session := m.sessions[threadID]; session != nil {
+			session.WorkspaceID = ""
+		}
+		m.saveStateLocked()
 	}
 	m.claims = append(m.claims, claim{WorkspaceID: workspaceID, CreatedAt: time.Now().Unix()})
 	return nil
@@ -393,7 +399,6 @@ func (m *Manager) syncThreads(ctx context.Context, rpc *rpcClient) error {
 		session.ActiveFlags = append([]string(nil), thread.Status.ActiveFlags...)
 		session.UpdatedAt = thread.UpdatedAt
 		m.assignClaimLocked(thread)
-		m.seenThreads[thread.ID] = true
 		// Keep every JustTerminal-owned thread subscribed even while idle. The
 		// app-server emits token usage, plans, questions, and approvals only to
 		// subscribed clients; waiting until the next poll observes "active" can
@@ -434,7 +439,7 @@ func (m *Manager) assignClaimLocked(thread rpcThread) {
 			return
 		}
 	}
-	if m.seenThreads[thread.ID] || len(m.claims) == 0 {
+	if len(m.claims) == 0 {
 		return
 	}
 	for i, pending := range m.claims {
@@ -475,7 +480,6 @@ func (m *Manager) handleMessage(msg rpcEnvelope) {
 			session.ActiveFlags = append([]string(nil), thread.Status.ActiveFlags...)
 			session.UpdatedAt = thread.UpdatedAt
 			m.assignClaimLocked(thread)
-			m.seenThreads[thread.ID] = true
 			changed = true
 		}
 	case "thread/status/changed":
@@ -706,6 +710,16 @@ func (m *Manager) IsWaiting(workspaceID string) bool {
 	return false
 }
 
+// HasAssignment reports whether workspaceID is bound to a Codex thread. It is
+// used by the terminal fallback path where a separately launched Codex TUI
+// owns the live request and the observer cannot see its waiting flag.
+func (m *Manager) HasAssignment(workspaceID string) bool {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	_, ok := m.assignments[workspaceID]
+	return ok
+}
+
 func cloneSnapshot(snapshot Snapshot) Snapshot {
 	clone := snapshot
 	clone.LaunchArgv = append([]string(nil), snapshot.LaunchArgv...)
@@ -736,7 +750,28 @@ func (m *Manager) saveStateLocked() {
 	if err != nil {
 		return
 	}
-	if err := os.WriteFile(m.statePath, data, 0o600); err != nil {
+	if err := os.MkdirAll(filepath.Dir(m.statePath), 0o700); err != nil {
+		log.Printf("just-terminal: persist Codex workspace assignments: %v", err)
+		return
+	}
+	tmp, err := os.CreateTemp(filepath.Dir(m.statePath), ".codex-workspaces-*")
+	if err != nil {
+		log.Printf("just-terminal: persist Codex workspace assignments: %v", err)
+		return
+	}
+	tmpName := tmp.Name()
+	defer os.Remove(tmpName)
+	err = tmp.Chmod(0o600)
+	if err == nil {
+		_, err = tmp.Write(data)
+	}
+	if closeErr := tmp.Close(); err == nil {
+		err = closeErr
+	}
+	if err == nil {
+		err = os.Rename(tmpName, m.statePath)
+	}
+	if err != nil {
 		log.Printf("just-terminal: persist Codex workspace assignments: %v", err)
 	}
 }

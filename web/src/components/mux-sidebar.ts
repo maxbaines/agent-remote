@@ -8,11 +8,12 @@ import { Bot, Check, Ellipsis, Folder, GitBranch, Plus } from 'lucide';
 import { SIDEBAR_MIN_WIDTH, SIDEBAR_MAX_WIDTH } from '../lib/sidebar-width.js';
 import { instanceLabel } from '../lib/instance-identity.js';
 import { terminalRegistry } from '../lib/terminal-registry.js';
-import { acknowledgeCodexDefault } from '../lib/codex.js';
+import { acknowledgeCodexDefault, isCodexCommand } from '../lib/codex.js';
 
 interface CodexTerminalHint {
   contextUsed?: number;
   question?: string;
+  waitingOnQuestion?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -564,12 +565,13 @@ export class MuxSidebar extends LitElement {
    * already renders in sessiond's authoritative VT buffer as a fallback.
    * App-server data always wins when it is available.
    */
-  private _codexTerminalHint(workspaceId: string, needsQuestion: boolean): CodexTerminalHint {
+  private _codexTerminalHint(workspaceId: string): CodexTerminalHint {
     const cached = this._codexTerminalHints.get(workspaceId) ?? {};
     if (workspaceId !== store.attached) return cached;
 
-    const driverPane = store.panes.find((pane) => pane.surfaceKind === 'driver');
-    const terminal = driverPane ? terminalRegistry.getTerminal(driverPane.paneId) : null;
+    const codexPane = store.panes.find((pane) => pane.surfaceKind === 'driver')
+      ?? store.panes.find((pane) => pane.paneId === store.activePaneId);
+    const terminal = codexPane ? terminalRegistry.getTerminal(codexPane.paneId) : null;
     if (!terminal) return cached;
 
     const buffer = terminal.buffer.active;
@@ -587,7 +589,9 @@ export class MuxSidebar extends LitElement {
       cached.contextUsed = Math.max(0, Math.min(100, Number(lastContext)));
     }
 
-    if (needsQuestion) {
+    const waitingOnQuestion = lines.some((line) => /enter to submit answer/i.test(line));
+    cached.waitingOnQuestion = waitingOnQuestion;
+    if (waitingOnQuestion) {
       let questionHeader = -1;
       for (let index = lines.length - 1; index >= 0; index--) {
         if (/^Question\s+\d+\/\d+/i.test(lines[index])) {
@@ -619,7 +623,7 @@ export class MuxSidebar extends LitElement {
         const label = workspaceLabel(ws);
         const codexSession = store.codex.sessions.find((session) => session.workspaceId === ws.workspaceId);
         const paneContext = store.paneContext(ws.workspaceId);
-        const terminalCodex = !codexSession && /(^|[/\\\s])codex(?:\s|$)/i.test(paneContext?.command ?? '');
+        const terminalCodex = !codexSession && isCodexCommand(paneContext?.command);
 
         if (codexSession || terminalCodex) {
           if (!codexSession) {
@@ -634,7 +638,9 @@ export class MuxSidebar extends LitElement {
               ${paneContext?.gitBranch ? html`<div class="codex-detail">${paneContext.gitBranch}${paneContext.gitChanges ? ` · ${paneContext.gitChanges} changes` : ' · clean'}</div>` : ''}
             </div>`;
           }
+          const terminalHint = this._codexTerminalHint(ws.workspaceId);
           const needsQuestion = (codexSession.questions?.length ?? 0) > 0
+            || !!terminalHint.waitingOnQuestion
             || !!codexSession.activeFlags?.includes('waitingOnUserInput');
           const needsApproval = !!codexSession.approval
             || !!codexSession.activeFlags?.includes('waitingOnApproval');
@@ -649,7 +655,6 @@ export class MuxSidebar extends LitElement {
                 : codexSession.status === 'idle'
                   ? 'Ready'
                   : 'Paused';
-          const terminalHint = this._codexTerminalHint(ws.workspaceId, needsQuestion);
           const question = codexSession.questions?.[0];
           const waitingReason = question?.question
             || terminalHint.question

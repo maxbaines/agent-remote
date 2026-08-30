@@ -98,7 +98,11 @@ func New(cfg Config) *Server {
 		s.cfg = muxcfg.Defaults()
 	}
 
-	s.codex = codexintegration.NewManager(sessiond.RuntimeDir(), hub.BroadcastCodex)
+	s.codex = codexintegration.NewManager(
+		sessiond.RuntimeDir(),
+		sessiond.CodexWorkspaceStatePath(),
+		hub.BroadcastCodex,
+	)
 
 	authMW := NewAuthMiddleware(cfg.AuthServer, cfg.NoAuth, cfg.BehindReverseProxy)
 	protect := func(h http.Handler) http.Handler {
@@ -234,7 +238,7 @@ func (s *Server) handleCodexAcknowledge(w http.ResponseWriter, r *http.Request) 
 		http.Error(w, "invalid JSON body", http.StatusBadRequest)
 		return
 	}
-	if !s.codex.IsWaiting(body.WorkspaceID) {
+	if !s.codex.IsWaiting(body.WorkspaceID) && !s.codex.HasAssignment(body.WorkspaceID) {
 		http.Error(w, "Codex is not waiting in this workspace", http.StatusConflict)
 		return
 	}
@@ -250,11 +254,24 @@ func (s *Server) handleCodexAcknowledge(w http.ResponseWriter, r *http.Request) 
 		http.Error(w, err.Error(), http.StatusBadGateway)
 		return
 	}
+	targetPaneID := 0
 	for _, pane := range comp.Panes {
 		if pane.SurfaceKind != "driver" {
 			continue
 		}
-		if err := dc.Input(uint32(pane.PaneID), []byte{'\r'}); err != nil {
+		targetPaneID = pane.PaneID
+		break
+	}
+	if targetPaneID == 0 {
+		for _, pane := range comp.Panes {
+			if pane.SurfaceKind == "" || pane.SurfaceKind == "terminal" {
+				targetPaneID = pane.PaneID
+				break
+			}
+		}
+	}
+	if targetPaneID != 0 {
+		if err := dc.Input(uint32(targetPaneID), []byte{'\r'}); err != nil {
 			http.Error(w, err.Error(), http.StatusBadGateway)
 			return
 		}
@@ -262,7 +279,7 @@ func (s *Server) handleCodexAcknowledge(w http.ResponseWriter, r *http.Request) 
 		_, _ = w.Write([]byte("{}\n"))
 		return
 	}
-	http.Error(w, "Codex driver pane not found", http.StatusConflict)
+	http.Error(w, "Codex terminal pane not found", http.StatusConflict)
 }
 
 // Hub returns the server's WebSocket hub.

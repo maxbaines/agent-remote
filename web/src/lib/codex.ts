@@ -42,6 +42,10 @@ export const DEFAULT_CODEX_SNAPSHOT: CodexSnapshot = {
   generatedAt: 0,
 };
 
+export function isCodexCommand(command?: string): boolean {
+  return /(^|[/\\\s])codex(?:\s|$)/i.test(command ?? '');
+}
+
 function stringArray(value: unknown): string[] | undefined {
   if (!Array.isArray(value)) return undefined;
   return value.filter((item): item is string => typeof item === 'string');
