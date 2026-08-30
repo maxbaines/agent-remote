@@ -11,6 +11,7 @@ import { store } from '../state.js';
 import {
   FileViewerRenderer,
   basename,
+  isHtmlPath,
   isImagePath,
   isMarkdownPath,
   type FileViewerRequest,
@@ -877,6 +878,26 @@ export class MuxDock extends LitElement {
         mux-dock .mux-file-viewer-mode {
           color: var(--chrome-accent);
         }
+        mux-dock .mux-file-viewer-toggle {
+          display: inline-flex;
+          overflow: hidden;
+          border: 1px solid var(--chrome-border);
+          border-radius: 4px;
+        }
+        mux-dock .mux-file-viewer-toggle-button {
+          border: 0;
+          border-right: 1px solid var(--chrome-border);
+          padding: 3px 8px;
+          background: transparent;
+          color: var(--chrome-text-dim);
+          font: inherit;
+          cursor: pointer;
+        }
+        mux-dock .mux-file-viewer-toggle-button:last-child { border-right: 0; }
+        mux-dock .mux-file-viewer-toggle-button[aria-pressed='true'] {
+          background: var(--chrome-hover);
+          color: var(--chrome-text-bright);
+        }
         mux-dock .mux-file-viewer-reload,
         mux-dock .mux-file-viewer-status button {
           border: 1px solid var(--chrome-border);
@@ -927,6 +948,15 @@ export class MuxDock extends LitElement {
           max-height: 100%;
           object-fit: contain;
           box-shadow: 0 8px 28px rgb(0 0 0 / 28%);
+        }
+        mux-dock .mux-html-scroll { overflow: hidden; }
+        mux-dock .mux-html-body { height: 100%; }
+        mux-dock .mux-html-preview {
+          display: block;
+          width: 100%;
+          height: 100%;
+          border: 0;
+          background: white;
         }
         mux-dock .mux-file-lines {
           margin: 0;
@@ -1059,6 +1089,7 @@ export class MuxDock extends LitElement {
     this._dv = new DockviewComponent(this, {
       createComponent: (opts) => {
         if (opts.name === 'browser') return new PlaceholderRenderer(opts.id);
+        if (opts.name === 'html') return new FileViewerRenderer('html');
         if (opts.name === 'markdown') return new FileViewerRenderer('markdown');
         if (opts.name === 'image') return new FileViewerRenderer('image');
         if (opts.name === 'text') return new FileViewerRenderer('text');
@@ -1535,7 +1566,13 @@ export class MuxDock extends LitElement {
       const active = this._dv.activePanel;
       const panel = this._dv.addPanel({
         id,
-        component: isMarkdownPath(request.path) ? 'markdown' : isImagePath(request.path) ? 'image' : 'text',
+        component: isHtmlPath(request.path)
+          ? 'html'
+          : isMarkdownPath(request.path)
+            ? 'markdown'
+            : isImagePath(request.path)
+              ? 'image'
+              : 'text',
         title: basename(request.path),
         params: request,
         ...(active ? { position: { referencePanel: active, direction: 'within' as const } } : {}),

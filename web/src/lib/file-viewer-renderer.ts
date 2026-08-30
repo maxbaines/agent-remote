@@ -124,6 +124,10 @@ function isImagePath(path: string): boolean {
   return /\.(?:png|jpe?g|gif|webp|avif|bmp|ico)$/i.test(path);
 }
 
+function isHtmlPath(path: string): boolean {
+  return /\.(?:html?|xhtml)$/i.test(path);
+}
+
 function codeLanguageForPath(path: string): CodeLanguage | null {
   const name = basename(path).toLowerCase();
   const namedLanguage = CODE_FILENAMES[name];
@@ -139,11 +143,12 @@ function basename(path: string): string {
 
 export class FileViewerRenderer implements IContentRenderer {
   readonly element: HTMLElement;
-  private readonly _kind: 'markdown' | 'text' | 'image';
+  private readonly _kind: 'html' | 'markdown' | 'text' | 'image';
+  private _htmlView: 'rendered' | 'text' = 'rendered';
   private _request: FileViewerRequest | null = null;
   private _abort: AbortController | null = null;
 
-  constructor(kind: 'markdown' | 'text' | 'image') {
+  constructor(kind: 'html' | 'markdown' | 'text' | 'image') {
     this._kind = kind;
     const element = document.createElement('div');
     element.className = `mux-file-viewer mux-file-viewer-${kind}`;
@@ -218,7 +223,11 @@ export class FileViewerRenderer implements IContentRenderer {
     body.appendChild(image);
   }
 
-  private _renderChrome(path: string, modeLabel: string): { scroller: HTMLElement; body: HTMLElement } {
+  private _renderChrome(
+    path: string,
+    modeLabel: string,
+    controls?: HTMLElement,
+  ): { scroller: HTMLElement; body: HTMLElement } {
     this.element.replaceChildren();
     const toolbar = document.createElement('div');
     toolbar.className = 'mux-file-viewer-toolbar';
@@ -237,7 +246,9 @@ export class FileViewerRenderer implements IContentRenderer {
     reload.className = 'mux-file-viewer-reload';
     reload.textContent = 'Reload';
     reload.addEventListener('click', () => void this._load());
-    toolbar.append(pathLabel, mode, reload);
+    toolbar.append(pathLabel, mode);
+    if (controls) toolbar.appendChild(controls);
+    toolbar.appendChild(reload);
 
     const scroller = document.createElement('div');
     scroller.className = 'mux-file-viewer-scroll';
@@ -250,6 +261,11 @@ export class FileViewerRenderer implements IContentRenderer {
   }
 
   private _renderFile(file: FileResponse): void {
+    if (this._kind === 'html' || isHtmlPath(file.path)) {
+      this._renderHtml(file);
+      return;
+    }
+
     if (this._kind === 'markdown' || isMarkdownPath(file.path)) {
       const { body } = this._renderChrome(file.path, 'Markdown');
       body.classList.add('mux-markdown-body');
@@ -262,8 +278,60 @@ export class FileViewerRenderer implements IContentRenderer {
       return;
     }
 
+    this._renderText(file);
+  }
+
+  private _renderHtml(file: FileResponse): void {
+    const toggle = document.createElement('div');
+    toggle.className = 'mux-file-viewer-toggle';
+    toggle.setAttribute('role', 'group');
+    toggle.setAttribute('aria-label', 'HTML preview mode');
+    for (const view of ['rendered', 'text'] as const) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'mux-file-viewer-toggle-button';
+      button.textContent = view === 'rendered' ? 'Rendered' : 'Text';
+      button.setAttribute('aria-pressed', String(this._htmlView === view));
+      button.addEventListener('click', () => {
+        if (this._htmlView === view) return;
+        this._htmlView = view;
+        this._renderHtml(file);
+      });
+      toggle.appendChild(button);
+    }
+
+    const { scroller, body } = this._renderChrome(file.path, 'HTML', toggle);
+    if (this._htmlView === 'text') {
+      this._renderTextContent(file, scroller, body);
+      return;
+    }
+
+    scroller.classList.add('mux-html-scroll');
+    body.classList.add('mux-html-body');
+    const frame = document.createElement('iframe');
+    frame.className = 'mux-html-preview';
+    frame.title = `Rendered preview of ${basename(file.path)}`;
+    // Scripts may run so generated reports and other self-contained static
+    // documents render faithfully. Omitting allow-same-origin keeps that code
+    // in an opaque origin, unable to reach JustTerminal's DOM or browser data.
+    frame.setAttribute('sandbox', 'allow-scripts');
+    frame.referrerPolicy = 'no-referrer';
+    frame.srcdoc = file.content;
+    body.appendChild(frame);
+  }
+
+  private _renderText(file: FileResponse): void {
     const language = codeLanguageForPath(file.path);
     const { scroller, body } = this._renderChrome(file.path, language?.label ?? 'Text');
+    this._renderTextContent(file, scroller, body, language);
+  }
+
+  private _renderTextContent(
+    file: FileResponse,
+    scroller: HTMLElement,
+    body: HTMLElement,
+    language = codeLanguageForPath(file.path),
+  ): void {
     body.classList.add('mux-text-body');
     const lines = file.content.split('\n');
     const highlightedLines = language ? this._highlightLines(file.content, language.id) : null;
@@ -358,4 +426,4 @@ export class FileViewerRenderer implements IContentRenderer {
   }
 }
 
-export { basename, isImagePath, isMarkdownPath };
+export { basename, isHtmlPath, isImagePath, isMarkdownPath };
