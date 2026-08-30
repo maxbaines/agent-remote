@@ -11,8 +11,10 @@ import { terminalRegistry } from '../lib/terminal-registry.js';
 import { acknowledgeCodexDefault, isCodexCommand } from '../lib/codex.js';
 
 interface CodexTerminalHint {
+  approval?: string;
   contextUsed?: number;
   question?: string;
+  waitingOnApproval?: boolean;
   waitingOnQuestion?: boolean;
 }
 
@@ -562,7 +564,8 @@ export class MuxSidebar extends LitElement {
    * The remote Codex TUI owns server requests for turns entered in its pane,
    * so app-server observer clients receive waitingOnUserInput but not the
    * request body. Capture the small amount of presentation state the TUI
-   * already renders in sessiond's authoritative VT buffer as a fallback.
+   * already renders in sessiond's authoritative VT buffer as a fallback,
+   * including when Codex was started manually in an ordinary terminal pane.
    * App-server data always wins when it is available.
    */
   private _codexTerminalHint(workspaceId: string): CodexTerminalHint {
@@ -605,6 +608,15 @@ export class MuxSidebar extends LitElement {
       delete cached.question;
     }
 
+    const waitingOnApproval = lines.some((line) => /press enter to confirm or esc to cancel/i.test(line));
+    cached.waitingOnApproval = waitingOnApproval;
+    if (waitingOnApproval) {
+      const command = [...lines].reverse().find((line) => /^\$\s+/.test(line));
+      cached.approval = command?.replace(/^\$\s+/, '') || 'Codex is waiting for approval';
+    } else {
+      delete cached.approval;
+    }
+
     this._codexTerminalHints.set(workspaceId, cached);
     return cached;
   }
@@ -639,11 +651,12 @@ export class MuxSidebar extends LitElement {
             </div>`;
           }
           const terminalHint = this._codexTerminalHint(ws.workspaceId);
+          const needsApproval = !!codexSession.approval
+            || !!terminalHint.waitingOnApproval
+            || !!codexSession.activeFlags?.includes('waitingOnApproval');
           const needsQuestion = (codexSession.questions?.length ?? 0) > 0
             || !!terminalHint.waitingOnQuestion
-            || !!codexSession.activeFlags?.includes('waitingOnUserInput');
-          const needsApproval = !!codexSession.approval
-            || !!codexSession.activeFlags?.includes('waitingOnApproval');
+            || (!needsApproval && !!codexSession.activeFlags?.includes('waitingOnUserInput'));
           const attention = needsQuestion || needsApproval;
           const working = codexSession.status === 'active' && !attention;
           const statusText = needsQuestion
@@ -658,6 +671,7 @@ export class MuxSidebar extends LitElement {
           const question = codexSession.questions?.[0];
           const waitingReason = question?.question
             || terminalHint.question
+            || terminalHint.approval
             || codexSession.approval
             || (needsQuestion ? 'Codex is waiting for your answer' : undefined)
             || (needsApproval ? 'Codex is waiting for approval' : undefined)
