@@ -106,8 +106,9 @@ func NewPane(
 }
 
 // NewPaneInDir starts a pane in cwd. Relative paths are resolved from the
-// Session Owner's home directory, matching the default pane launch location.
-// An empty cwd preserves the default home-directory behavior.
+// Session Owner's home directory. An empty cwd starts in
+// JUST_TERMINAL_DEFAULT_CWD when set, otherwise it preserves the default
+// home-directory behavior.
 func NewPaneInDir(
 	localID int,
 	argv []string,
@@ -132,18 +133,21 @@ func NewPaneInDir(
 
 	c := exec.Command(argv[0], argv[1:]...)
 	c.Env = append(os.Environ(), "TERM=xterm-256color")
-	if home := os.Getenv("HOME"); home != "" {
-		c.Dir = home
-		if cwd != "" {
-			if cwd == "~" {
-				c.Dir = home
-			} else if len(cwd) > 2 && cwd[:2] == "~/" {
-				c.Dir = filepath.Join(home, cwd[2:])
-			} else if filepath.IsAbs(cwd) {
-				c.Dir = filepath.Clean(cwd)
-			} else {
-				c.Dir = filepath.Join(home, cwd)
-			}
+	home := os.Getenv("HOME")
+	if cwd == "" {
+		c.Dir = os.Getenv("JUST_TERMINAL_DEFAULT_CWD")
+		if c.Dir == "" {
+			c.Dir = home
+		}
+	} else if home != "" {
+		if cwd == "~" {
+			c.Dir = home
+		} else if len(cwd) > 2 && cwd[:2] == "~/" {
+			c.Dir = filepath.Join(home, cwd[2:])
+		} else if filepath.IsAbs(cwd) {
+			c.Dir = filepath.Clean(cwd)
+		} else {
+			c.Dir = filepath.Join(home, cwd)
 		}
 	} else if cwd != "" {
 		c.Dir = cwd

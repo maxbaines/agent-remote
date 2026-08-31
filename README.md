@@ -65,6 +65,7 @@ See [Authentication](docs/authentication.md) for setup, recovery, storage, and r
 ## Docker and Coolify
 
 The repository Dockerfile builds JustTerminal on top of the Codex universal image and includes Codex CLI, Claude Code, zsh, GitHub CLI, Starship, delta, lazygit, and yazi. It listens on container port `8311`.
+New terminal panes start in `/workspace` by default.
 
 For a Coolify deployment:
 
