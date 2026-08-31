@@ -3,6 +3,7 @@ import { customElement, property, state } from 'lit/decorators.js';
 import { DEFAULT_PALETTE_ID, PALETTES } from '../lib/theme.js';
 import { FONT_FAMILIES, resolveTerminalFontFamily } from '../lib/fonts.js';
 import type { ResolvedConfig } from '../lib/config.js';
+import './local-apps-settings.js';
 
 interface ThemeCard {
   id: string;
@@ -446,7 +447,7 @@ export class MuxSettingsSurface extends LitElement {
   @property({ attribute: false }) config: ResolvedConfig | null = null;
   @property({ type: String }) serverAddr = '';
 
-  @state() private _section: 'appearance' | 'notifications' = 'appearance';
+  @state() private _section: 'appearance' | 'notifications' | 'local-apps' = 'appearance';
   @state() private _notifPermission: NotificationPermission | 'unsupported' = 'default';
   @state() private _notifRequesting = false;
 
@@ -766,11 +767,17 @@ export class MuxSettingsSurface extends LitElement {
             class="sidebar-item ${this._section === 'notifications' ? 'active' : ''}"
             @click="${() => { this._section = 'notifications'; }}"
           >Notifications</button>
+          <button
+            class="sidebar-item ${this._section === 'local-apps' ? 'active' : ''}"
+            @click="${() => { this._section = 'local-apps'; }}"
+          >Local apps</button>
         </nav>
         <div class="content">
           ${this._section === 'appearance'
             ? this._renderAppearance()
-            : this._renderNotifications()}
+            : this._section === 'notifications'
+              ? this._renderNotifications()
+              : html`<mux-local-apps-settings></mux-local-apps-settings>`}
         </div>
       </div>
     `;

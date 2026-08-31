@@ -318,8 +318,12 @@ func (s *Server) handleTunnelCreate(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Port int `json:"port"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Port == 0 {
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		http.Error(w, "port required", http.StatusBadRequest)
+		return
+	}
+	if body.Port < 1 || body.Port > 65535 {
+		http.Error(w, "port must be between 1 and 65535", http.StatusBadRequest)
 		return
 	}
 	id, err := s.tunnels.Create(body.Port)
