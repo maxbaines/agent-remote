@@ -57,17 +57,19 @@ ensure_state_layout() {
     persist_home_directory "$HOME/.gnupg" "$XDG_CONFIG_HOME/gnupg"
 }
 
-ensure_codex_file_credentials() {
+ensure_codex_config_default() {
+    local key="$1"
+    local value="$2"
     local config_path="$CODEX_HOME/config.toml"
     local config_tmp
 
     if [[ -f "$config_path" ]] \
-        && grep -Eq '^[[:space:]]*cli_auth_credentials_store[[:space:]]*=' "$config_path"; then
+        && grep -Eq "^[[:space:]]*${key}[[:space:]]*=" "$config_path"; then
         return
     fi
 
     if [[ ! -f "$config_path" ]]; then
-        printf 'cli_auth_credentials_store = "file"\n' > "$config_path"
+        printf '%s = %s\n' "$key" "$value" > "$config_path"
         chmod 0600 "$config_path"
         return
     fi
@@ -75,10 +77,10 @@ ensure_codex_file_credentials() {
     # A top-level TOML key must be inserted before the first table. Appending it
     # could accidentally place it inside the final [table] in a user's config.
     config_tmp="$(mktemp "$CODEX_HOME/.config.toml.XXXXXX")"
-    awk '
+    awk -v setting="$key = $value" '
         BEGIN { inserted = 0 }
         !inserted && /^[[:space:]]*\[/ {
-            print "cli_auth_credentials_store = \"file\""
+            print setting
             print ""
             inserted = 1
         }
@@ -86,7 +88,7 @@ ensure_codex_file_credentials() {
         END {
             if (!inserted) {
                 if (NR > 0) print ""
-                print "cli_auth_credentials_store = \"file\""
+                print setting
             }
         }
     ' "$config_path" > "$config_tmp"
@@ -109,7 +111,10 @@ ensure_npm_cli() {
 }
 
 ensure_state_layout
-ensure_codex_file_credentials
+ensure_codex_config_default cli_auth_credentials_store '"file"'
+if [[ -n "${JUST_TERMINAL_CODEX_SANDBOX_MODE:-}" ]]; then
+    ensure_codex_config_default sandbox_mode "\"$JUST_TERMINAL_CODEX_SANDBOX_MODE\""
+fi
 
 ensure_npm_cli codex @openai/codex "$JUST_TERMINAL_CODEX_VERSION"
 ensure_npm_cli claude @anthropic-ai/claude-code "$JUST_TERMINAL_CLAUDE_CODE_VERSION"

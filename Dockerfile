@@ -77,6 +77,7 @@ ENV NODE_REPL_HISTORY=/var/lib/just-terminal/state/node/repl_history
 ENV PYTHON_HISTORY=/var/lib/just-terminal/state/python/history
 ENV JUST_TERMINAL_CODEX_VERSION=${CODEX_VERSION}
 ENV JUST_TERMINAL_CLAUDE_CODE_VERSION=${CLAUDE_CODE_VERSION}
+ENV JUST_TERMINAL_CODEX_SANDBOX_MODE=danger-full-access
 
 RUN mkdir -p \
     "$XDG_RUNTIME_DIR" \
