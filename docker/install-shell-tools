@@ -89,31 +89,37 @@ mkdir -p "$plugins_root"
 install_plugin() {
     local repository="$1"
     local revision="$2"
-    local destination="$3"
+    local sha="$3"
+    local destination="$4"
+    local archive="$shell_tools_tmp/plugin-${revision}.tar.gz"
 
-    git init --quiet "$destination"
-    git -C "$destination" remote add origin "$repository"
-    git -C "$destination" fetch --quiet --depth 1 origin "$revision"
-    git -C "$destination" checkout --quiet --detach FETCH_HEAD
-    test "$(git -C "$destination" rev-parse HEAD)" = "$revision"
-    rm -rf "$destination/.git"
+    download_and_verify \
+        "https://codeload.github.com/${repository}/tar.gz/${revision}" \
+        "$sha" \
+        "$archive"
+    mkdir "$destination"
+    tar -xzf "$archive" --strip-components=1 -C "$destination"
 }
 
 install_plugin \
-    https://github.com/zdharma-continuum/fast-syntax-highlighting.git \
+    zdharma-continuum/fast-syntax-highlighting \
     3d574ccf48804b10dca52625df13da5edae7f553 \
+    20481200fdd23fe15df1e4ff77cfa778b2278cd43786befff9e406c031461ae5 \
     "$plugins_root/fast-syntax-highlighting"
 install_plugin \
-    https://github.com/zsh-users/zsh-autosuggestions.git \
+    zsh-users/zsh-autosuggestions \
     85919cd1ffa7d2d5412f6d3fe437ebdbeeec4fc5 \
+    20665e469e720e674964a66854d5534b9af78cdfd438512746ecd1ade8e819ce \
     "$plugins_root/zsh-autosuggestions"
 install_plugin \
-    https://github.com/zsh-users/zsh-completions.git \
+    zsh-users/zsh-completions \
     84615f3d0b0e943d5b1de862c9552e572c8e70bb \
+    2779bc3c71597344cce29f8d8b55e1cd2a0abfbf4622653177d0e27526f07b87 \
     "$plugins_root/zsh-completions"
 install_plugin \
-    https://github.com/agkozak/zsh-z.git \
+    agkozak/zsh-z \
     cf9225feebfae55e557e103e95ce20eca5eff270 \
+    1c168331f032f47c16493b7acceceda2db4d3abe2348faadb5206b20e623e78b \
     "$plugins_root/zsh-z"
 
 starship --version
