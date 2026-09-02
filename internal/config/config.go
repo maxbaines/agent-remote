@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/BurntSushi/toml"
+	"github.com/maxbaines/just-terminal/internal/tunnelorigin"
 )
 
 // Config is the top-level configuration for just-terminal.
@@ -43,6 +44,11 @@ type ServerConfig struct {
 	// only — no path, no trailing slash. Empty by default. Ignored
 	// entirely when BehindReverseProxy is false.
 	PublicOrigin string `toml:"public_origin"        json:"public_origin"`
+	// TunnelOrigin is the wildcard public origin assigned to local apps, for
+	// example "https://{id}.apps.example.com". DNS, TLS, and the fronting
+	// reverse proxy must route that wildcard to this same Gateway. Empty means
+	// local-app tunnels are unavailable.
+	TunnelOrigin string `toml:"tunnel_origin"        json:"tunnel_origin"`
 	// BehindReverseProxy opts just-terminal into reverse-proxy mode: every
 	// public-facing URL just-terminal builds derives from PublicOrigin, and the
 	// IsLocalhost() auth bypass is disabled entirely. Opt-in, default
@@ -63,6 +69,9 @@ type ServerConfig struct {
 // When BehindReverseProxy is false, PublicOrigin is inapplicable and is
 // ignored entirely — not an error.
 func (s ServerConfig) Validate() error {
+	if _, err := tunnelorigin.Parse(s.TunnelOrigin); err != nil {
+		return err
+	}
 	if !s.BehindReverseProxy {
 		return nil
 	}
@@ -253,6 +262,7 @@ func Defaults() Config {
 		// the shipped default posture is readable here.
 		Server: ServerConfig{
 			PublicOrigin:       "",
+			TunnelOrigin:       "",
 			BehindReverseProxy: false,
 		},
 	}

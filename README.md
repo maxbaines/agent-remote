@@ -49,7 +49,8 @@ use any final HTTPS origin they control.
 ./bin/just-terminal serve \
   --addr 127.0.0.1:8080 \
   --behind-reverse-proxy \
-  --public-origin https://my-instance.js.actor
+  --public-origin https://terminal.example.com \
+  --tunnel-origin 'https://{id}.apps.example.com'
 ```
 
 Then create the single-use owner-enrollment link on the Host:
@@ -72,8 +73,11 @@ For a Coolify deployment:
 1. Build from the repository `Dockerfile`.
 2. Expose port `8311` through an HTTPS domain.
 3. Set `JUST_TERMINAL_PUBLIC_ORIGIN` to that exact origin (for example,
-   `https://my-instance.js.actor`).
-4. Add persistent storage for the paths below.
+   `https://terminal.example.com`).
+4. To expose local apps, route a wildcard hostname to the same container and set
+   `JUST_TERMINAL_TUNNEL_ORIGIN` (for example,
+   `https://{id}.apps.example.com`). See [Local app tunnels](docs/local-app-tunnels.md).
+5. Add persistent storage for the paths below.
 
 | Destination | Contents |
 |---|---|
@@ -108,19 +112,21 @@ curl -sS \
   http://localhost:8311/api/tunnels
 ```
 
-The response includes a short tunnel ID:
+The response includes a short tunnel ID and a capability URL on the configured
+wildcard origin:
 
 ```json
-{"id":"a7k2q","port":5173}
+{"id":"a7k2q","port":5173,"url":"https://a7k2q.apps.example.com/_just-terminal/connect#token=…"}
 ```
 
-Open the app at `/t/<id>/` on the same JustTerminal origin, for example:
+Open the returned URL. The app receives its own hostname root, so ordinary
+`/assets`, `/api`, cookies, redirects, and WebSockets work without application
+changes. No additional container port needs to be published. Tunnel
+registrations last until the JustTerminal Gateway restarts.
 
-```text
-https://my-instance.js.actor/t/a7k2q/
-```
-
-No additional container port needs to be published. Tunnel registrations last until the JustTerminal Gateway restarts.
+Wildcard DNS, TLS, and reverse-proxy routing must be configured once by the
+operator. See [Local app tunnels](docs/local-app-tunnels.md) for Caddy, Apache,
+Traefik, and Coolify recipes.
 
 ## Agent integration with MCP
 

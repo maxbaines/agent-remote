@@ -33,8 +33,8 @@ func (tt *tunnelTools) listTunnels(_ map[string]any) (string, error) {
 }
 
 // createTunnel registers a new port-forward tunnel for args["port"] and
-// returns {"id":"<id>","port":<port>}. The tunnel is reachable at /t/{id}/ on
-// the just-terminal serve layer.
+// returns {"id":"<id>","port":<port>,"url":"<capability-url>"}. The URL
+// uses the operator-configured wildcard local-app origin.
 func (tt *tunnelTools) createTunnel(args map[string]any) (string, error) {
 	port, err := argInt(args, "port")
 	if err != nil {

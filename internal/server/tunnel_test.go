@@ -4,6 +4,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/maxbaines/just-terminal/internal/tunnelorigin"
 )
 
 // ---- TunnelRegistry unit tests ----
@@ -87,12 +89,17 @@ func TestTunnelRegistry_List(t *testing.T) {
 	}
 }
 
-// ---- /t/{id}/ proxy route tests ----
+// ---- Wildcard-host proxy route tests ----
 
 func TestTunnelProxy_NotFound(t *testing.T) {
-	srv := New(Config{NoAuth: true})
+	origin, err := tunnelorigin.Parse("http://{id}.apps.localhost")
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv := New(Config{NoAuth: true, TunnelOrigin: origin})
 
-	req := httptest.NewRequest(http.MethodGet, "/t/notfound/", nil)
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.Host = "notfound.apps.localhost"
 	w := httptest.NewRecorder()
 	srv.Handler().ServeHTTP(w, req)
 
@@ -105,19 +112,23 @@ func TestTunnelProxy_NotFound(t *testing.T) {
 func TestTunnelProxy_NoID(t *testing.T) {
 	srv := New(Config{NoAuth: true})
 
-	// Path without an ID segment should return 400.
+	// The former path-based tunnel mode is gone.
 	req := httptest.NewRequest(http.MethodGet, "/t/", nil)
 	w := httptest.NewRecorder()
 	srv.Handler().ServeHTTP(w, req)
 
 	resp := w.Result()
-	if resp.StatusCode != http.StatusBadRequest {
-		t.Errorf("status = %d, want 400 for missing tunnel ID", resp.StatusCode)
+	if resp.StatusCode != http.StatusNotFound {
+		t.Errorf("status = %d, want 404 for removed path tunnel mode", resp.StatusCode)
 	}
 }
 
 func TestTunnelProxy_Found(t *testing.T) {
-	srv := New(Config{NoAuth: true})
+	origin, err := tunnelorigin.Parse("http://{id}.apps.localhost")
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv := New(Config{NoAuth: true, TunnelOrigin: origin})
 
 	// Register a tunnel with an unused port.
 	id, err := srv.tunnels.Create(19998)
@@ -130,9 +141,15 @@ func TestTunnelProxy_Found(t *testing.T) {
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
-	resp, err := http.Get(ts.URL + "/t/" + id + "/")
+	req, err := http.NewRequest(http.MethodGet, ts.URL+"/", nil)
 	if err != nil {
-		t.Fatalf("GET /t/%s/: %v", id, err)
+		t.Fatalf("new request: %v", err)
+	}
+	req.Host = id + ".apps.localhost"
+	req.AddCookie(&http.Cookie{Name: tunnelCookieName, Value: srv.tunnels.Token(id)})
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("GET wildcard tunnel host: %v", err)
 	}
 	defer resp.Body.Close()
 

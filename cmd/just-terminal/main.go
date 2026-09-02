@@ -23,6 +23,7 @@ import (
 	"github.com/maxbaines/just-terminal/internal/server"
 	"github.com/maxbaines/just-terminal/internal/service"
 	"github.com/maxbaines/just-terminal/internal/sessiond"
+	"github.com/maxbaines/just-terminal/internal/tunnelorigin"
 	webstatic "github.com/maxbaines/just-terminal/web"
 )
 
@@ -208,6 +209,9 @@ func resolveServerConfig(cli Config, file config.ServerConfig) config.ServerConf
 	if cli.PublicOrigin != "" {
 		out.PublicOrigin = cli.PublicOrigin
 	}
+	if cli.TunnelOrigin != "" {
+		out.TunnelOrigin = cli.TunnelOrigin
+	}
 	if cli.BehindReverseProxy {
 		out.BehindReverseProxy = true
 	}
@@ -247,6 +251,14 @@ func publicBaseURL(addr string, sc config.ServerConfig) string {
 // exactly the URL the browser will actually be sent back to.
 func webRedirectURIFor(addr string, sc config.ServerConfig) string {
 	return publicBaseURL(addr, sc) + "/auth/callback"
+}
+
+func localTunnelOrigin(addr string) string {
+	_, port, err := net.SplitHostPort(addr)
+	if err != nil || port == "" {
+		port = "8311"
+	}
+	return "http://{id}.localhost:" + port
 }
 
 func authDir() string {
@@ -363,6 +375,10 @@ func runLocal(cfg Config) error {
 	// BehindReverseProxy is false, so webRedirectURIFor falls through to
 	// the pre-existing loopback derivation, byte-for-byte unchanged.
 	localServerCfg := config.ServerConfig{}
+	localOrigin, err := tunnelorigin.Parse(localTunnelOrigin(cfg.Addr))
+	if err != nil {
+		return err
+	}
 
 	authSrv, err := newAuthServer(cfg.Addr, localServerCfg)
 	if err != nil {
@@ -375,6 +391,7 @@ func runLocal(cfg Config) error {
 		ConfigPath:    config.DefaultPath(),
 		InitialConfig: resolved,
 		AuthServer:    authSrv,
+		TunnelOrigin:  localOrigin,
 		// No BehindReverseProxy field is set: local mode leaves it at its
 		// zero false, keeping the IsLocalhost() bypass exactly as today.
 		WebRedirectURI: webRedirectURIFor(cfg.Addr, localServerCfg),
@@ -419,6 +436,10 @@ func runServe(cfg Config) error {
 	if err != nil {
 		log.Printf("just-terminal: authentication unavailable (%v) — non-loopback access will be denied; local access is unaffected", err)
 	}
+	tunnelOrigin, err := tunnelorigin.Parse(srvCfg.TunnelOrigin)
+	if err != nil {
+		return err
+	}
 
 	srv := server.New(server.Config{
 		Addr:               cfg.Addr,
@@ -427,6 +448,7 @@ func runServe(cfg Config) error {
 		ConfigPath:         config.DefaultPath(),
 		InitialConfig:      resolved,
 		AuthServer:         authSrv,
+		TunnelOrigin:       tunnelOrigin,
 		WebRedirectURI:     webRedirectURIFor(cfg.Addr, srvCfg),
 		BehindReverseProxy: srvCfg.BehindReverseProxy,
 	})

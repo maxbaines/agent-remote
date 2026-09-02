@@ -377,7 +377,7 @@ func registerTunnelTools(srv *Server) {
 
 	srv.Register(
 		"create_tunnel",
-		"create a new port-forward tunnel for the given local port; returns id and the /t/{id}/ proxy path",
+		"create a local-app tunnel for the given port; returns its id and wildcard-host access URL",
 		map[string]any{
 			"type": "object",
 			"properties": map[string]any{

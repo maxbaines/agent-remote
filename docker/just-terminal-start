@@ -122,7 +122,14 @@ ensure_npm_cli claude @anthropic-ai/claude-code "$JUST_TERMINAL_CLAUDE_CODE_VERS
 printf 'just-terminal: Codex %s\n' "$(codex --version)"
 printf 'just-terminal: Claude Code %s\n' "$(claude --version)"
 
-exec /usr/local/bin/just-terminal serve \
-    --addr 0.0.0.0:8311 \
-    --behind-reverse-proxy \
+serve_args=(
+    serve
+    --addr 0.0.0.0:8311
+    --behind-reverse-proxy
     --public-origin "${JUST_TERMINAL_PUBLIC_ORIGIN:?set JUST_TERMINAL_PUBLIC_ORIGIN to the instance origin, e.g. https://my-instance.js.actor}"
+)
+if [[ -n "${JUST_TERMINAL_TUNNEL_ORIGIN:-}" ]]; then
+    serve_args+=(--tunnel-origin "$JUST_TERMINAL_TUNNEL_ORIGIN")
+fi
+
+exec /usr/local/bin/just-terminal "${serve_args[@]}"

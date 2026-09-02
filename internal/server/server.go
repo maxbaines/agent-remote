@@ -4,13 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io/fs"
 	"mime"
 	"net/http"
-	"net/http/httputil"
-	"net/url"
-	"strings"
 	"sync"
 	"time"
 
@@ -18,6 +14,7 @@ import (
 	codexintegration "github.com/maxbaines/just-terminal/internal/codex"
 	muxcfg "github.com/maxbaines/just-terminal/internal/config"
 	"github.com/maxbaines/just-terminal/internal/sessiond"
+	"github.com/maxbaines/just-terminal/internal/tunnelorigin"
 )
 
 func init() {
@@ -35,6 +32,7 @@ type Config struct {
 	NoAuth        bool          // skip all auth checks, including loopback bypass (dev only)
 	ConfigPath    string        // path to write config.toml on PATCH /api/config (empty = skip writes)
 	InitialConfig muxcfg.Config // initial resolved configuration (zero value = package defaults)
+	TunnelOrigin  tunnelorigin.Origin
 
 	// AuthServer is nil when the credential store or WebAuthn configuration is
 	// unavailable at startup (see cmd/just-terminal's newAuthServer) — then every
@@ -52,11 +50,12 @@ type Config struct {
 
 // Server is the HTTP server for just-terminal.
 type Server struct {
-	addr    string
-	noAuth  bool
-	mux     *http.ServeMux
-	hub     *Hub
-	tunnels *TunnelRegistry
+	addr         string
+	noAuth       bool
+	mux          *http.ServeMux
+	hub          *Hub
+	tunnels      *TunnelRegistry
+	tunnelOrigin tunnelorigin.Origin
 
 	authSrv        *authserver.AuthServer
 	webRedirectURI string
@@ -78,7 +77,6 @@ type Server struct {
 func New(cfg Config) *Server {
 	tunnels := NewTunnelRegistry()
 	hub := NewHub(nil)
-	hub.tunnels = tunnels
 
 	s := &Server{
 		addr:           cfg.Addr,
@@ -86,6 +84,7 @@ func New(cfg Config) *Server {
 		mux:            http.NewServeMux(),
 		hub:            hub,
 		tunnels:        tunnels,
+		tunnelOrigin:   cfg.TunnelOrigin,
 		authSrv:        cfg.AuthServer,
 		webRedirectURI: cfg.WebRedirectURI,
 	}
@@ -158,7 +157,6 @@ func New(cfg Config) *Server {
 	s.mux.Handle("GET /api/tunnels", protect(http.HandlerFunc(s.handleTunnelList)))
 	s.mux.Handle("POST /api/tunnels", protect(http.HandlerFunc(s.handleTunnelCreate)))
 	s.mux.Handle("DELETE /api/tunnels/{id}", protect(http.HandlerFunc(s.handleTunnelClose)))
-	s.mux.Handle("/t/", protect(http.HandlerFunc(s.handleTunnelProxy)))
 	s.mux.Handle("GET /ws", protect(http.HandlerFunc(s.handleWS)))
 
 	if cfg.StaticFS != nil {
@@ -170,7 +168,7 @@ func New(cfg Config) *Server {
 
 // Handler returns the http.Handler for use with httptest or custom servers.
 func (s *Server) Handler() http.Handler {
-	return s.mux
+	return http.HandlerFunc(s.serveHTTP)
 }
 
 // ListenAndServe starts the HTTP server and blocks until ctx is cancelled.
@@ -181,7 +179,7 @@ func (s *Server) ListenAndServe(ctx context.Context) error {
 
 	srv := &http.Server{
 		Addr:    s.addr,
-		Handler: s.mux,
+		Handler: s.Handler(),
 	}
 
 	errCh := make(chan error, 1)
@@ -299,12 +297,17 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 // handleTunnelList returns a JSON array of all active tunnels (id, port).
 // AuthMiddleware protects this route at mux registration.
 func (s *Server) handleTunnelList(w http.ResponseWriter, r *http.Request) {
+	if !s.tunnelOrigin.Configured() {
+		http.Error(w, "local apps unavailable: configure tunnel_origin", http.StatusServiceUnavailable)
+		return
+	}
 	entries := s.tunnels.List()
 	items := make([]map[string]any, 0, len(entries))
 	for _, e := range entries {
 		items = append(items, map[string]any{
 			"id":   e.id,
 			"port": e.port,
+			"url":  s.tunnelOrigin.AccessURL(e.id, e.token),
 		})
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -315,6 +318,10 @@ func (s *Server) handleTunnelList(w http.ResponseWriter, r *http.Request) {
 // assigned id. Body must be JSON {"port": <int>}. AuthMiddleware protects
 // this route at mux registration.
 func (s *Server) handleTunnelCreate(w http.ResponseWriter, r *http.Request) {
+	if !s.tunnelOrigin.Configured() {
+		http.Error(w, "local apps unavailable: configure tunnel_origin", http.StatusServiceUnavailable)
+		return
+	}
 	var body struct {
 		Port int `json:"port"`
 	}
@@ -335,6 +342,7 @@ func (s *Server) handleTunnelCreate(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]any{ //nolint:errcheck
 		"id":   id,
 		"port": body.Port,
+		"url":  s.tunnelOrigin.AccessURL(id, s.tunnels.Token(id)),
 	})
 }
 
@@ -349,63 +357,4 @@ func (s *Server) handleTunnelClose(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]any{"ok": true}) //nolint:errcheck
-}
-
-// handleTunnelProxy reverse-proxies requests arriving at /t/{id}/... to the
-// local port registered under id. It returns 400 when no id segment is
-// present and 404 when the id is unknown.
-func (s *Server) handleTunnelProxy(w http.ResponseWriter, r *http.Request) {
-	// Strip the leading "/t/" prefix, then extract the id (up to the next '/').
-	rest := strings.TrimPrefix(r.URL.Path, "/t/")
-	if rest == "" {
-		http.Error(w, "tunnel id required", http.StatusBadRequest)
-		return
-	}
-
-	// Extract the ID segment (everything before the first '/').
-	id := rest
-	suffix := ""
-	if idx := strings.Index(rest, "/"); idx >= 0 {
-		id = rest[:idx]
-		suffix = rest[idx:]
-	}
-
-	if id == "" {
-		http.Error(w, "tunnel id required", http.StatusBadRequest)
-		return
-	}
-
-	port, ok := s.tunnels.Port(id)
-	if !ok {
-		http.Error(w, "tunnel not found", http.StatusNotFound)
-		return
-	}
-
-	target, err := url.Parse(fmt.Sprintf("http://localhost:%d", port))
-	if err != nil {
-		http.Error(w, "internal error", http.StatusInternalServerError)
-		return
-	}
-
-	// Clone the request and rewrite the URL path to strip the /t/{id} prefix
-	// before forwarding to the upstream. Cookie/Authorization are stripped
-	// so the tunneled (potentially untrusted, arbitrary local dev server)
-	// target never receives just-terminal's own session credentials — see
-	// design doc "Tunnel credential stripping." This closes the
-	// credential-forwarding vector only; same-origin JS access from the
-	// tunneled page is a separate, unresolved limitation (design doc "Out
-	// of Scope").
-	cloned := r.Clone(r.Context())
-	cloned.Header.Del("Cookie")
-	cloned.Header.Del("Authorization")
-	cloned.URL = &url.URL{
-		Scheme:   target.Scheme,
-		Host:     target.Host,
-		Path:     suffix,
-		RawQuery: r.URL.RawQuery,
-	}
-	cloned.Host = target.Host
-
-	proxy := httputil.NewSingleHostReverseProxy(target)
-	proxy.ServeHTTP(w, cloned)
 }

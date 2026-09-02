@@ -25,6 +25,9 @@ type Config struct {
 	// config file's [server].public_origin. Empty means "unset — use the
 	// config file value."
 	PublicOrigin string
+	// TunnelOrigin is the serve-mode --tunnel-origin override for the config
+	// file's [server].tunnel_origin. Empty means "use the config file value."
+	TunnelOrigin string
 	// BehindReverseProxy is the serve-mode --behind-reverse-proxy override
 	// for the config file's [server].behind_reverse_proxy. false means
 	// "unset — use the config file value"; the flag can only turn the
@@ -190,6 +193,7 @@ func parseServe(args []string) (Config, error) {
 	secret := fs.String("secret", "", "auth secret (auto-generated if empty)")
 	noAuth := fs.Bool("no-auth", false, "skip WebSocket auth check (dev only — never use in production)")
 	publicOrigin := fs.String("public-origin", "", "canonical public origin when behind a reverse proxy (e.g. https://my-instance.js.actor); required with --behind-reverse-proxy")
+	tunnelOrigin := fs.String("tunnel-origin", "", "wildcard local-app origin (e.g. https://{id}.apps.example.com)")
 	behindProxy := fs.Bool("behind-reverse-proxy", false, "run behind a reverse proxy: derive public URLs from --public-origin and disable the loopback auth bypass")
 	fs.Usage = func() {
 		fmt.Fprintln(os.Stdout, "Usage: just-terminal serve [flags]")
@@ -208,6 +212,7 @@ func parseServe(args []string) (Config, error) {
 		Secret:             *secret,
 		NoAuth:             *noAuth,
 		PublicOrigin:       *publicOrigin,
+		TunnelOrigin:       *tunnelOrigin,
 		BehindReverseProxy: *behindProxy,
 	}, nil
 }

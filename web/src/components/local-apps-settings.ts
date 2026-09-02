@@ -4,6 +4,7 @@ import { customElement, state } from 'lit/decorators.js';
 interface TunnelInfo {
   id: string;
   port: number;
+  url: string;
 }
 
 @customElement('mux-local-apps-settings')
@@ -242,12 +243,12 @@ export class MuxLocalAppsSettings extends LitElement {
     void this._refresh();
   }
 
-  private _tunnelPath(id: string): string {
-    return `/t/${id}/`;
-  }
-
-  private _tunnelURL(id: string): string {
-    return new URL(this._tunnelPath(id), window.location.origin).toString();
+  private _tunnelOrigin(tunnel: TunnelInfo): string {
+    try {
+      return new URL(tunnel.url).origin;
+    } catch {
+      return tunnel.url;
+    }
   }
 
   private _sortTunnels(tunnels: TunnelInfo[]): TunnelInfo[] {
@@ -323,13 +324,13 @@ export class MuxLocalAppsSettings extends LitElement {
     }
   }
 
-  private async _copy(id: string): Promise<void> {
+  private async _copy(tunnel: TunnelInfo): Promise<void> {
     this._error = '';
     try {
-      await navigator.clipboard.writeText(this._tunnelURL(id));
-      this._copiedId = id;
+      await navigator.clipboard.writeText(tunnel.url);
+      this._copiedId = tunnel.id;
       window.setTimeout(() => {
-        if (this._copiedId === id) this._copiedId = null;
+        if (this._copiedId === tunnel.id) this._copiedId = null;
       }, 1600);
     } catch {
       this._error = 'Could not copy the URL. Open the app and copy it from the address bar.';
@@ -350,17 +351,17 @@ export class MuxLocalAppsSettings extends LitElement {
               :${tunnel.port}
               <span class="registered">Registered</span>
             </div>
-            <div class="path" title="${this._tunnelPath(tunnel.id)}">
-              ${this._tunnelPath(tunnel.id)}
+            <div class="path" title="${this._tunnelOrigin(tunnel)}">
+              ${this._tunnelOrigin(tunnel)}
             </div>
             <div class="actions">
               <a
                 class="secondary-btn"
-                href="${this._tunnelPath(tunnel.id)}"
+                href="${tunnel.url}"
                 target="_blank"
                 rel="noopener noreferrer"
               >Open</a>
-              <button class="secondary-btn" @click="${() => this._copy(tunnel.id)}">
+              <button class="secondary-btn" @click="${() => this._copy(tunnel)}">
                 ${this._copiedId === tunnel.id ? 'Copied' : 'Copy'}
               </button>
               <button
@@ -415,8 +416,9 @@ export class MuxLocalAppsSettings extends LitElement {
       ${this._renderTunnels()}
 
       <div class="notice">
-        Registrations are cleared when the Gateway restarts. Apps must support being served beneath
-        <strong>/t/&lt;id&gt;/</strong>. Only expose apps you trust; tunneled pages share JustTerminal's origin.
+        Registrations are cleared when the Gateway restarts. Each app opens at the root of its own
+        wildcard hostname, so root assets, APIs, cookies, and WebSockets work normally. Only expose
+        apps you trust.
       </div>
     `;
   }

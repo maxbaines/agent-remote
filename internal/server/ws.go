@@ -472,8 +472,7 @@ type Hub struct {
 	clients        map[*Client]bool
 	mu             sync.RWMutex
 	dial           DialFunc
-	resolvedConfig any             // just-terminal-owned resolved config, shipped to clients on connect
-	tunnels        *TunnelRegistry // shared tunnel registry for /t/{id}/ proxy
+	resolvedConfig any // just-terminal-owned resolved config, shipped to clients on connect
 	codexSnapshot  *codexintegration.Snapshot
 }
 
@@ -534,8 +533,7 @@ func (h *Hub) BroadcastCodex(snapshot codexintegration.Snapshot) {
 }
 
 // NewHub creates a new Hub that dials a fresh daemon connection per browser via
-// dial. dial may be nil and supplied later via SetDialer. tunnels is nil until
-// set by the caller (server.New sets it via hub.tunnels = tunnels).
+// dial. dial may be nil and supplied later via SetDialer.
 func NewHub(dial DialFunc) *Hub {
 	return &Hub{
 		clients: make(map[*Client]bool),
