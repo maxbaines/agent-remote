@@ -20,8 +20,8 @@ FROM ghcr.io/openai/codex-universal:47f4f0eb5337083e2f610db0d15558932cb4901d
 
 # JustTerminal-managed additions to the upstream Codex Universal image.
 # Keep their versions here so deployments can override them with --build-arg.
-ARG CODEX_VERSION=0.149.1
-ARG CLAUDE_CODE_VERSION=2.1.246
+ARG CODEX_VERSION=0.153.2
+ARG CLAUDE_CODE_VERSION=2.1.260
 ARG PLAYWRIGHT_CLI_VERSION=0.1.19
 ARG STARSHIP_VERSION=1.24.2
 ARG DELTA_VERSION=0.19.2
