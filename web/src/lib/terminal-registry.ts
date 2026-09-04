@@ -1169,15 +1169,22 @@ export const terminalRegistry = {
   },
 
   /**
-   * Clear this browser's visible screen and scrollback without writing to the
-   * PTY or resetting xterm.js emulator state.
+   * Ask the foreground terminal program to clear and redraw from row 1.
+   *
+   * This must travel through the PTY. Calling xterm.js clear() directly moves
+   * only the browser cursor to row 1 while sessiond's authoritative VTBuffer
+   * stays on the old row. Cursor-aware programs such as Codex then receive the
+   * old row from CSI 6n and render halfway down the locally-cleared screen.
+   * Ctrl+L lets the foreground program emit one redraw that both emulators
+   * consume, keeping their cursor coordinates aligned.
    */
   clearToStart(paneId: number): void {
     const key = _key(paneId);
     const entry = _map.get(key);
-    if (!entry) return;
+    if (!entry || !entry.ready) return;
     terminalPresentation.startClearBoundary(key);
-    entry.term.clear();
+    entry.handlers.onInput(_encoder.encode('\x0c'));
+    entry.term.focus();
   },
 
   /**

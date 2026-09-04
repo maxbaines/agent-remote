@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * clear-to-start.mjs — real-browser/sessiond coverage for browser-local Clear to start.
+ * clear-to-start.mjs — real-browser/sessiond coverage for terminal-owned Clear to start.
  *
  * Usage: node web/e2e/clear-to-start.mjs [--url http://127.0.0.1:8313]
  */
@@ -95,6 +95,33 @@ try {
   pcliFor(observerSession, 'open', url);
   waitFor(observerSession, `${DOCK} && ${STORE}?.activePaneId > 0`, 15_000);
 
+  const fixtureName = `clear-to-start-${Date.now()}`;
+  const fixtureRef = `${fixtureName}-${process.pid}`;
+  pcliFor(
+    primarySession,
+    'eval',
+    `${APP}._socket.createWorkspace(${JSON.stringify(fixtureName)}, ${JSON.stringify(fixtureRef)})`,
+  );
+  waitFor(
+    primarySession,
+    `${STORE}.attached === ${STORE}.workspaces.find((workspace) => workspace.name === ${JSON.stringify(fixtureName)})?.workspaceId && ${STORE}.activePaneId > 0`,
+    15_000,
+  );
+  const fixtureWorkspaceId = pevalJsonFor(
+    primarySession,
+    `${STORE}.workspaces.find((workspace) => workspace.name === ${JSON.stringify(fixtureName)})?.workspaceId`,
+  );
+  pcliFor(
+    observerSession,
+    'eval',
+    `${APP}._socket.attachWithBreakpoint(${JSON.stringify(fixtureWorkspaceId)}, 'wide')`,
+  );
+  waitFor(
+    observerSession,
+    `${STORE}.attached === ${JSON.stringify(fixtureWorkspaceId)} && ${STORE}.activePaneId > 0`,
+    15_000,
+  );
+
   const command = pevalJsonFor(primarySession, `${APP}.commands.get('terminal.clear-to-start') ?? null`);
   assert(command?.id === 'terminal.clear-to-start', `missing clear Command: ${JSON.stringify(command)}`);
   assert(command?.title === 'Clear to start', `unexpected clear title: ${command?.title}`);
@@ -104,6 +131,11 @@ try {
       shortcut.chord === 'shift+meta+k' && shortcut.platform === 'macos'),
     `missing macOS Cmd+Shift+K default: ${JSON.stringify(command.defaultShortcuts)}`,
   );
+  assert(
+    command.defaultShortcuts.some((shortcut) =>
+      shortcut.chord === 'ctrl+shift+k' && shortcut.platform === 'other'),
+    `missing non-macOS Ctrl+Shift+K default: ${JSON.stringify(command.defaultShortcuts)}`,
+  );
 
   const paneId = pevalJsonFor(primarySession, `${STORE}.activePaneId`);
   assert(
@@ -112,39 +144,54 @@ try {
   );
   const marker = `clear-to-start-before-${Date.now()}`;
   const probeTimestamp = Date.now();
-  const readReady = `clear-to-start-read-ready-${probeTimestamp}`;
+  const fillReady = `clear-to-start-fill-ready-${probeTimestamp}`;
   const postMarker = `clear-to-start-after-${probeTimestamp}`;
   const shellProbe = [
-    `printf '%s\\n' '${marker}'`,
+    `cpr() { stty raw -echo min 0 time 5; printf '\\033[6n'; dd bs=1 count=16 2>/dev/null | od -An -tx1; stty sane; }`,
     'clear_original_pwd=$PWD',
     'export AR_CLEAR_SENTINEL=preserved',
-    `printf '%s%s\\n' 'clear-to-start-read-' 'ready-${probeTimestamp}'`,
-    'IFS= read -r clear_probe',
-    `[ "$clear_probe" = x ] && [ "$PWD" = "$clear_original_pwd" ] && [ "$AR_CLEAR_SENTINEL" = preserved ] && printf '%s%s\\n' 'clear-to-start-' 'after-${probeTimestamp}'`,
+    `printf '%s\\n' '${marker}'`,
+    'seq 1 35',
+    `printf '%s\\n' '${fillReady}'`,
   ].join('; ');
   pcliFor(
     primarySession,
     'eval',
     `${APP}._socket.sendPaneInput(${paneId}, new TextEncoder().encode(${JSON.stringify(`${shellProbe}\r`)}))`,
   );
-  waitFor(primarySession, `${DOCK}.getTerminalContent(${paneId}).includes(${JSON.stringify(readReady)})`);
-  waitFor(observerSession, `${DOCK}.getTerminalContent(${paneId}).includes(${JSON.stringify(readReady)})`);
+  waitFor(primarySession, `${DOCK}.getTerminalContent(${paneId}).includes(${JSON.stringify(fillReady)})`);
+  waitFor(observerSession, `${DOCK}.getTerminalContent(${paneId}).includes(${JSON.stringify(fillReady)})`);
 
-  pcliFor(primarySession, 'press', 'Meta+k');
+  // Playwright runs Linux Chrome, so exercise the registered non-macOS chord.
+  // The foreground shell must receive Ctrl+L and emit the redraw through the
+  // PTY; clearing xterm.js locally would desynchronise its cursor from
+  // sessiond's authoritative VTBuffer.
+  pcliFor(primarySession, 'press', 'Control+Shift+k');
   waitFor(primarySession, `!${DOCK}.getTerminalContent(${paneId}).includes(${JSON.stringify(marker)})`);
-  sleep(500);
-  assert(
-    pevalJsonFor(observerSession, `${DOCK}.getTerminalContent(${paneId}).includes(${JSON.stringify(marker)})`) === true,
-    'Clear to start mutated the observer presentation',
-  );
-  assert(
-    pevalJsonFor(observerSession, `${DOCK}.getTerminalContent(${paneId}).includes(${JSON.stringify(postMarker)})`) === false,
-    'Cmd+K sent input to the foreground process',
-  );
+  waitFor(observerSession, `!${DOCK}.getTerminalContent(${paneId}).includes(${JSON.stringify(marker)})`);
+
+  // Codex asks CSI 6n before its first inline render. The shell command itself
+  // occupies row 1, so the authoritative reply must report row 2. The old
+  // browser-local clear returned the pre-clear row (typically 30+).
+  const cursorProbe = 'cpr';
   pcliFor(
-    observerSession,
+    primarySession,
     'eval',
-    `${APP}._socket.sendPaneInput(${paneId}, new TextEncoder().encode('x\\r'))`,
+    `${APP}._socket.sendPaneInput(${paneId}, new TextEncoder().encode(${JSON.stringify(`${cursorProbe}\r`)}))`,
+  );
+  const rowTwoCPR = '1b 5b 32 3b';
+  waitFor(primarySession, `${DOCK}.getTerminalContent(${paneId}).includes(${JSON.stringify(rowTwoCPR)})`);
+  waitFor(observerSession, `${DOCK}.getTerminalContent(${paneId}).includes(${JSON.stringify(rowTwoCPR)})`);
+
+  const stateProbe = [
+    '[ "$PWD" = "$clear_original_pwd" ]',
+    '[ "$AR_CLEAR_SENTINEL" = preserved ]',
+    `printf '%s\\n' '${postMarker}'`,
+  ].join(' && ');
+  pcliFor(
+    primarySession,
+    'eval',
+    `${APP}._socket.sendPaneInput(${paneId}, new TextEncoder().encode(${JSON.stringify(`${stateProbe}\r`)}))`,
   );
   waitFor(primarySession, `${DOCK}.getTerminalContent(${paneId}).includes(${JSON.stringify(postMarker)})`);
   waitFor(observerSession, `${DOCK}.getTerminalContent(${paneId}).includes(${JSON.stringify(postMarker)})`);
@@ -154,11 +201,7 @@ try {
   waitFor(primarySession, `${DOCK}.getTerminalContent(${paneId}).includes(${JSON.stringify(postMarker)})`, 15_000);
   assert(
     pevalJsonFor(primarySession, `${DOCK}.getTerminalContent(${paneId}).includes(${JSON.stringify(marker)})`) === false,
-    'a reload revealed output hidden before the local clear boundary',
-  );
-  assert(
-    pevalJsonFor(observerSession, `${DOCK}.getTerminalContent(${paneId}).includes(${JSON.stringify(marker)})`) === true,
-    'the primary reload changed the observer presentation',
+    'a reload revealed output hidden before the clear boundary',
   );
 
   const reconnectMarker = `clear-to-start-reconnect-${Date.now()}`;
@@ -179,67 +222,14 @@ try {
   waitFor(primarySession, `${DOCK}.getTerminalContent(${paneId}).includes(${JSON.stringify(reconnectMarker)})`, 15_000);
   assert(
     pevalJsonFor(primarySession, `${DOCK}.getTerminalContent(${paneId}).includes(${JSON.stringify(marker)})`) === false,
-    'a WebSocket reconnect revealed output hidden before the local clear boundary',
+    'a WebSocket reconnect revealed output hidden before the clear boundary',
   );
 
-  const alternateTimestamp = Date.now();
-  const alternateBefore = `clear-alt-before-${alternateTimestamp}`;
-  const alternateReady = `clear-alt-ready-${alternateTimestamp}`;
-  const alternateAfter = `clear-alt-after-${alternateTimestamp}`;
-  const alternateProbe = [
-    `printf '\\033[?1049h'`,
-    `printf '%s\\n' '${alternateBefore}'`,
-    `printf '%s\\n' '${alternateReady}'`,
-    'IFS= read -r clear_alt_probe',
-    `[ "$clear_alt_probe" = x ] && printf '%s\\n' '${alternateAfter}'`,
-    'IFS= read -r clear_alt_exit',
-    `printf '\\033[?1049l'`,
-  ].join('; ');
-  pcliFor(
-    observerSession,
-    'eval',
-    `${APP}._socket.sendPaneInput(${paneId}, new TextEncoder().encode(${JSON.stringify(`${alternateProbe}\r`)}))`,
-  );
-  waitFor(primarySession, `${DOCK}.getTerminalContent(${paneId}).includes(${JSON.stringify(alternateReady)})`);
-  waitFor(observerSession, `${DOCK}.getTerminalContent(${paneId}).includes(${JSON.stringify(alternateReady)})`);
-  assert(
-    pevalJsonFor(primarySession, `${DOCK}.getTerminalBufferType(${paneId})`) === 'alternate',
-    'the primary did not enter the foreground process alternate screen',
-  );
-
-  pcliFor(primarySession, 'press', 'Meta+k');
-  waitFor(primarySession, `!${DOCK}.getTerminalContent(${paneId}).includes(${JSON.stringify(alternateBefore)})`);
-  assert(
-    pevalJsonFor(primarySession, `${DOCK}.getTerminalBufferType(${paneId})`) === 'alternate',
-    'Clear to start reset the primary emulator out of alternate-screen mode',
-  );
-  assert(
-    pevalJsonFor(observerSession, `${DOCK}.getTerminalContent(${paneId}).includes(${JSON.stringify(alternateBefore)})`) === true,
-    'alternate-screen clear changed the observer presentation',
-  );
-  pcliFor(
-    observerSession,
-    'eval',
-    `${APP}._socket.sendPaneInput(${paneId}, new TextEncoder().encode('x\\r'))`,
-  );
-  waitFor(primarySession, `${DOCK}.getTerminalContent(${paneId}).includes(${JSON.stringify(alternateAfter)})`);
-  waitFor(observerSession, `${DOCK}.getTerminalContent(${paneId}).includes(${JSON.stringify(alternateAfter)})`);
-  assert(
-    pevalJsonFor(primarySession, `${DOCK}.getTerminalBufferType(${paneId})`) === 'alternate',
-    'new output after clear did not remain in the foreground alternate screen',
-  );
-  pcliFor(
-    observerSession,
-    'eval',
-    `${APP}._socket.sendPaneInput(${paneId}, new TextEncoder().encode('y\\r'))`,
-  );
-  waitFor(primarySession, `${DOCK}.getTerminalBufferType(${paneId}) === 'normal'`);
-
-  console.log('PASS: registered macOS Cmd+K clears the Active Pane presentation');
-  console.log('PASS: clear sends no PTY input and preserves process, shell, and emulator state');
-  console.log('PASS: another connected browser retains its own presentation and sees new output');
-  console.log('PASS: reload and reconnect retain the local clear boundary and post-clear output');
-  console.log('PASS: alternate-screen mode and foreground process survive Clear to start');
+  console.log('PASS: registered Ctrl+Shift+K asks the foreground terminal to clear');
+  console.log('PASS: sessiond and both browser emulators redraw from the same cursor row');
+  console.log('PASS: CSI 6n reports row 2 after clear, matching cursor-aware programs such as Codex');
+  console.log('PASS: clear preserves the shell process, cwd, and environment');
+  console.log('PASS: reload and reconnect retain the clear boundary and post-clear output');
 } catch (error) {
   try {
     console.error(`PRIMARY CONTENT: ${pevalJsonFor(primarySession, `${DOCK}?.getTerminalContent(${STORE}?.activePaneId)`)}`);

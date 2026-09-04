@@ -130,7 +130,7 @@ export const DIRECTIONAL_SPLIT_COMMANDS: readonly DirectionalSplitCommandMetadat
   }),
 ]);
 
-/** Browser-local presentation clear in the shared Cmd/Ctrl+Shift key family. */
+/** Terminal redraw in the shared Cmd/Ctrl+Shift key family. */
 export const CLEAR_TO_START_COMMAND: CommandMetadata = Object.freeze({
   id: CLEAR_TO_START_COMMAND_ID,
   title: 'Clear to start',
