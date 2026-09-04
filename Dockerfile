@@ -18,12 +18,18 @@ RUN CGO_ENABLED=1 go build -trimpath -ldflags="-s -w" \
 
 FROM ghcr.io/openai/codex-universal:47f4f0eb5337083e2f610db0d15558932cb4901d
 
+# JustTerminal-managed additions to the upstream Codex Universal image.
+# Keep their versions here so deployments can override them with --build-arg.
 ARG CODEX_VERSION=0.149.1
 ARG CLAUDE_CODE_VERSION=2.1.246
+ARG PLAYWRIGHT_CLI_VERSION=0.1.19
 ARG STARSHIP_VERSION=1.24.2
 ARG DELTA_VERSION=0.19.2
 ARG LAZYGIT_VERSION=0.61.0
 ARG YAZI_VERSION=26.1.22
+
+ENV PLAYWRIGHT_BROWSERS_PATH=/var/cache/just-terminal/ms-playwright
+ENV PLAYWRIGHT_MCP_CONFIG=/etc/just-terminal/playwright-cli.config.json
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
@@ -43,24 +49,29 @@ RUN chmod 0755 /tmp/install-shell-tools \
     && rm /tmp/install-shell-tools
 
 COPY docker/zsh/ /root/.config/zsh/
+COPY .playwright/cli.config.json /etc/just-terminal/playwright-cli.config.json
 RUN ln -sf /root/.config/zsh/zshrc /root/.zshrc \
     && git config --system core.pager delta \
     && git config --system interactive.diffFilter 'delta --color-only' \
     && git config --system delta.navigate true \
     && git config --system merge.conflictStyle zdiff3
 
-# Keep the image self-contained so routine restarts do not depend on npm being
-# reachable. The startup wrapper below repairs either CLI if a mounted volume or
-# an image change ever leaves it unavailable.
+# Keep the image self-contained so routine restarts do not depend on npm or the
+# Playwright browser CDN being reachable. The startup wrapper below repairs an
+# npm CLI if a mounted volume or image change ever leaves it unavailable.
 RUN bash -lc "npm install --global \
         @openai/codex@${CODEX_VERSION} \
         @anthropic-ai/claude-code@${CLAUDE_CODE_VERSION} \
+        @playwright/cli@${PLAYWRIGHT_CLI_VERSION} \
     && codex --version \
     && claude --version \
-    && for tool_name in node npm npx corepack pnpm yarn codex claude; do \
+    && playwright-cli --version \
+    && playwright-cli install-browser chromium --with-deps \
+    && for tool_name in node npm npx corepack pnpm yarn codex claude playwright-cli; do \
          ln -sf \"\$(command -v \"\$tool_name\")\" \"/usr/local/bin/\$tool_name\"; \
        done \
-    && npm cache clean --force"
+    && npm cache clean --force \
+    && rm -rf /var/lib/apt/lists/*"
 
 ENV XDG_RUNTIME_DIR=/run/just-terminal
 ENV XDG_CONFIG_HOME=/var/lib/just-terminal/config
@@ -77,6 +88,7 @@ ENV NODE_REPL_HISTORY=/var/lib/just-terminal/state/node/repl_history
 ENV PYTHON_HISTORY=/var/lib/just-terminal/state/python/history
 ENV JUST_TERMINAL_CODEX_VERSION=${CODEX_VERSION}
 ENV JUST_TERMINAL_CLAUDE_CODE_VERSION=${CLAUDE_CODE_VERSION}
+ENV JUST_TERMINAL_PLAYWRIGHT_CLI_VERSION=${PLAYWRIGHT_CLI_VERSION}
 ENV JUST_TERMINAL_CODEX_SANDBOX_MODE=danger-full-access
 ENV JUST_TERMINAL_DEFAULT_CWD=/workspace
 # Runtime binaries in containers are immutable deployment artifacts. Updating

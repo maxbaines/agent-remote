@@ -118,9 +118,11 @@ fi
 
 ensure_npm_cli codex @openai/codex "$JUST_TERMINAL_CODEX_VERSION"
 ensure_npm_cli claude @anthropic-ai/claude-code "$JUST_TERMINAL_CLAUDE_CODE_VERSION"
+ensure_npm_cli playwright-cli @playwright/cli "$JUST_TERMINAL_PLAYWRIGHT_CLI_VERSION"
 
 printf 'just-terminal: Codex %s\n' "$(codex --version)"
 printf 'just-terminal: Claude Code %s\n' "$(claude --version)"
+printf 'just-terminal: Playwright CLI %s\n' "$(playwright-cli --version)"
 
 serve_args=(
     serve
