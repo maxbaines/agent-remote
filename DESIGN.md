@@ -31,9 +31,10 @@ Unknown theme IDs safely resolve to cmux in the browser. The selected ID is stor
 `[theme].palette` in the JustTerminal configuration and included in `/api/config` and the initial
 WebSocket config envelope.
 
-Terminal backgrounds are always fully opaque and xterm transparency is disabled. The cmux palette
-uses a subtle `0.92` opacity on xterm's rendered glyph layer instead, preserving the softened look
-of a translucent native terminal without exposing browser content behind the terminal.
+Terminal backgrounds are fully opaque and xterm transparency is disabled by default. Selecting one
+of the bundled faded backgrounds places that artwork directly beneath xterm and enables a tinted,
+translucent terminal canvas. The cmux palette also uses a subtle `0.92` opacity on xterm's rendered
+glyph layer to preserve its softened native-terminal look.
 
 ## Default colour reference
 

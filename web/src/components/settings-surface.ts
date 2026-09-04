@@ -1,6 +1,10 @@
 import { LitElement, html, css } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import { DEFAULT_PALETTE_ID, PALETTES } from '../lib/theme.js';
+import {
+  DEFAULT_PALETTE_ID,
+  PALETTES,
+  TERMINAL_BACKGROUNDS,
+} from '../lib/theme.js';
 import { FONT_FAMILIES, resolveTerminalFontFamily } from '../lib/fonts.js';
 import type { ResolvedConfig } from '../lib/config.js';
 import './local-apps-settings.js';
@@ -235,6 +239,88 @@ export class MuxSettingsSurface extends LitElement {
       color: var(--chrome-accent);
       font-size: 10px;
       font-weight: 700;
+    }
+
+    /* ── Faded terminal backgrounds ── */
+    .background-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .background-card {
+      position: relative;
+      min-width: 0;
+      height: 86px;
+      overflow: hidden;
+      padding: 0;
+      border: 2px solid transparent;
+      border-radius: 8px;
+      background: var(--chrome-bar);
+      color: white;
+      cursor: pointer;
+      font: inherit;
+      text-align: left;
+      transition: border-color 0.15s, transform 0.1s;
+    }
+    .background-card:hover { transform: translateY(-1px); }
+    .background-card:focus-visible {
+      outline: 2px solid var(--chrome-accent);
+      outline-offset: 2px;
+    }
+    .background-card.active { border-color: var(--chrome-accent); }
+
+    .background-art {
+      position: absolute;
+      inset: 0;
+      background-color: #15151a;
+      background-position: center;
+      background-repeat: no-repeat;
+      background-size: cover;
+    }
+    .background-art::after {
+      position: absolute;
+      inset: 0;
+      background: rgba(12, 12, 18, 0.3);
+      content: '';
+    }
+    .background-art.none {
+      background-image:
+        radial-gradient(circle at 28% 32%, rgba(255, 255, 255, 0.035), transparent 36%),
+        linear-gradient(145deg, #222229, #121217);
+    }
+
+    .background-label {
+      position: absolute;
+      right: 0;
+      bottom: 0;
+      left: 0;
+      padding: 15px 9px 7px;
+      background: linear-gradient(transparent, rgba(0, 0, 0, 0.82));
+      font-size: 11px;
+      font-weight: 500;
+    }
+
+    .background-check {
+      position: absolute;
+      top: 7px;
+      right: 8px;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--chrome-accent);
+      color: white;
+      font-size: 11px;
+      font-weight: 700;
+      line-height: 18px;
+      text-align: center;
+    }
+
+    .background-description {
+      margin: 8px 0 0;
+      color: var(--chrome-text-dim);
+      font-size: 11px;
+      line-height: 1.45;
     }
 
     /* ── Font family radios ── */
@@ -479,7 +565,13 @@ export class MuxSettingsSurface extends LitElement {
   }
 
   private _setTheme(palette: string): void {
-    this._emit({ theme: { palette } });
+    if (!this.config) return;
+    this._emit({ theme: { ...this.config.theme, palette } });
+  }
+
+  private _setBackground(background: string): void {
+    if (!this.config) return;
+    this._emit({ theme: { ...this.config.theme, background } });
   }
 
   private _setFontFamily(family: string): void {
@@ -575,6 +667,40 @@ export class MuxSettingsSurface extends LitElement {
       <div class="theme-grid">
         ${this._renderThemeGroup(LIGHT_THEMES, current)}
       </div>
+    `;
+  }
+
+  private _renderBackgroundCards() {
+    const current = this.config?.theme.background ?? 'none';
+    const backgrounds = [
+      { id: 'none', label: 'None', image: '' },
+      ...TERMINAL_BACKGROUNDS,
+    ];
+    return html`
+      <div class="background-grid">
+        ${backgrounds.map((background) => {
+          const isActive = current === background.id;
+          return html`
+            <button
+              class="background-card ${isActive ? 'active' : ''}"
+              type="button"
+              title="${background.label}"
+              aria-pressed="${isActive}"
+              @click="${() => this._setBackground(background.id)}"
+            >
+              <div
+                class="background-art ${background.id === 'none' ? 'none' : ''}"
+                style="${background.image ? `background-image:url(${background.image})` : ''}"
+              ></div>
+              <div class="background-label">${background.label}</div>
+              ${isActive ? html`<div class="background-check" aria-hidden="true">✓</div>` : ''}
+            </button>
+          `;
+        })}
+      </div>
+      <p class="background-description">
+        Artwork is softened beneath a palette-tinted terminal layer to keep text readable.
+      </p>
     `;
   }
 
@@ -683,6 +809,11 @@ export class MuxSettingsSurface extends LitElement {
     return html`
       <p class="section-title">Theme</p>
       ${this._renderThemeCards()}
+
+      <div class="section-gap">
+        <p class="section-title">Faded Background</p>
+        ${this._renderBackgroundCards()}
+      </div>
 
       <div class="section-gap">
         <p class="section-title">Terminal Font</p>

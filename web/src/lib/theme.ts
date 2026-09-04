@@ -116,6 +116,39 @@ export interface Palette {
   textOpacity?: number;
 }
 
+export interface TerminalBackground {
+  id: string;
+  label: string;
+  image: string;
+  position: string;
+}
+
+/** Bundled, deliberately low-contrast artwork suitable behind terminal text. */
+export const TERMINAL_BACKGROUNDS: readonly TerminalBackground[] = [
+  {
+    id: 'acid-aurora',
+    label: 'Acid Aurora',
+    image: '/backgrounds/acid-aurora.png',
+    position: 'center',
+  },
+  {
+    id: 'chrome-mirage',
+    label: 'Chrome Mirage',
+    image: '/backgrounds/chrome-mirage.png',
+    position: 'center',
+  },
+  {
+    id: 'cosmic-bloom',
+    label: 'Cosmic Bloom',
+    image: '/backgrounds/cosmic-bloom.png',
+    position: 'center',
+  },
+];
+
+export function resolveTerminalBackground(id: string): TerminalBackground | null {
+  return TERMINAL_BACKGROUNDS.find((background) => background.id === id) ?? null;
+}
+
 export const THEME: Palette = {
   background: '#1a1b26',
   foreground: '#a9b1d6',
@@ -371,8 +404,13 @@ export function paletteToXtermTheme(p: Palette): Omit<Palette, 'textOpacity'> {
   return theme;
 }
 
-export function resolveTerminalPalette(name: string): Omit<Palette, 'textOpacity'> {
-  return paletteToXtermTheme(resolvePalette(name));
+export function resolveTerminalPalette(
+  name: string,
+  backgroundId = 'none',
+): Omit<Palette, 'textOpacity'> {
+  const palette = paletteToXtermTheme(resolvePalette(name));
+  if (!resolveTerminalBackground(backgroundId)) return palette;
+  return { ...palette, background: `${palette.background}d9` };
 }
 
 /** Maps a Palette to canonical --mux-* CSS custom property names. */
@@ -411,6 +449,20 @@ export function applyThemeTokens(
   // The current title bar follows the selected theme, so clear any stale
   // inline value left behind during an in-place upgrade.
   root.style.removeProperty('--mux-titlebar-bg');
+}
+
+/** Apply the selected terminal artwork independently from the color palette. */
+export function applyTerminalBackground(
+  backgroundId: string,
+  root: HTMLElement = document.documentElement,
+): void {
+  const background = resolveTerminalBackground(backgroundId);
+  root.style.setProperty(
+    '--mux-terminal-background-image',
+    background ? `url("${background.image}")` : 'none',
+  );
+  root.style.setProperty('--mux-terminal-background-position', background?.position ?? 'center');
+  root.style.setProperty('--mux-terminal-viewport-bg', background ? 'transparent' : 'var(--mux-bg)');
 }
 
 /**

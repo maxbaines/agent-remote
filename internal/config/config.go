@@ -112,9 +112,10 @@ func (s ServerConfig) BaseURL() string {
 	return strings.TrimRight(s.PublicOrigin, "/")
 }
 
-// ThemeConfig controls visual palette selection.
+// ThemeConfig controls the terminal palette and optional bundled background.
 type ThemeConfig struct {
-	Palette string `toml:"palette" json:"palette"`
+	Palette    string `toml:"palette"    json:"palette"`
+	Background string `toml:"background" json:"background"`
 }
 
 // FontConfig controls the terminal font family and size.
@@ -186,6 +187,9 @@ func Merge(base, partial Config) Config {
 	if partial.Theme.Palette != "" {
 		result.Theme.Palette = partial.Theme.Palette
 	}
+	if partial.Theme.Background != "" {
+		result.Theme.Background = partial.Theme.Background
+	}
 	if partial.Font.Family != "" {
 		result.Font.Family = partial.Font.Family
 	}
@@ -226,7 +230,8 @@ func Write(path string, cfg Config) error {
 func Defaults() Config {
 	return Config{
 		Theme: ThemeConfig{
-			Palette: "cmux",
+			Palette:    "cmux",
+			Background: "none",
 		},
 		Font: FontConfig{
 			// Match cmux on macOS. The web client supplies a generic monospace

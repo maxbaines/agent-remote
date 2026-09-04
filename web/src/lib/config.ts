@@ -12,6 +12,7 @@ export function configToGoJSON(cfg: ResolvedConfig): Record<string, unknown> {
   return {
     theme: {
       palette: cfg.theme.palette,
+      background: cfg.theme.background,
     },
     font: {
       family: cfg.font.family,
@@ -63,7 +64,7 @@ export function patchConfig(partial: Record<string, unknown>): void {
 
 // ResolvedConfig mirrors Go internal/config.Config with camelCase keys.
 export interface ResolvedConfig {
-  theme: { palette: string };
+  theme: { palette: string; background: string };
   font: { family: string; size: number };
   terminal: {
     cursorStyle: 'block' | 'bar' | 'underline';
@@ -92,7 +93,7 @@ export interface ResolvedConfig {
 
 // DEFAULT_RESOLVED_CONFIG mirrors Go internal/config.Defaults() exactly.
 export const DEFAULT_RESOLVED_CONFIG: ResolvedConfig = {
-  theme: { palette: DEFAULT_PALETTE_ID },
+  theme: { palette: DEFAULT_PALETTE_ID, background: 'none' },
   font: {
     // Match cmux on macOS. Browsers without Monaco use the monospace fallback
     // applied by resolveTerminalFontFamily().
@@ -177,6 +178,7 @@ export function parseResolvedConfig(raw: unknown): ResolvedConfig {
   return {
     theme: {
       palette: str(t['palette'], d.theme.palette),
+      background: str(t['background'], d.theme.background),
     },
     font: {
       family: str(f['family'], d.font.family),

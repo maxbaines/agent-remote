@@ -82,7 +82,7 @@ const EDITOR = `${APP}?.shadowRoot?.querySelector('mux-keybindings-surface')`;
 function openEditor() {
   pcli('eval', `(() => {
     const sidebar = ${APP}.shadowRoot.querySelector('mux-sidebar');
-    const launcher = sidebar.shadowRoot.querySelector('.launcher-btn');
+    const launcher = sidebar.shadowRoot.querySelector('.launcher-btn[title="Open menu"]');
     if (!launcher) throw new Error('desktop launcher button not found');
     launcher.click();
   })()`);
@@ -138,7 +138,10 @@ try {
 
   assert(editor.heading.includes('Keyboard Shortcuts'), `unexpected editor heading: ${editor.heading}`);
   assert(editor.command === 'Create tab', `registered command missing from editor: ${editor.command}`);
-  assert(editor.shortcut.includes('Cmd+Shift+D'), `default shortcut is not inspectable: ${editor.shortcut}`);
+  assert(
+    editor.shortcut.includes('Ctrl+T'),
+    `unexpected non-macOS create-tab shortcut: ${editor.shortcut}`,
+  );
   assert(editor.editLabel === 'Change shortcut for Create tab', `edit control missing: ${editor.editLabel}`);
 
   console.log('PASS: registered Command and default Keybinding are inspectable and editable');
@@ -172,7 +175,7 @@ try {
   openEditor();
   const panesBeforeConflict = pevalJson(`${POSITIVE_PANES}.length`);
   recordShortcut('w', { ctrlKey: true });
-  waitFor(`${EDITOR}?.shadowRoot?.querySelector('[role="alert"]')?.textContent?.includes('already assigned to Close pane')`);
+  waitFor(`${EDITOR}?.shadowRoot?.querySelector('[role="alert"]')?.textContent?.includes('already assigned to Close tab')`);
   sleep(500);
   const conflict = pevalJson(`(() => ({
     error: ${EDITOR}.shadowRoot.querySelector('[role="alert"]')?.textContent?.trim() ?? '',
@@ -180,7 +183,7 @@ try {
     panes: ${POSITIVE_PANES}.length,
     leaked: ${DOCK}.getTerminalContent(${activePaneId}).includes(${JSON.stringify(leakMarker)}),
   }))()`);
-  assert(conflict.error === 'Ctrl+W is already assigned to Close pane.', `unexpected conflict: ${conflict.error}`);
+  assert(conflict.error === 'Ctrl+W is already assigned to Close tab.', `unexpected conflict: ${conflict.error}`);
   assert(conflict.shortcut === 'Ctrl+Alt+Y', `conflict replaced the working shortcut: ${conflict.shortcut}`);
   assert(conflict.panes === panesBeforeConflict, `conflicting Ctrl+W closed a pane: ${conflict.panes}`);
   assert(conflict.leaked === false, 'recorded shortcut sent input to the active PTY');
@@ -215,7 +218,7 @@ try {
   assert(isolated === null, `another browser origin received the Keybinding: ${isolated}`);
   openEditor();
   const isolatedLabel = pevalJson(`${EDITOR}.shadowRoot.querySelector('[data-command-id="pane.create-tab"] .shortcut-value')?.textContent?.trim()`);
-  assert(isolatedLabel.includes('Cmd+Shift+D'), `another browser origin did not retain defaults: ${isolatedLabel}`);
+  assert(isolatedLabel.includes('Ctrl+T'), `another browser origin did not retain defaults: ${isolatedLabel}`);
 
   pcli('eval', `location.href = ${JSON.stringify(url)}`);
   waitFor(`${DOCK} && ${STORE}?.activePaneId > 0`, 15_000);
@@ -226,7 +229,7 @@ try {
   console.log('PASS: reload retains the local preference and another browser origin keeps defaults');
 
   pcli('eval', `${EDITOR}.shadowRoot.querySelector('[data-command-id="pane.create-tab"] .reset-shortcut').click()`);
-  waitFor(`${EDITOR}.shadowRoot.querySelector('[data-command-id="pane.create-tab"] .shortcut-value')?.textContent?.includes('Cmd+Shift+D')`);
+  waitFor(`${EDITOR}.shadowRoot.querySelector('[data-command-id="pane.create-tab"] .shortcut-value')?.textContent?.includes('Ctrl+T')`);
   assert(pevalJson(`localStorage.getItem('just-terminal.keybindings.v1')`) === null, 'individual reset left persisted overrides');
   const panesBeforeOldChord = pevalJson(`${POSITIVE_PANES}.length`);
   pcli('eval', `${EDITOR}.shadowRoot.querySelector('.close-btn').click()`);
@@ -240,7 +243,7 @@ try {
   recordShortcut('u', { ctrlKey: true, altKey: true });
   waitFor(`${EDITOR}.shadowRoot.querySelector('[data-command-id="pane.create-tab"] .shortcut-value')?.textContent?.trim() === 'Ctrl+Alt+U'`);
   pcli('eval', `${EDITOR}.shadowRoot.querySelector('.reset-all').click()`);
-  waitFor(`${EDITOR}.shadowRoot.querySelector('[data-command-id="pane.create-tab"] .shortcut-value')?.textContent?.includes('Cmd+Shift+D')`);
+  waitFor(`${EDITOR}.shadowRoot.querySelector('[data-command-id="pane.create-tab"] .shortcut-value')?.textContent?.includes('Ctrl+T')`);
   assert(pevalJson(`localStorage.getItem('just-terminal.keybindings.v1')`) === null, 'restore-all left persisted overrides');
 
   console.log('PASS: individual and all-default resets restore product Keybindings');

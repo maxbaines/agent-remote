@@ -46,6 +46,7 @@ class TerminalRenderer implements IContentRenderer {
     this._paneId = parseInt(id, 10);
     this._isActivePane = isActivePane;
     const el = document.createElement('div');
+    el.className = 'mux-terminal-surface';
     el.style.cssText = 'width:100%;height:100%;overflow:hidden;';
 
     // Isolate xterm's pointer events from dockview's panel drag-and-drop.
@@ -688,8 +689,15 @@ export class MuxDock extends LitElement {
         mux-dock .xterm {
           height: 100%;
         }
-        mux-dock .xterm .xterm-viewport {
+        mux-dock .mux-terminal-surface {
           background-color: var(--mux-bg);
+          background-image: var(--mux-terminal-background-image, none);
+          background-position: var(--mux-terminal-background-position, center);
+          background-repeat: no-repeat;
+          background-size: cover;
+        }
+        mux-dock .xterm .xterm-viewport {
+          background-color: var(--mux-terminal-viewport-bg, var(--mux-bg));
         }
         mux-dock .xterm .xterm-scrollable-element {
           height: 100%;
@@ -1664,6 +1672,42 @@ export class MuxDock extends LitElement {
         : (cur - 1 + sameGroup.length) % sameGroup.length;
 
     sameGroup[next]?.api.setActive();
+  }
+
+  /** Focus the nearest split pane in the requested cmux-compatible direction. */
+  focusPane(direction: DirectionalSplit): void {
+    const active = this._dv?.activePanel;
+    if (!active || !this._dv) return;
+
+    const source = active.group.element.getBoundingClientRect();
+    const sourceX = source.left + source.width / 2;
+    const sourceY = source.top + source.height / 2;
+    let best: { panel: IDockviewPanel; score: number } | undefined;
+
+    for (const group of this._dv.groups) {
+      if (group === active.group || group.api.location.type !== 'grid' || !group.activePanel) continue;
+      const rect = group.element.getBoundingClientRect();
+      const dx = rect.left + rect.width / 2 - sourceX;
+      const dy = rect.top + rect.height / 2 - sourceY;
+      const primary = direction === 'left' ? -dx
+        : direction === 'right' ? dx
+          : direction === 'up' ? -dy
+            : dy;
+      if (primary <= 0) continue;
+      const cross = direction === 'left' || direction === 'right' ? Math.abs(dy) : Math.abs(dx);
+      const score = primary + cross * 2;
+      if (!best || score < best.score) best = { panel: group.activePanel, score };
+    }
+
+    best?.panel.api.setActive();
+  }
+
+  /** Toggle Dockview's maximized state for the active pane group. */
+  toggleActivePaneZoom(): void {
+    const active = this._dv?.activePanel;
+    if (!active) return;
+    if (active.api.isMaximized()) active.api.exitMaximized();
+    else active.api.maximize();
   }
 
   /** Emit a close intent for the active server pane without removing it. */

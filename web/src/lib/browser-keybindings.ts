@@ -23,6 +23,26 @@ export type KeybindingAssignment =
 
 const MODIFIER_KEYS = new Set(['Alt', 'Control', 'Meta', 'Shift']);
 const MODIFIER_ORDER = ['ctrl', 'alt', 'shift', 'meta'] as const;
+const CODE_KEYS: Readonly<Record<string, string>> = {
+  BracketLeft: '[',
+  BracketRight: ']',
+  Comma: ',',
+  Equal: '=',
+  Minus: '-',
+  Semicolon: ';',
+};
+const KEY_ALIASES: Readonly<Record<string, string>> = {
+  arrowdown: 'down',
+  arrowleft: 'left',
+  arrowright: 'right',
+  arrowup: 'up',
+  '{': '[',
+  '}': ']',
+  '+': '=',
+  _: '-',
+  ':': ';',
+  '<': ',',
+};
 
 function isMacOS(): boolean {
   return /Mac|iPhone|iPad|iPod/.test(navigator.platform);
@@ -46,8 +66,16 @@ export function chordFromEvent(event: KeyboardEvent): string | null {
   if (event.shiftKey) parts.push('shift');
   if (event.metaKey) parts.push('meta');
   if (parts.length === 0) return null;
-  parts.push(event.key === ' ' ? 'space' : event.key.toLowerCase());
+  parts.push(keyFromEvent(event));
   return parts.join('+');
+}
+
+/** Translate browser key names and shifted punctuation to cmux chord names. */
+export function keyFromEvent(event: KeyboardEvent): string {
+  if (event.code in CODE_KEYS) return CODE_KEYS[event.code]!;
+  if (event.key === ' ') return 'space';
+  const key = event.key.toLowerCase();
+  return KEY_ALIASES[key] ?? key;
 }
 
 export function formatChord(chord: string): string {
@@ -64,7 +92,8 @@ export function formatChord(chord: string): string {
 function normalizeChord(chord: string): string | null {
   const parts = chord.trim().toLowerCase().split('+').filter(Boolean);
   if (parts.length < 2) return null;
-  const key = parts[parts.length - 1]!;
+  const requestedKey = parts[parts.length - 1]!;
+  const key = KEY_ALIASES[requestedKey] ?? requestedKey;
   const modifiers = new Set(parts.slice(0, -1));
   if ([...modifiers].some((part) => !MODIFIER_ORDER.includes(part as typeof MODIFIER_ORDER[number]))) {
     return null;

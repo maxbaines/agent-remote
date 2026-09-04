@@ -4,7 +4,7 @@
  *
  * Verifies against a fresh JustTerminal runtime that:
  *   1. pane.create-tab exposes stable presentation, shortcut, and availability metadata.
- *   2. The dock header button and default browser-safe shortcut both create a tab.
+ *   2. The dock header button and cmux default shortcut both create a tab.
  *   3. An unavailable create-tab command is guarded and creates nothing.
  *   4. Created tabs and terminal output survive a browser reload/reconnect.
  *
@@ -101,7 +101,7 @@ try {
   assert(command?.available === true, 'create-tab should be available with an Active Pane');
   assert(
     Array.isArray(command?.defaultShortcuts) &&
-      command.defaultShortcuts.some((shortcut) => shortcut.chord === 'shift+meta+d'),
+      command.defaultShortcuts.some((shortcut) => shortcut.chord === 'meta+t'),
     `missing macOS default shortcut metadata: ${JSON.stringify(command?.defaultShortcuts)}`,
   );
 
@@ -114,9 +114,12 @@ try {
   waitFor(`${POSITIVE_PANES}?.length === ${initialIds.length + 1}`);
 
   const afterPointerIds = pevalJson(`${POSITIVE_PANES}.map((pane) => pane.paneId)`);
-  pcli('eval', `window.dispatchEvent(new KeyboardEvent('keydown', {
-    key: 'D', ctrlKey: true, shiftKey: true, bubbles: true, cancelable: true,
-  }))`);
+  pcli('eval', `(() => {
+    Object.defineProperty(navigator, 'platform', { configurable: true, value: 'MacIntel' });
+    window.dispatchEvent(new KeyboardEvent('keydown', {
+      key: 't', metaKey: true, bubbles: true, cancelable: true,
+    }));
+  })()`);
   waitFor(`${POSITIVE_PANES}?.length === ${afterPointerIds.length + 1}`);
 
   const beforeGuardIds = pevalJson(`${POSITIVE_PANES}.map((pane) => pane.paneId)`);

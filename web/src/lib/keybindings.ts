@@ -1,6 +1,6 @@
 import type { ResolvedConfig } from './config';
 import type { CommandRegistry } from './command-registry.js';
-import { isRecordingKeybinding, type BrowserKeybindings } from './browser-keybindings.js';
+import { isRecordingKeybinding, keyFromEvent, type BrowserKeybindings } from './browser-keybindings.js';
 
 export type Keys = ResolvedConfig['keys'];
 
@@ -23,7 +23,7 @@ function chordOf(e: KeyboardEvent): string {
   if (e.altKey) parts.push('alt');
   if (e.shiftKey) parts.push('shift');
   if (e.metaKey) parts.push('meta');
-  parts.push(e.key === ' ' ? 'space' : e.key.toLowerCase());
+  parts.push(keyFromEvent(e));
   return parts.join('+');
 }
 

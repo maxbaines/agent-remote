@@ -17,7 +17,7 @@ import { WebFontsAddon } from '@xterm/addon-web-fonts';
 import { ClipboardAddon } from '@xterm/addon-clipboard';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import xtermCss from '@xterm/xterm/css/xterm.css?inline';
-import { resolveTerminalPalette } from './theme.js';
+import { resolveTerminalBackground, resolveTerminalPalette } from './theme.js';
 import { muxLog } from './mux-log.js';
 import { resolveTerminalFontFamily, TERMINAL_FONT_FAMILY } from './fonts.js';
 import { terminalPresentation } from './terminal-presentation.js';
@@ -61,11 +61,12 @@ import { store } from '../state.js';
 
 /**
  * Build an xterm.js Terminal options object from a ResolvedConfig.
- * lineHeight, allowTransparency, and convertEol are hardcoded and non-overridable.
+ * lineHeight and convertEol are hardcoded and non-overridable. Transparency is
+ * enabled only for a bundled terminal background.
  */
 export function buildTerminalConfig(cfg: ResolvedConfig) {
   return {
-    theme: resolveTerminalPalette(cfg.theme.palette),
+    theme: resolveTerminalPalette(cfg.theme.palette, cfg.theme.background),
     fontFamily: resolveTerminalFontFamily(cfg.font.family),
     fontSize: cfg.font.size,
     lineHeight: 1.0, // non-overridable; matches Zellij's web client. A
@@ -74,9 +75,9 @@ export function buildTerminalConfig(cfg: ResolvedConfig) {
     cursorBlink: cfg.terminal.cursorBlink,
     cursorStyle: cfg.terminal.cursorStyle,
     scrollback: cfg.terminal.scrollback,
-    // Terminal backgrounds are always opaque. Palettes that evoke native
-    // translucency do so with a CSS glyph fade, never an alpha background.
-    allowTransparency: false, // non-overridable
+    // The generated artwork lives on the terminal host beneath xterm's canvas.
+    // Keep xterm opaque unless the user explicitly selects one of those assets.
+    allowTransparency: resolveTerminalBackground(cfg.theme.background) !== null,
     // File-link hover coloring uses xterm decorations so glyphs remain on the
     // terminal canvas and continue to respect selections and theme changes.
     allowProposedApi: true,
@@ -108,6 +109,7 @@ export function configureTerminals(cfg: ResolvedConfig): void {
     // Apply each option individually — xterm.js 5 accepts live option changes
     // and schedules a re-render automatically.
     entry.term.options.theme = newConfig.theme;
+    entry.term.options.allowTransparency = newConfig.allowTransparency;
     entry.term.options.fontFamily = newConfig.fontFamily;
     entry.term.options.fontSize = newConfig.fontSize;
     entry.term.options.cursorStyle = newConfig.cursorStyle;

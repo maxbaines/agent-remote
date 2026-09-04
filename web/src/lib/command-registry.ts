@@ -6,6 +6,17 @@ export const SPLIT_DOWN_COMMAND_ID = 'pane.split-down' as const;
 export const CLEAR_TO_START_COMMAND_ID = 'terminal.clear-to-start' as const;
 export const CREATE_WORKSPACE_COMMAND_ID = 'workspace.create' as const;
 export const CREATE_CODEX_SESSION_COMMAND_ID = 'workspace.create-codex-session' as const;
+export const OPEN_SETTINGS_COMMAND_ID = 'app.open-settings' as const;
+export const OPEN_COMMAND_PALETTE_COMMAND_ID = 'app.open-command-palette' as const;
+export const TOGGLE_FILE_EXPLORER_COMMAND_ID = 'workspace.toggle-file-explorer' as const;
+export const NEXT_TAB_COMMAND_ID = 'pane.next-tab' as const;
+export const PREVIOUS_TAB_COMMAND_ID = 'pane.previous-tab' as const;
+export const CLOSE_TAB_COMMAND_ID = 'pane.close-tab' as const;
+export const FOCUS_LEFT_COMMAND_ID = 'pane.focus-left' as const;
+export const FOCUS_RIGHT_COMMAND_ID = 'pane.focus-right' as const;
+export const FOCUS_UP_COMMAND_ID = 'pane.focus-up' as const;
+export const FOCUS_DOWN_COMMAND_ID = 'pane.focus-down' as const;
+export const TOGGLE_SPLIT_ZOOM_COMMAND_ID = 'pane.toggle-split-zoom' as const;
 
 export type DirectionalSplit = 'left' | 'right' | 'up' | 'down';
 export type CommandId =
@@ -16,7 +27,18 @@ export type CommandId =
   | typeof SPLIT_DOWN_COMMAND_ID
   | typeof CLEAR_TO_START_COMMAND_ID
   | typeof CREATE_WORKSPACE_COMMAND_ID
-  | typeof CREATE_CODEX_SESSION_COMMAND_ID;
+  | typeof CREATE_CODEX_SESSION_COMMAND_ID
+  | typeof OPEN_SETTINGS_COMMAND_ID
+  | typeof OPEN_COMMAND_PALETTE_COMMAND_ID
+  | typeof TOGGLE_FILE_EXPLORER_COMMAND_ID
+  | typeof NEXT_TAB_COMMAND_ID
+  | typeof PREVIOUS_TAB_COMMAND_ID
+  | typeof CLOSE_TAB_COMMAND_ID
+  | typeof FOCUS_LEFT_COMMAND_ID
+  | typeof FOCUS_RIGHT_COMMAND_ID
+  | typeof FOCUS_UP_COMMAND_ID
+  | typeof FOCUS_DOWN_COMMAND_ID
+  | typeof TOGGLE_SPLIT_ZOOM_COMMAND_ID;
 export type CommandCategory = 'Workspace' | 'Layout' | 'Terminal';
 export type CommandShortcutPlatform = 'macos' | 'other';
 export type CommandShortcutScope = 'always' | 'standalone';
@@ -54,27 +76,27 @@ export interface DirectionalSplitCommandMetadata extends CommandMetadata {
   direction: DirectionalSplit;
 }
 
-/** Stable create-tab presentation with the shared Cmd/Ctrl+Shift key family. */
+/** cmux `newSurface`: create a tab in the active pane group. */
 export const CREATE_TAB_COMMAND: CommandMetadata = Object.freeze({
   id: CREATE_TAB_COMMAND_ID,
   title: 'Create tab',
   category: 'Layout',
   configurable: true,
   defaultShortcuts: Object.freeze([
-    Object.freeze({ chord: 'shift+meta+d', label: 'Cmd+Shift+D', platform: 'macos', scope: 'always' }),
-    Object.freeze({ chord: 'ctrl+shift+d', label: 'Ctrl+Shift+D', platform: 'other', scope: 'always' }),
+    Object.freeze({ chord: 'meta+t', label: 'Cmd+T', platform: 'macos', scope: 'always' }),
+    Object.freeze({ chord: 'ctrl+t', label: 'Ctrl+T', platform: 'other', scope: 'always' }),
   ]),
 });
 
-/** Workspace creation follows the shared Cmd/Ctrl+Shift key family. */
+/** cmux `newTab`: create a workspace. */
 export const CREATE_WORKSPACE_COMMAND: CommandMetadata = Object.freeze({
   id: CREATE_WORKSPACE_COMMAND_ID,
   title: 'New workspace',
   category: 'Workspace',
   configurable: true,
   defaultShortcuts: Object.freeze([
-    Object.freeze({ chord: 'shift+meta+n', label: 'Cmd+Shift+N', platform: 'macos', scope: 'always' }),
-    Object.freeze({ chord: 'ctrl+shift+n', label: 'Ctrl+Shift+N', platform: 'other', scope: 'always' }),
+    Object.freeze({ chord: 'meta+n', label: 'Cmd+N', platform: 'macos', scope: 'always' }),
+    Object.freeze({ chord: 'ctrl+n', label: 'Ctrl+N', platform: 'other', scope: 'always' }),
   ]),
 });
 
@@ -90,8 +112,13 @@ export const CREATE_CODEX_SESSION_COMMAND: CommandMetadata = Object.freeze({
 });
 
 const SPLIT_RIGHT_DEFAULT_SHORTCUTS: readonly CommandShortcut[] = Object.freeze([
-  Object.freeze({ chord: 'shift+meta+\\', label: 'Cmd+Shift+\\', platform: 'macos', scope: 'always' }),
-  Object.freeze({ chord: 'ctrl+shift+\\', label: 'Ctrl+Shift+\\', platform: 'other', scope: 'always' }),
+  Object.freeze({ chord: 'meta+d', label: 'Cmd+D', platform: 'macos', scope: 'always' }),
+  Object.freeze({ chord: 'ctrl+d', label: 'Ctrl+D', platform: 'other', scope: 'standalone' }),
+]);
+
+const SPLIT_DOWN_DEFAULT_SHORTCUTS: readonly CommandShortcut[] = Object.freeze([
+  Object.freeze({ chord: 'shift+meta+d', label: 'Cmd+Shift+D', platform: 'macos', scope: 'always' }),
+  Object.freeze({ chord: 'ctrl+shift+d', label: 'Ctrl+Shift+D', platform: 'other', scope: 'always' }),
 ]);
 
 /** Stable presentation and browser-local Keybinding metadata for each Split. */
@@ -126,7 +153,95 @@ export const DIRECTIONAL_SPLIT_COMMANDS: readonly DirectionalSplitCommandMetadat
     category: 'Layout',
     configurable: true,
     direction: 'down',
-    defaultShortcuts: Object.freeze([]),
+    defaultShortcuts: SPLIT_DOWN_DEFAULT_SHORTCUTS,
+  }),
+]);
+
+export const CMUX_COMPATIBLE_COMMANDS: readonly CommandMetadata[] = Object.freeze([
+  Object.freeze({
+    id: OPEN_SETTINGS_COMMAND_ID,
+    title: 'Settings',
+    category: 'Workspace',
+    configurable: true,
+    defaultShortcuts: Object.freeze([
+      Object.freeze({ chord: 'meta+,', label: 'Cmd+,', platform: 'macos', scope: 'always' }),
+      Object.freeze({ chord: 'ctrl+,', label: 'Ctrl+,', platform: 'other', scope: 'always' }),
+    ]),
+  }),
+  Object.freeze({
+    id: OPEN_COMMAND_PALETTE_COMMAND_ID,
+    title: 'Command palette',
+    category: 'Workspace',
+    configurable: true,
+    defaultShortcuts: Object.freeze([
+      Object.freeze({ chord: 'shift+meta+p', label: 'Cmd+Shift+P', platform: 'macos', scope: 'always' }),
+      Object.freeze({ chord: 'ctrl+shift+p', label: 'Ctrl+Shift+P', platform: 'other', scope: 'always' }),
+    ]),
+  }),
+  Object.freeze({
+    id: TOGGLE_FILE_EXPLORER_COMMAND_ID,
+    title: 'Toggle file explorer',
+    category: 'Workspace',
+    configurable: true,
+    defaultShortcuts: Object.freeze([
+      Object.freeze({ chord: 'alt+meta+b', label: 'Cmd+Opt+B', platform: 'macos', scope: 'always' }),
+      Object.freeze({ chord: 'ctrl+alt+b', label: 'Ctrl+Alt+B', platform: 'other', scope: 'always' }),
+    ]),
+  }),
+  Object.freeze({
+    id: NEXT_TAB_COMMAND_ID,
+    title: 'Next tab',
+    category: 'Layout',
+    configurable: true,
+    defaultShortcuts: Object.freeze([
+      Object.freeze({ chord: 'shift+meta+]', label: 'Cmd+Shift+]', platform: 'macos', scope: 'always' }),
+      Object.freeze({ chord: 'ctrl+shift+]', label: 'Ctrl+Shift+]', platform: 'other', scope: 'always' }),
+    ]),
+  }),
+  Object.freeze({
+    id: PREVIOUS_TAB_COMMAND_ID,
+    title: 'Previous tab',
+    category: 'Layout',
+    configurable: true,
+    defaultShortcuts: Object.freeze([
+      Object.freeze({ chord: 'shift+meta+[', label: 'Cmd+Shift+[', platform: 'macos', scope: 'always' }),
+      Object.freeze({ chord: 'ctrl+shift+[', label: 'Ctrl+Shift+[', platform: 'other', scope: 'always' }),
+    ]),
+  }),
+  Object.freeze({
+    id: CLOSE_TAB_COMMAND_ID,
+    title: 'Close tab',
+    category: 'Layout',
+    configurable: true,
+    defaultShortcuts: Object.freeze([
+      Object.freeze({ chord: 'meta+w', label: 'Cmd+W', platform: 'macos', scope: 'always' }),
+      Object.freeze({ chord: 'ctrl+w', label: 'Ctrl+W', platform: 'other', scope: 'always' }),
+    ]),
+  }),
+  ...([
+    [FOCUS_LEFT_COMMAND_ID, 'Focus pane left', 'left'],
+    [FOCUS_RIGHT_COMMAND_ID, 'Focus pane right', 'right'],
+    [FOCUS_UP_COMMAND_ID, 'Focus pane up', 'up'],
+    [FOCUS_DOWN_COMMAND_ID, 'Focus pane down', 'down'],
+  ] as const).map(([id, title, key]) => Object.freeze({
+    id,
+    title,
+    category: 'Layout' as const,
+    configurable: true,
+    defaultShortcuts: Object.freeze([
+      Object.freeze({ chord: `alt+meta+${key}`, label: `Cmd+Opt+${key[0]!.toUpperCase()}${key.slice(1)}`, platform: 'macos' as const, scope: 'always' as const }),
+      Object.freeze({ chord: `ctrl+alt+${key}`, label: `Ctrl+Alt+${key[0]!.toUpperCase()}${key.slice(1)}`, platform: 'other' as const, scope: 'always' as const }),
+    ]),
+  })),
+  Object.freeze({
+    id: TOGGLE_SPLIT_ZOOM_COMMAND_ID,
+    title: 'Toggle pane zoom',
+    category: 'Layout',
+    configurable: true,
+    defaultShortcuts: Object.freeze([
+      Object.freeze({ chord: 'shift+meta+enter', label: 'Cmd+Shift+Enter', platform: 'macos', scope: 'always' }),
+      Object.freeze({ chord: 'ctrl+shift+enter', label: 'Ctrl+Shift+Enter', platform: 'other', scope: 'always' }),
+    ]),
   }),
 ]);
 

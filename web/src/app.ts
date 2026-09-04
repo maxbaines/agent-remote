@@ -6,19 +6,37 @@ import { MonitorX } from 'lucide';
 import { MuxSocket, buildWsUrl } from './ws.js';
 import { terminalRegistry, configureTerminals } from './lib/terminal-registry.js';
 import { parseResolvedConfig, patchConfig, configToGoJSON, type ResolvedConfig } from './lib/config.js';
-import { makeKeyHandler, installAppShortcuts, installCommandShortcuts, type UIActions } from './lib/keybindings.js';
+import { installCommandShortcuts } from './lib/keybindings.js';
 import {
   CLEAR_TO_START_COMMAND,
   CommandRegistry,
+  CMUX_COMPATIBLE_COMMANDS,
+  CLOSE_TAB_COMMAND_ID,
   CREATE_CODEX_SESSION_COMMAND,
   CREATE_TAB_COMMAND,
   CREATE_WORKSPACE_COMMAND,
   DIRECTIONAL_SPLIT_COMMANDS,
+  FOCUS_DOWN_COMMAND_ID,
+  FOCUS_LEFT_COMMAND_ID,
+  FOCUS_RIGHT_COMMAND_ID,
+  FOCUS_UP_COMMAND_ID,
+  NEXT_TAB_COMMAND_ID,
+  OPEN_COMMAND_PALETTE_COMMAND_ID,
+  OPEN_SETTINGS_COMMAND_ID,
+  PREVIOUS_TAB_COMMAND_ID,
+  TOGGLE_FILE_EXPLORER_COMMAND_ID,
+  TOGGLE_SPLIT_ZOOM_COMMAND_ID,
+  type CommandId,
   type DirectionalSplit,
   type CommandInvocation,
 } from './lib/command-registry.js';
-import { BrowserKeybindings, type ReservedKeybinding } from './lib/browser-keybindings.js';
-import { applyThemeTokens, applyChromeTokens, resolvePalette } from './lib/theme.js';
+import { BrowserKeybindings } from './lib/browser-keybindings.js';
+import {
+  applyThemeTokens,
+  applyChromeTokens,
+  applyTerminalBackground,
+  resolvePalette,
+} from './lib/theme.js';
 import { applyDocumentTitle } from './lib/instance-identity.js';
 import { injectTerminalFont } from './lib/fonts.js';
 import { voiceInputController } from './lib/voice-input-controller.js';
@@ -130,40 +148,8 @@ function restoreFileTreeOpen(): boolean {
 // positive-id pane replaces it on settle (matched by clientRef).
 let _nextTempPaneId = -1;
 
-// ---------------------------------------------------------------------------
-// Module-level keybinding wiring
-// ---------------------------------------------------------------------------
-
-/** Actions map passed to installKeybindings — populated with real handlers as
- *  each phase lands. Stubs use () => {} to keep wiring unconditional. */
-const uiActions: UIActions = {
-  openLauncher: () => window.dispatchEvent(new CustomEvent('open-launcher')),
-  maximizeRegion: () => {},
-  popOut: () => {},
-  nextSession: () => {}, // wired to cycleTabInGroup in connectedCallback
-  focusDriver: () => {},
-};
-
-/** Disposer for the currently-installed keydown handler. Re-set after each
- *  config frame so new key bindings take effect immediately. */
-let disposeKeys: (() => void) | undefined;
-
-/** Disposer for fixed app-level shortcuts (Cmd+W, Ctrl+Tab). Installed once per
- *  app connection and not re-set on config changes — these are not configurable. */
-let disposeAppShortcuts: (() => void) | undefined;
-
 /** Disposer for default Keybindings sourced from the Command Registry. */
 let disposeCommandShortcuts: (() => void) | undefined;
-
-/**
- * Installs a global keydown handler wired to the given UIActions.
- * Returns a cleanup function that removes the handler.
- */
-export function installKeybindings(actions: UIActions): () => void {
-  const handler = makeKeyHandler(store.config.keys, actions);
-  window.addEventListener('keydown', handler);
-  return () => window.removeEventListener('keydown', handler);
-}
 
 @customElement('mux-app')
 export class MuxApp extends LitElement {
@@ -654,6 +640,11 @@ export class MuxApp extends LitElement {
         this._layoutMode === 'wide' && store.attached !== null && store.activePaneId > 0,
       execute: () => this._createDirectionalSplit(command.direction),
     })),
+    ...CMUX_COMPATIBLE_COMMANDS.map((command) => ({
+      ...command,
+      isAvailable: () => this._cmuxCommandAvailable(command.id),
+      execute: () => this._executeCmuxCommand(command.id),
+    })),
     {
       ...CLEAR_TO_START_COMMAND,
       isAvailable: () =>
@@ -665,7 +656,7 @@ export class MuxApp extends LitElement {
   ]);
 
   /** Browser-local overrides for configurable registered Commands. */
-  readonly keybindings = new BrowserKeybindings(this.commands, () => this._reservedKeybindings());
+  readonly keybindings = new BrowserKeybindings(this.commands);
 
   @state() private _closeConfirmation: CloseConfirmationRequiredOutcome | null = null;
   @state() private _confirmingCloseKey: string | null = null;
@@ -784,24 +775,12 @@ export class MuxApp extends LitElement {
     // server config will replace it as soon as the config envelope arrives.
     applyThemeTokens(resolvePalette(store.config.theme.palette));
     applyChromeTokens(store.config.theme.palette);
+    applyTerminalBackground(store.config.theme.background);
     // Reflect which Host this instance is running on in the browser/PWA title.
     applyDocumentTitle();
-    // Install keybindings with defaults immediately.
-    disposeKeys = installKeybindings(uiActions);
     // Registered defaults and interface clicks share the guarded Command path.
     disposeCommandShortcuts?.();
     disposeCommandShortcuts = installCommandShortcuts(this.commands, this.keybindings);
-    // Install the remaining fixed app-level shortcuts. Installed once — not
-    // re-set on config changes.
-    disposeAppShortcuts?.();
-    disposeAppShortcuts = installAppShortcuts({
-      // Emit the same pre-removal close intent as the tab close button.
-      closePane: () => this._dock?.closeActivePanel(),
-      // Cycle tabs within the active pane's group only (not across split panes).
-      nextTab: () => this._dock?.cycleTabInGroup('next'),
-      prevTab: () => this._dock?.cycleTabInGroup('prev'),
-      toggleFileTree: () => this._toggleFileTree(),
-    });
 
     // Re-render whenever wire state (composition / workspaces / config) changes.
     this._unsubscribe = store.subscribe(() => {
@@ -978,8 +957,6 @@ export class MuxApp extends LitElement {
     this._paneFocusCoordinator = null;
     if (this._paneContextTimer !== undefined) clearInterval(this._paneContextTimer);
     this._paneContextTimer = undefined;
-    disposeAppShortcuts?.();
-    disposeAppShortcuts = undefined;
     disposeCommandShortcuts?.();
     disposeCommandShortcuts = undefined;
     if (this._unsubscribe) {
@@ -1542,9 +1519,8 @@ export class MuxApp extends LitElement {
       store.setConfig(cfg);
       applyThemeTokens(resolvePalette(cfg.theme.palette));
       applyChromeTokens(cfg.theme.palette);
+      applyTerminalBackground(cfg.theme.background);
       configureTerminals(cfg);
-      disposeKeys?.();
-      disposeKeys = installKeybindings(uiActions);
     }
     if ('codex' in msg) {
       store.setCodex(parseCodexSnapshot(msg['codex']));
@@ -1837,18 +1813,54 @@ export class MuxApp extends LitElement {
     this.requestUpdate();
   };
 
-  private _reservedKeybindings(): readonly ReservedKeybinding[] {
-    return [
-      { title: 'Close pane', chord: 'meta+w' },
-      { title: 'Close pane', chord: 'ctrl+w' },
-      { title: 'Cycle tabs forward', chord: 'ctrl+tab' },
-      { title: 'Cycle tabs backward', chord: 'ctrl+shift+tab' },
-      { title: 'Next session', chord: store.config.keys.nextSession },
-      { title: 'Maximize pane', chord: store.config.keys.maximizeRegion },
-      { title: 'Pop out pane', chord: store.config.keys.popOut },
-      { title: 'Open launcher', chord: store.config.keys.openLauncher },
-      { title: 'Focus driver', chord: store.config.keys.focusDriver },
-    ];
+  private _cmuxCommandAvailable(commandId: CommandId): boolean {
+    if (commandId === OPEN_SETTINGS_COMMAND_ID || commandId === OPEN_COMMAND_PALETTE_COMMAND_ID) {
+      return true;
+    }
+    if (commandId === TOGGLE_FILE_EXPLORER_COMMAND_ID) return this._layoutMode === 'wide';
+    if (store.attached === null || store.activePaneId <= 0) return false;
+    if (commandId === NEXT_TAB_COMMAND_ID || commandId === PREVIOUS_TAB_COMMAND_ID || commandId === CLOSE_TAB_COMMAND_ID) {
+      return true;
+    }
+    return this._layoutMode === 'wide';
+  }
+
+  private _executeCmuxCommand(commandId: CommandId): void {
+    switch (commandId) {
+      case OPEN_SETTINGS_COMMAND_ID:
+        this._overlayPanel = 'settings';
+        return;
+      case OPEN_COMMAND_PALETTE_COMMAND_ID:
+        window.dispatchEvent(new CustomEvent('open-launcher'));
+        return;
+      case TOGGLE_FILE_EXPLORER_COMMAND_ID:
+        this._toggleFileTree();
+        return;
+      case NEXT_TAB_COMMAND_ID:
+        this._dock?.cycleTabInGroup('next');
+        return;
+      case PREVIOUS_TAB_COMMAND_ID:
+        this._dock?.cycleTabInGroup('prev');
+        return;
+      case CLOSE_TAB_COMMAND_ID:
+        this._dock?.closeActivePanel();
+        return;
+      case FOCUS_LEFT_COMMAND_ID:
+        this._dock?.focusPane('left');
+        return;
+      case FOCUS_RIGHT_COMMAND_ID:
+        this._dock?.focusPane('right');
+        return;
+      case FOCUS_UP_COMMAND_ID:
+        this._dock?.focusPane('up');
+        return;
+      case FOCUS_DOWN_COMMAND_ID:
+        this._dock?.focusPane('down');
+        return;
+      case TOGGLE_SPLIT_ZOOM_COMMAND_ID:
+        this._dock?.toggleActivePaneZoom();
+        return;
+    }
   }
 
   /**
@@ -1864,9 +1876,8 @@ export class MuxApp extends LitElement {
     store.setConfig(cfg);
     applyThemeTokens(resolvePalette(cfg.theme.palette));
     applyChromeTokens(cfg.theme.palette);
+    applyTerminalBackground(cfg.theme.background);
     configureTerminals(cfg);
-    disposeKeys?.();
-    disposeKeys = installKeybindings(uiActions);
     // Persist the change: debounced PATCH /api/config → server merges,
     // writes to disk, and broadcasts to all connected clients.
     patchConfig(configToGoJSON(cfg));

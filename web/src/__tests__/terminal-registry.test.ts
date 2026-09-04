@@ -473,7 +473,7 @@ describe('buildTerminalConfig', () => {
   it('returns overrides when given a custom config', () => {
     const custom = {
       ...DEFAULT_RESOLVED_CONFIG,
-      theme: { palette: 'gruvbox' },
+      theme: { palette: 'gruvbox', background: 'none' },
       font: { family: 'Iosevka', size: 18 },
       terminal: {
         ...DEFAULT_RESOLVED_CONFIG.terminal,
@@ -491,7 +491,7 @@ describe('buildTerminalConfig', () => {
     expect(cfg.theme).toStrictEqual(resolveTerminalPalette('gruvbox'));
   });
 
-  it('always sets non-overridable fields (lineHeight, allowTransparency, convertEol)', () => {
+  it('keeps fixed terminal fields and opaque default appearance', () => {
     const cfg = buildTerminalConfig(DEFAULT_RESOLVED_CONFIG);
     expect(cfg.lineHeight).toBe(1.0);
     expect(cfg.allowTransparency).toBe(false);
