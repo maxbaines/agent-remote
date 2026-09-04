@@ -153,11 +153,16 @@ describe('MuxSocket sessiond senders', () => {
     });
   });
 
-  it('closeWorkspace() emits {type,workspaceId}', () => {
+  it('closeIntent() emits an activity-aware workspace close request', () => {
     const { mux, ws } = openSocket();
-    mux.closeWorkspace('ws-3');
+    void mux.closeIntent({ targetKind: 'workspace', workspaceId: 'ws-3' });
 
-    expect(lastJson(ws)).toEqual({ type: SessiondType.CloseWorkspace, workspaceId: 'ws-3' });
+    expect(lastJson(ws)).toEqual({
+      type: SessiondType.CloseIntent,
+      cid: 1,
+      targetKind: 'workspace',
+      workspaceId: 'ws-3',
+    });
   });
 
   it('createPane() carries no workspaceId; includes cmd only when non-empty', () => {
@@ -211,14 +216,6 @@ describe('MuxSocket sessiond senders', () => {
     expect(lastJson(ws)).toEqual({ type: SessiondType.CreateBrowserPane });
   });
 
-  it('closeBrowserPane() emits flat {type:"close-browser-pane"}', () => {
-    const { mux, ws } = openSocket();
-    mux.closeBrowserPane();
-
-    expect(ws.sent).toHaveLength(1);
-    expect(lastJson(ws)).toEqual({ type: SessiondType.CloseBrowserPane });
-  });
-
   it('senders do not throw when the socket is not open', () => {
     const store = new MuxStore();
     const mux = new MuxSocket(store, 'ws://localhost:8080/ws');
@@ -229,12 +226,11 @@ describe('MuxSocket sessiond senders', () => {
       mux.listWorkspaces();
       mux.createWorkspace('x');
       mux.renameWorkspace('ws-1', 'y');
-      mux.closeWorkspace('ws-1');
+      void mux.closeIntent({ targetKind: 'workspace', workspaceId: 'ws-1' }).catch(() => {});
       mux.createPane(['bash']);
       mux.resize(1, 80, 24);
       mux.sendPaneInput(1, new Uint8Array([1, 2, 3]));
       mux.createBrowserPane();
-      mux.closeBrowserPane();
     }).not.toThrow();
   });
 });

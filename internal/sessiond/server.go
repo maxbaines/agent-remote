@@ -14,6 +14,14 @@ import (
 	"time"
 )
 
+// Connection kinds are explicit because only interactive clients may claim
+// focus and PTY-size authority. CLI clients also skip attach replay.
+const (
+	ClientKindInteractive = "interactive"
+	ClientKindAgent       = "agent"
+	ClientKindCLI         = "cli"
+)
+
 // Server owns the daemon's Unix control socket, the workspace Registry, and the
 // set of attached subscribers per workspace. It accepts control connections,
 // dispatches frozen-protocol requests, and fans out replay-before-live data on
@@ -172,6 +180,10 @@ func (s *Server) attachConn(c *conn, wsID string, cid uint64, breakpoint string)
 			continue
 		}
 		info := p.Info()
+		if c.kind == ClientKindCLI {
+			paneInfos = append(paneInfos, info)
+			continue
+		}
 		data := p.Replay()
 		info.TotalSeq = uint64(len(data))
 		paneInfos = append(paneInfos, info)
@@ -253,7 +265,7 @@ func (s *Server) handlePaneExit(wsID string, paneID int, exitCode int, runtimeMs
 	})
 	if remaining == 0 {
 		if removed, _ := s.reg.ReapIfEmpty(wsID); removed {
-			s.broadcastAll(&Message{Type: TypeWorkspaceList, Workspaces: s.reg.List()})
+			s.broadcastWorkspaceList()
 		}
 	}
 }
@@ -266,7 +278,7 @@ type conn struct {
 	nc       net.Conn
 	sub      *subscriber
 	attached string
-	kind     string // "interactive" (browser/human) | "agent" (MCP); set once in attach()
+	kind     string // ClientKindInteractive | ClientKindAgent | ClientKindCLI
 }
 
 // newConn wraps nc with a subscriber for serialized writes.
@@ -326,18 +338,22 @@ func (c *conn) handle(msg Message) {
 	case TypeCreateWorkspace:
 		id := c.srv.reg.AddWorkspace(msg.Name, msg.ClientRef)
 		c.reply(&Message{Type: TypeWorkspaceCreated, CID: msg.CID, WorkspaceID: id, Name: msg.Name, ClientRef: msg.ClientRef})
-		c.srv.broadcastAll(&Message{Type: TypeWorkspaceList, Workspaces: c.srv.reg.List()})
+		c.srv.broadcastWorkspaceList()
 	case TypeListWorkspaces:
-		c.reply(&Message{Type: TypeWorkspaceList, CID: msg.CID, Workspaces: c.srv.reg.List()})
+		c.srv.replyWorkspaceList(c, msg.CID)
 	case TypeRenameWorkspace:
 		if c.srv.reg.RenameWorkspace(msg.WorkspaceID, msg.Name) {
 			c.reply(&Message{Type: TypeOK, CID: msg.CID})
-			c.srv.broadcastAll(&Message{Type: TypeWorkspaceList, Workspaces: c.srv.reg.List()})
+			c.srv.broadcastWorkspaceList()
 		} else {
 			c.replyError(msg.CID, CodeUnknownWorkspace, "unknown workspace")
 		}
 	case TypeCloseWorkspace:
 		c.closeWorkspace(msg)
+	case TypeCloseIntent:
+		c.closeIntent(msg)
+	case TypeCloseConfirm:
+		c.closeConfirm(msg)
 	case TypeAttach:
 		c.attach(msg)
 	case TypeCreatePane:
@@ -507,7 +523,42 @@ func (c *conn) handle(msg Message) {
 			Text:   vb.ScreenText(),
 			Cursor: &CursorPos{Row: row, Col: col},
 		})
+	case TypeScrollbackPage:
+		c.scrollbackPage(msg)
 	}
+}
+
+func (c *conn) scrollbackPage(msg Message) {
+	if c.attached == "" {
+		c.replyError(msg.CID, CodeUnknownWorkspace, "not attached to a workspace")
+		return
+	}
+	p, ok := c.srv.reg.Pane(c.attached, msg.PaneID)
+	if !ok {
+		c.replyError(msg.CID, CodePaneNotFound, "pane not found")
+		return
+	}
+	vb, ok := p.buf.(*VTBuffer)
+	if !ok {
+		c.reply(&Message{Type: TypeScrollbackPageResult, CID: msg.CID, PaneID: msg.PaneID})
+		return
+	}
+	limit := msg.Limit
+	if limit <= 0 {
+		limit = defaultScrollbackPageLimit
+	}
+	if limit > maxScrollbackPageLimit {
+		limit = maxScrollbackPageLimit
+	}
+	lines, start, next := vb.ScrollbackPage(msg.LineCursor, limit)
+	c.reply(&Message{
+		Type:       TypeScrollbackPageResult,
+		CID:        msg.CID,
+		PaneID:     msg.PaneID,
+		Lines:      lines,
+		StartLine:  start,
+		NextCursor: next,
+	})
 }
 
 func (s *Server) saveClipboardImage(declaredType, encoded string) (string, string, error) {
@@ -594,7 +645,7 @@ func (c *conn) attach(msg Message) {
 		// Backward-compat safety net: both real call sites (mcp/client.go,
 		// server/ws.go) are updated in this same change to always send an
 		// explicit ClientKind, so this default is not an expected runtime path.
-		c.kind = "interactive"
+		c.kind = ClientKindInteractive
 	}
 	c.srv.attachConn(c, msg.WorkspaceID, msg.CID, msg.Breakpoint)
 }
@@ -670,7 +721,7 @@ func (c *conn) closePane(msg Message) {
 	}
 	p.Close()
 	c.reply(&Message{Type: TypeOK, CID: msg.CID})
-	c.srv.broadcast(wsID, &Message{Type: TypePaneClosed, PaneID: msg.PaneID})
+	c.srv.broadcast(wsID, &Message{Type: TypePaneClosed, WorkspaceID: wsID, PaneID: msg.PaneID})
 }
 
 // closeWorkspace removes a workspace and kills its panes, then broadcasts the
@@ -687,7 +738,66 @@ func (c *conn) closeWorkspace(msg Message) {
 		p.Close()
 	}
 	c.reply(&Message{Type: TypeOK, CID: msg.CID})
-	c.srv.broadcastAll(&Message{Type: TypeWorkspaceList, Workspaces: c.srv.reg.List()})
+	c.srv.broadcastWorkspaceClosed(msg.WorkspaceID)
+}
+
+func (c *conn) closeIntent(msg Message) {
+	outcome := c.srv.reg.CloseIntent(CloseTarget{
+		Kind: CloseTargetKind(msg.TargetKind), WorkspaceID: msg.WorkspaceID, PaneID: msg.PaneID,
+	})
+	c.reply(CloseOutcomeMessage(msg.CID, outcome))
+	c.srv.broadcastCloseMutation(outcome)
+}
+
+func (c *conn) closeConfirm(msg Message) {
+	outcome := c.srv.reg.ConfirmClose(msg.Ticket)
+	c.reply(CloseOutcomeMessage(msg.CID, outcome))
+	c.srv.broadcastCloseMutation(outcome)
+}
+
+func (s *Server) broadcastCloseMutation(outcome CloseOutcome) {
+	if !outcome.ClosedNow && !outcome.ReconcileAbsent {
+		return
+	}
+	if outcome.ReconcileAbsent && outcome.ReconcileWorkspace {
+		s.broadcastWorkspaceClosed(outcome.WorkspaceID)
+		return
+	}
+	switch outcome.TargetKind {
+	case CloseTargetPane:
+		s.broadcast(outcome.WorkspaceID, &Message{Type: TypePaneClosed,
+			WorkspaceID: outcome.WorkspaceID, PaneID: outcome.PaneID})
+	case CloseTargetWorkspace:
+		s.broadcastWorkspaceClosed(outcome.WorkspaceID)
+	}
+}
+
+func (s *Server) broadcastWorkspaceList() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.broadcastWorkspaceListLocked()
+}
+
+func (s *Server) replyWorkspaceList(c *conn, cid uint64) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	c.sub.enqueueControl(&Message{Type: TypeWorkspaceList, CID: cid, Workspaces: s.reg.List()})
+}
+
+func (s *Server) broadcastWorkspaceListLocked() {
+	workspaces := s.reg.List()
+	for c := range s.conns {
+		c.sub.enqueueControl(&Message{Type: TypeWorkspaceList, Workspaces: workspaces})
+	}
+}
+
+func (s *Server) broadcastWorkspaceClosed(workspaceID string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for c := range s.conns {
+		c.sub.enqueueControl(&Message{Type: TypeWorkspaceClosed, WorkspaceID: workspaceID})
+	}
+	s.broadcastWorkspaceListLocked()
 }
 
 // createBrowserPane allocates a client-rendered browser pane handle in the

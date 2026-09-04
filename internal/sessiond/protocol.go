@@ -88,6 +88,28 @@ const (
 	CodeImageSaveFailed  = "image-save-failed"
 )
 
+// Scrollback pagination message types extend the frozen v1 protocol without
+// changing any existing message shape.
+const (
+	TypeScrollbackPage       = "scrollback-page"
+	TypeScrollbackPageResult = "scrollback-page-result"
+)
+
+// Activity-aware close messages preserve legacy force-close messages while
+// routing browser intents through daemon-owned classification and tickets.
+const (
+	TypeCloseIntent  = "close-intent"
+	TypeCloseConfirm = "close-confirm"
+	TypeCloseOutcome = "close-outcome"
+)
+
+type CloseRiskInfo struct {
+	PaneID         int    `json:"paneId"`
+	Title          string `json:"title"`
+	Classification string `json:"classification"`
+	Reason         string `json:"reason"`
+}
+
 // writeFrame writes a single framed message: a 5-byte header consisting of a
 // big-endian uint32 length (kind byte + payload) followed by the kind byte,
 // then the payload (if any).
@@ -177,12 +199,21 @@ type Message struct {
 	Data        string          `json:"data,omitempty"`        // base64 clipboard image bytes (paste-image request)
 	Path        string          `json:"path,omitempty"`        // absolute Session Owner path (image-saved reply)
 	Breakpoint  string          `json:"breakpoint,omitempty"`  // responsive layout key (opaque to daemon)
-	ClientKind  string          `json:"clientKind,omitempty"`  // "interactive" (browser/human) | "agent" (MCP/automation)
+	ClientKind  string          `json:"clientKind,omitempty"`  // "interactive" (browser/human) | "agent" (MCP/automation) | "cli"
 	Layout      string          `json:"layout,omitempty"`      // opaque dockview layout JSON blob
 	Workspaces  []WorkspaceInfo `json:"workspaces,omitempty"`  //
 	Panes       []PaneInfo      `json:"panes,omitempty"`       //
 	Code        string          `json:"code,omitempty"`        // error code
 	Error       string          `json:"error,omitempty"`       // human-readable error text
+
+	TargetKind       string           `json:"targetKind,omitempty"`
+	CloseStatus      string           `json:"closeStatus,omitempty"`
+	Ticket           string           `json:"ticket,omitempty"`
+	BusyCount        *int             `json:"busyCount,omitempty"`
+	UnknownCount     *int             `json:"unknownCount,omitempty"`
+	Risks            *[]CloseRiskInfo `json:"risks,omitempty"`
+	OmittedRiskCount *int             `json:"omittedRiskCount,omitempty"`
+	FailureCode      string           `json:"failureCode,omitempty"`
 
 	// Browser pane fields (used in create-pane and pane-added for browser surface kinds)
 	SurfaceKind string `json:"surfaceKind,omitempty"`
@@ -230,6 +261,71 @@ type Message struct {
 	// URL carries the committed/loaded URL for TypeBrowserURL and TypeBrowserLoad
 	// client-to-server browser pane navigation notifications.
 	URL string `json:"url,omitempty"`
+
+	// Scrollback pagination fields. LineCursor is an exclusive upper bound in
+	// absolute line-sequence space; nil starts at the newest retained history.
+	LineCursor *uint64  `json:"lineCursor,omitempty"`
+	Limit      int      `json:"limit,omitempty"`
+	Lines      []string `json:"lines,omitempty"`
+	NextCursor *uint64  `json:"nextCursor,omitempty"`
+	StartLine  uint64   `json:"startLine,omitempty"`
+}
+
+func CloseOutcomeMessage(cid uint64, outcome CloseOutcome) *Message {
+	msg := &Message{
+		Type: TypeCloseOutcome, CID: cid,
+		TargetKind: string(outcome.TargetKind), WorkspaceID: outcome.WorkspaceID,
+		PaneID: outcome.PaneID, CloseStatus: string(outcome.Status),
+	}
+	if outcome.Status == CloseStatusConfirmationRequired {
+		busy, unknown, omitted := outcome.BusyCount, outcome.UnknownCount, outcome.OmittedRiskCount
+		risks := make([]CloseRiskInfo, len(outcome.Risks))
+		for i, risk := range outcome.Risks {
+			risks[i] = CloseRiskInfo{PaneID: risk.PaneID, Title: risk.Title,
+				Classification: string(risk.Classification), Reason: string(risk.Reason)}
+		}
+		msg.Ticket, msg.BusyCount, msg.UnknownCount = outcome.Ticket, &busy, &unknown
+		msg.Risks, msg.OmittedRiskCount = &risks, &omitted
+	} else if outcome.Status == CloseStatusFailed {
+		msg.FailureCode, msg.Error = outcome.FailureCode, outcome.Error
+	}
+	return msg
+}
+
+func ParseCloseOutcomeMessage(msg *Message) (CloseOutcome, error) {
+	if msg == nil || msg.Type != TypeCloseOutcome {
+		return CloseOutcome{}, fmt.Errorf("sessiond: expected %q reply", TypeCloseOutcome)
+	}
+	target := CloseTarget{Kind: CloseTargetKind(msg.TargetKind), WorkspaceID: msg.WorkspaceID, PaneID: msg.PaneID}
+	outcome := CloseOutcome{Status: CloseStatus(msg.CloseStatus), TargetKind: target.Kind,
+		WorkspaceID: target.WorkspaceID, PaneID: target.PaneID, Ticket: msg.Ticket,
+		FailureCode: msg.FailureCode, Error: msg.Error}
+	switch outcome.Status {
+	case CloseStatusClosed:
+		if !target.valid() {
+			return CloseOutcome{}, fmt.Errorf("sessiond: closed close outcome has invalid target")
+		}
+	case CloseStatusConfirmationRequired:
+		if !target.valid() || outcome.Ticket == "" || msg.BusyCount == nil ||
+			msg.UnknownCount == nil || msg.Risks == nil || msg.OmittedRiskCount == nil {
+			return CloseOutcome{}, fmt.Errorf("sessiond: confirmation-required close outcome is incomplete")
+		}
+		outcome.BusyCount, outcome.UnknownCount = *msg.BusyCount, *msg.UnknownCount
+		outcome.OmittedRiskCount = *msg.OmittedRiskCount
+		outcome.Risks = make([]CloseRisk, len(*msg.Risks))
+		for i, risk := range *msg.Risks {
+			classification, reason := ActivityClassification(risk.Classification), ActivityReason(risk.Reason)
+			if (classification != ActivityBusy && classification != ActivityUnknown) || !validCloseActivityReason(reason) {
+				return CloseOutcome{}, fmt.Errorf("sessiond: close outcome contains invalid risk")
+			}
+			outcome.Risks[i] = CloseRisk{PaneID: risk.PaneID, Title: risk.Title,
+				Classification: classification, Reason: reason}
+		}
+	case CloseStatusFailed:
+	default:
+		return CloseOutcome{}, fmt.Errorf("sessiond: invalid close outcome status %q", msg.CloseStatus)
+	}
+	return outcome, nil
 }
 
 // CursorPos is a 0-indexed terminal cursor position carried by screen-snapshot-result.

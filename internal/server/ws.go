@@ -36,6 +36,10 @@ type Client struct {
 	// hub attaches the client.
 	daemon DaemonConn
 
+	// Browser-local target bindings for opaque confirmation tickets. Accessed
+	// only by this client's read pump.
+	closeTickets map[string]sessiond.CloseTarget
+
 	// writeTextFn/writeBinaryFn perform the actual frame writes. Production
 	// wires them to the real WebSocket writers in newClient; tests inject
 	// capturing closures.
@@ -62,6 +66,56 @@ type Client struct {
 type bufferedPaneOutput struct {
 	paneID uint32
 	data   []byte
+}
+
+const (
+	closeRelayFailureCode    = "close-relay-failed"
+	closeRelayFailureMessage = "Close request could not be completed; try again."
+)
+
+func validCloseTarget(target sessiond.CloseTarget) bool {
+	if target.WorkspaceID == "" {
+		return false
+	}
+	return (target.Kind == sessiond.CloseTargetPane && target.PaneID > 0) ||
+		(target.Kind == sessiond.CloseTargetWorkspace && target.PaneID == 0)
+}
+
+func (c *Client) rememberCloseTicket(outcome sessiond.CloseOutcome) {
+	target := sessiond.CloseTarget{Kind: outcome.TargetKind, WorkspaceID: outcome.WorkspaceID, PaneID: outcome.PaneID}
+	if outcome.Status != sessiond.CloseStatusConfirmationRequired || outcome.Ticket == "" || !validCloseTarget(target) {
+		return
+	}
+	if c.closeTickets == nil {
+		c.closeTickets = make(map[string]sessiond.CloseTarget)
+	}
+	if _, exists := c.closeTickets[outcome.Ticket]; !exists && len(c.closeTickets) >= sessiond.CloseTicketCapacity {
+		for ticket := range c.closeTickets {
+			delete(c.closeTickets, ticket)
+			break
+		}
+	}
+	c.closeTickets[outcome.Ticket] = target
+}
+
+func (c *Client) closeTargetForTicket(ticket string) (sessiond.CloseTarget, bool) {
+	target, ok := c.closeTickets[ticket]
+	return target, ok
+}
+
+func (c *Client) forgetCloseTicket(ticket string) { delete(c.closeTickets, ticket) }
+
+func closeOutcomeWithFallbackTarget(outcome sessiond.CloseOutcome, fallback sessiond.CloseTarget) sessiond.CloseOutcome {
+	if outcome.TargetKind == "" && validCloseTarget(fallback) {
+		outcome.TargetKind, outcome.WorkspaceID, outcome.PaneID = fallback.Kind, fallback.WorkspaceID, fallback.PaneID
+	}
+	return outcome
+}
+
+func closeRelayFailure(target sessiond.CloseTarget) sessiond.CloseOutcome {
+	return sessiond.CloseOutcome{Status: sessiond.CloseStatusFailed, TargetKind: target.Kind,
+		WorkspaceID: target.WorkspaceID, PaneID: target.PaneID,
+		FailureCode: closeRelayFailureCode, Error: closeRelayFailureMessage}
 }
 
 // setWorkspaceID records the workspace this client is currently attached to.
@@ -120,10 +174,8 @@ func (c *Client) relayPaneOutput(paneID uint32, data []byte) {
 func newClient(hub *Hub, conn *websocket.Conn) *Client {
 	ctx, cancel := context.WithCancel(context.Background())
 	c := &Client{
-		hub:    hub,
-		conn:   conn,
-		ctx:    ctx,
-		cancel: cancel,
+		hub: hub, conn: conn, ctx: ctx, cancel: cancel,
+		closeTickets: make(map[string]sessiond.CloseTarget),
 	}
 	c.writeTextFn = func(data []byte) error {
 		c.writeMu.Lock()
@@ -261,6 +313,31 @@ func (c *Client) handleTextInput(data []byte) {
 		if wsList, err := c.daemon.ListWorkspaces(); err == nil {
 			c.sendMessage(&sessiond.Message{Type: sessiond.TypeWorkspaceList, Workspaces: wsList})
 		}
+
+	case sessiond.TypeCloseIntent:
+		target := sessiond.CloseTarget{Kind: sessiond.CloseTargetKind(msg.TargetKind),
+			WorkspaceID: msg.WorkspaceID, PaneID: msg.PaneID}
+		outcome, err := c.daemon.CloseIntent(target)
+		if err != nil {
+			c.sendMessage(sessiond.CloseOutcomeMessage(msg.CID, closeRelayFailure(target)))
+			return
+		}
+		c.rememberCloseTicket(outcome)
+		c.sendMessage(sessiond.CloseOutcomeMessage(msg.CID, outcome))
+
+	case sessiond.TypeCloseConfirm:
+		target, known := c.closeTargetForTicket(msg.Ticket)
+		outcome, err := c.daemon.CloseConfirm(msg.Ticket)
+		if err != nil {
+			c.sendMessage(sessiond.CloseOutcomeMessage(msg.CID, closeRelayFailure(target)))
+			return
+		}
+		c.forgetCloseTicket(msg.Ticket)
+		if known {
+			outcome = closeOutcomeWithFallbackTarget(outcome, target)
+		}
+		c.rememberCloseTicket(outcome)
+		c.sendMessage(sessiond.CloseOutcomeMessage(msg.CID, outcome))
 
 	case sessiond.TypeCreatePane:
 		var paneID int
@@ -597,9 +674,9 @@ func (h *Hub) attachClient(c *Client) error {
 				ReferencePaneID: pane.ReferencePaneID,
 			})
 		},
-		OnPaneClosed: func(paneID int, processExitCode *int, runtimeMs int64) {
+		OnPaneClosedWithWorkspace: func(workspaceID string, paneID int, processExitCode *int, runtimeMs int64) {
 			c.sendMessage(&sessiond.Message{
-				Type: sessiond.TypePaneClosed, PaneID: paneID,
+				Type: sessiond.TypePaneClosed, WorkspaceID: workspaceID, PaneID: paneID,
 				ProcessExitCode: processExitCode, RuntimeMs: runtimeMs,
 			})
 		},

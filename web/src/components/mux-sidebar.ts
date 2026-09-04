@@ -159,11 +159,6 @@ export class MuxSidebar extends LitElement {
       box-shadow: 0 0 5px color-mix(in srgb, var(--mux-warn) 45%, transparent);
     }
 
-    .ws-card.pending-close {
-      opacity: 0.35;
-      pointer-events: none;
-    }
-
     .ws-card.codex {
       padding: 9px 10px 10px;
       border-color: color-mix(in srgb, var(--chrome-accent) 30%, transparent);
@@ -396,7 +391,6 @@ export class MuxSidebar extends LitElement {
 
   @state() private _version = 0;
   @state() private _renaming: string | null = null;
-  @state() private _pendingClose = new Set<string>();
   @state() private _menuOpen = false;
   @state() private _acknowledging = new Set<string>();
 
@@ -440,17 +434,6 @@ export class MuxSidebar extends LitElement {
     super.disconnectedCallback();
     this._unsub?.();
     this._unsub = null;
-  }
-
-  // ---------------------------------------------------------------------------
-  // Public API
-  // ---------------------------------------------------------------------------
-
-  /** Remove a workspace from the pending-close set (called by the parent to restore). */
-  restoreWorkspace(wsId: string): void {
-    const next = new Set(this._pendingClose);
-    next.delete(wsId);
-    this._pendingClose = next;
   }
 
   // ---------------------------------------------------------------------------
@@ -502,9 +485,6 @@ export class MuxSidebar extends LitElement {
 
   private _onWsRemove(e: Event, wsId: string, name: string): void {
     e.stopPropagation();
-    const next = new Set(this._pendingClose);
-    next.add(wsId);
-    this._pendingClose = next;
     this.dispatchEvent(
       new CustomEvent('workspace-close', {
         detail: { workspaceId: wsId, name },
@@ -631,7 +611,6 @@ export class MuxSidebar extends LitElement {
     return html`
       ${store.workspaces.map((ws) => {
         const isActive = ws.workspaceId === activeWsId;
-        const isPendingClose = this._pendingClose.has(ws.workspaceId);
         const label = workspaceLabel(ws);
         const codexSession = store.codex.sessions.find((session) => session.workspaceId === ws.workspaceId);
         const paneContext = store.paneContext(ws.workspaceId);
@@ -640,11 +619,11 @@ export class MuxSidebar extends LitElement {
         if (codexSession || terminalCodex) {
           if (!codexSession) {
             const directory = paneContext?.cwd?.split('/').filter(Boolean).pop() || paneContext?.cwd || 'Terminal';
-            return html`<div class="ws-card codex ${isActive ? 'active' : ''} ${isPendingClose ? 'pending-close' : ''}"
+            return html`<div class="ws-card codex ${isActive ? 'active' : ''}"
               @click="${() => this._onWsClick(ws.workspaceId)}">
               <div class="codex-kicker">${icon(Bot, { size: 12 })}<span class="codex-kicker-name">Codex · ${label}</span>
                 <span class="codex-status working">Running</span>
-                <button class="ws-remove-btn" title="Remove workspace" @click="${(e: Event) => this._onWsRemove(e, ws.workspaceId, label)}">×</button>
+                <button type="button" class="ws-remove-btn" title="Close workspace" aria-label="Close workspace ${label}" @click="${(e: Event) => this._onWsRemove(e, ws.workspaceId, label)}">×</button>
               </div>
               <div class="codex-title" title="${paneContext?.cwd ?? ''}">${directory}</div>
               ${paneContext?.gitBranch ? html`<div class="codex-detail">${paneContext.gitBranch}${paneContext.gitChanges ? ` · ${paneContext.gitChanges} changes` : ' · clean'}</div>` : ''}
@@ -698,7 +677,7 @@ export class MuxSidebar extends LitElement {
 
           return html`
             <div
-              class="ws-card codex ${isActive ? 'active' : ''} ${isPendingClose ? 'pending-close' : ''}"
+              class="ws-card codex ${isActive ? 'active' : ''}"
               @click="${() => this._onWsClick(ws.workspaceId)}"
             >
               <div class="codex-kicker">
@@ -706,8 +685,10 @@ export class MuxSidebar extends LitElement {
                 <span class="codex-kicker-name">Codex · ${label}</span>
                 <span class="codex-status ${attention ? 'attention' : working ? 'working' : ''}">${statusText}</span>
                 <button
+                  type="button"
                   class="ws-remove-btn"
-                  title="Remove workspace"
+                  title="Close workspace"
+                  aria-label="Close workspace ${label}"
                   @click="${(e: Event) => this._onWsRemove(e, ws.workspaceId, label)}"
                 >×</button>
               </div>
@@ -738,7 +719,7 @@ export class MuxSidebar extends LitElement {
 
         return html`
           <div
-            class="ws-card ${isActive ? 'active' : ''} ${isPendingClose ? 'pending-close' : ''}"
+            class="ws-card ${isActive ? 'active' : ''}"
             @click="${() => this._onWsClick(ws.workspaceId)}"
           >
             <div class="ws-header">
@@ -759,8 +740,10 @@ export class MuxSidebar extends LitElement {
                     >${label}</span
                   >`}
               <button
+                type="button"
                 class="ws-remove-btn"
-                title="Remove workspace"
+                title="Close workspace"
+                aria-label="Close workspace ${label}"
                 @click="${(e: Event) => this._onWsRemove(e, ws.workspaceId, label)}"
               >×</button>
             </div>

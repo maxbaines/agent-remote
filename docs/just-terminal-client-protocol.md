@@ -62,7 +62,7 @@ One struct; the `type` field discriminates. All fields `omitempty`.
 | Workspaces | `workspaces` | []WorkspaceInfo |
 | Panes | `panes` | []PaneInfo |
 | Code / Error | `code` / `error` | error envelope |
-| SurfaceKind | `surfaceKind` | `"terminal"` \| `"browser"`; absent = terminal |
+| SurfaceKind | `surfaceKind` | `"terminal"` \| `"driver"` \| `"browser"`; absent = terminal |
 | Placement | `placement` | tab \| split-{right,left,above,below} |
 | ReferencePaneID | `referencePaneId` | split reference; 0 = active pane |
 | Action | `action` | browser-command verb |
@@ -70,6 +70,10 @@ One struct; the `type` field discriminates. All fields `omitempty`.
 | Result | `result` | raw JSON result (browser-result, eval) |
 | Params | `params` | raw JSON browser-command params (§5) |
 | ASCII / Text / Snapshot | `ascii` / `text` / `snapshot` | MCP results |
+| LineCursor / Limit | `lineCursor` / `limit` | backward scrollback pagination request |
+| Lines / StartLine / NextCursor | `lines` / `startLine` / `nextCursor` | scrollback page result |
+| TargetKind / CloseStatus | `targetKind` / `closeStatus` | activity-aware close transaction |
+| Ticket / Risks | `ticket` / `risks` | opaque confirmation ticket and bounded risk details |
 
 `WorkspaceInfo`: `{workspaceId, name?, clientRef?, paneCount}`.
 `PaneInfo`: `{paneId, surfaceKind?, cols?, rows?, title?, totalSeq?, placement?, referencePaneId?}`.
@@ -77,12 +81,13 @@ One struct; the `type` field discriminates. All fields `omitempty`.
 ## 4. Message types
 
 **Requests (client → daemon):** create-workspace, list-workspaces,
-rename-workspace, close-workspace, attach, create-pane, close-pane, resize,
-rename-pane, save-layout, screen-snapshot, get-layout, create-browser-pane,
-close-browser-pane.
+rename-workspace, close-workspace, close-intent, close-confirm, attach,
+create-pane, close-pane, resize, rename-pane, save-layout, screen-snapshot,
+scrollback-page, get-layout, create-browser-pane, close-browser-pane.
 
 **Replies (daemon → requester, echo cid):** workspace-created, workspace-list,
-composition, pane-created, ok, screen-snapshot-result, layout-result.
+composition, pane-created, close-outcome, ok, screen-snapshot-result,
+scrollback-page-result, layout-result.
 
 **Events (daemon → subscribers, cid = 0 unless noted):** pane-added, pane-closed,
 workspace-closed, workspace-renamed, pane-renamed, shell-prompt,
@@ -90,6 +95,16 @@ browser-command (carries cid), browser-result (echoes cid).
 
 **Errors:** `error` with `code` ∈ {unknown-workspace, pane-spawn-failed,
 pane-not-found}.
+
+Browser close controls use `close-intent` rather than the legacy force-close
+messages. An idle target returns `close-outcome` with `closeStatus:"closed"`.
+A busy or unknown target returns `closeStatus:"confirmation-required"`, an
+opaque short-lived `ticket`, aggregate counts, and a bounded `risks` list. The
+client may cancel locally or send `close-confirm` with that ticket. The daemon
+binds the ticket to target identity, Workspace membership, and activity state;
+stale or reused tickets cannot close a changed target. Codex/driver panes are
+classified busy. Browser panes are activity-unknown and therefore also require
+confirmation.
 
 ## 5. Browser control (client-rendered, server-drivable)
 

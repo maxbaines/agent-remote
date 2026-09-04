@@ -34,6 +34,9 @@ type Config struct {
 	// setting on, never off (same one-way bool limitation config.Merge
 	// documents).
 	BehindReverseProxy bool
+
+	// Args is parsed by the nested socket-client command trees.
+	Args []string
 }
 
 // printUsage writes top-level help to w.
@@ -47,6 +50,10 @@ func printUsage(w io.Writer) {
 	fmt.Fprintln(w, "  just-terminal uninstall           Remove system service")
 	fmt.Fprintln(w, "  just-terminal deploy <host>       Deploy to a remote host via SSH")
 	fmt.Fprintln(w, "  just-terminal doctor              Check daemon and service status")
+	fmt.Fprintln(w, "  just-terminal read-screen <pane>  Print a pane's screen or scrollback")
+	fmt.Fprintln(w, "  just-terminal session <command>   List or inspect workspaces")
+	fmt.Fprintln(w, "  just-terminal pane <command>      Create, close, or resize panes")
+	fmt.Fprintln(w, "  just-terminal layout get          Print a workspace layout diagram")
 	fmt.Fprintln(w, "  just-terminal mcp [flags]         Start MCP server (stdio transport)")
 	fmt.Fprintln(w, "  just-terminal auth <command>      Initialize or recover authentication")
 	fmt.Fprintln(w, "  just-terminal amplifier install   Install just-terminal bundle into Amplifier")
@@ -82,6 +89,14 @@ func ParseArgs(args []string) (Config, error) {
 		return Config{Mode: "uninstall"}, nil
 	case "doctor":
 		return Config{Mode: "doctor"}, nil
+	case "read-screen":
+		return Config{Mode: "read-screen", Args: args[1:]}, nil
+	case "session":
+		return Config{Mode: "session", Args: args[1:]}, nil
+	case "pane":
+		return Config{Mode: "pane", Args: args[1:]}, nil
+	case "layout":
+		return Config{Mode: "layout", Args: args[1:]}, nil
 	case "mcp":
 		return parseMCP(args[1:])
 	case "auth":

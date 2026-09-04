@@ -177,6 +177,10 @@ Add this server to `opencode.json`:
 | `just-terminal uninstall` | Remove the installed services |
 | `just-terminal deploy user@host` | Copy and install the current binary over SSH |
 | `just-terminal doctor` | Inspect Gateway, Session Owner, and service health |
+| `just-terminal session list\|attach` | List Workspaces or inspect a Workspace's Pane composition |
+| `just-terminal pane create\|close\|resize` | Script Pane lifecycle and PTY sizing |
+| `just-terminal read-screen <pane>` | Read the live screen or page backward through server-side scrollback |
+| `just-terminal layout get` | Print a Workspace's current layout as an ASCII diagram |
 | `just-terminal auth ...` | Initialize, inspect, or reset owner authentication |
 | `just-terminal mcp` | Start the local stdio MCP server |
 | `just-terminal amplifier install` | Install the JustTerminal Amplifier bundle |
@@ -197,6 +201,8 @@ shells and coding agents
 ```
 
 Each Pane is backed by a real PTY. The Session Owner, not the browser, owns terminal state and answers terminal queries. The Gateway can therefore restart independently, and a reconnecting Remote Client receives a fresh serialization of the current VT cell grid plus retained scrollback.
+
+Close controls are also Session Owner-authoritative. Idle Bash and Zsh panes close immediately; panes with running commands require confirmation. Codex/driver panes are treated as busy, while browser panes and panes whose activity cannot be inspected are treated as unknown and fail safe to confirmation.
 
 The browser renders terminals with xterm.js and arranges Pane Groups with dockview. One WebSocket carries binary Pane I/O and JSON control messages between a Remote Client and the Gateway.
 

@@ -1,5 +1,4 @@
 import { LitElement, html, css } from 'lit';
-import { repeat } from 'lit/directives/repeat.js';
 import { customElement, state } from 'lit/decorators.js';
 import { store } from './state.js';
 import { icon } from './lib/icons.js';
@@ -40,19 +39,27 @@ import './components/settings-surface.js';
 import './components/keybindings-surface.js';
 import type { MuxDock } from './components/mux-dock.js';
 import type { LauncherAction } from './components/launcher-menu.js';
-import './components/mux-undo-toast.js';
+import './components/close-confirmation-modal.js';
+import type { CloseConfirmationModal } from './components/close-confirmation-modal.js';
 import './components/workspace-picker.js';
 import './components/reconnect-overlay.js';
 import './components/mux-sidebar.js';
 import './components/mobile-keyboard-bar.js';
 import './components/file-tree-sidebar.js';
-import type { MuxSidebar } from './components/mux-sidebar.js';
 
 
 import { WorkspaceController } from './lib/workspace-controller.js';
 import { PaneFocusCoordinator } from './lib/pane-focus-coordinator.js';
 import { mintClientRef } from './lib/client-ref.js';
-import { SessiondType, isTerminalSurface, type LayoutCommand } from './types.js';
+import {
+  SessiondType,
+  isTerminalSurface,
+  type CloseConfirmationRequiredOutcome,
+  type CloseOutcome,
+  type CloseTarget,
+  type LayoutCommand,
+  type SessiondMessage,
+} from './types.js';
 import { currentLayoutMode } from './lib/breakpoint.js';
 import { detectMobilePlatform } from './lib/mobile-terminal-input.js';
 import { muxLog, muxLogReset } from './lib/mux-log.js';
@@ -75,6 +82,21 @@ const FILE_TREE_OPEN_KEY = 'just-terminal.fileTreeOpen';
 /** Small positive bias (px) that makes Split's percentage renderer round to
  *  the requested whole pixel instead of occasionally landing 1/64px short. */
 const SIDEBAR_SUBPIXEL_ROUNDING_BIAS = 0.001;
+
+interface CloseRequestState { target: CloseTarget; token: symbol }
+interface CloseAlert { target: CloseTarget; message: string }
+
+function closeTargetKey(target: CloseTarget): string {
+  return target.targetKind === 'pane'
+    ? JSON.stringify(['pane', target.workspaceId, target.paneId])
+    : JSON.stringify(['workspace', target.workspaceId]);
+}
+
+function closeOutcomeTarget(outcome: CloseOutcome): CloseTarget {
+  return outcome.targetKind === 'pane'
+    ? { targetKind: 'pane', workspaceId: outcome.workspaceId, paneId: outcome.paneId }
+    : { targetKind: 'workspace', workspaceId: outcome.workspaceId };
+}
 
 /** Converts a target sidebar pixel width into the percentage Split.js needs,
  *  compensating for its default renderer's half-gutter subtraction so the
@@ -171,7 +193,7 @@ export class MuxApp extends LitElement {
       display: flex;
       align-items: center;
       justify-content: center;
-      z-index: 1000; /* above undo toasts (z-index: 900) */
+      z-index: 1000;
       color: var(--mux-warn);
       font-size: 16px;
     }
@@ -180,19 +202,40 @@ export class MuxApp extends LitElement {
       display: none;
     }
 
-    .undo-toast-stack {
+    .close-alert-stack {
       position: fixed;
-      bottom: 32px;
+      top: 16px;
       left: 50%;
       transform: translateX(-50%);
       display: flex;
-      flex-direction: column-reverse;
+      flex-direction: column;
       gap: 8px;
-      z-index: 900; /* below reconnect overlay */
-      pointer-events: none;
+      width: min(560px, calc(100vw - 24px));
+      z-index: 2500;
     }
-    .undo-toast-stack > * {
-      pointer-events: auto;
+    .close-alert {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 12px;
+      border: 1px solid var(--chrome-danger);
+      border-radius: 7px;
+      background: var(--chrome-body);
+      color: var(--chrome-text-bright);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+      font-size: 13px;
+    }
+    .close-alert span { flex: 1; min-width: 0; }
+    .close-alert button {
+      min-width: 32px;
+      min-height: 32px;
+      padding: 0 8px;
+      border: 1px solid var(--chrome-border);
+      border-radius: 5px;
+      background: transparent;
+      color: var(--chrome-text-bright);
+      font: inherit;
+      cursor: pointer;
     }
 
     /* ── Centered workspace-create modal ── */
@@ -623,20 +666,10 @@ export class MuxApp extends LitElement {
   /** Browser-local overrides for configurable registered Commands. */
   readonly keybindings = new BrowserKeybindings(this.commands, () => this._reservedKeybindings());
 
-  /** Active grace-period timers, keyed by paneId. Presence => a deferred close
-   *  is pending and a toast is shown. */
-  private _pendingCloses = new Map<number, ReturnType<typeof setTimeout>>();
-  /** Per-pending metadata for rendering each toast (the tab title at close). */
-  private _pendingClosesMeta = new Map<number, { title: string }>();
-
-  /** Pending workspace grace-period closes, keyed by negative virtual ID. */
-  private _pendingWorkspaceCloses = new Map<number, { timer: ReturnType<typeof setTimeout>; wsId: string; name: string }>();
-  /** Monotonically-decreasing counter for workspace virtual IDs (never collides with pane IDs). */
-  private _wsVirtualId = -1000;
-  /** Pane IDs for which closePane has been sent but the server hasn't removed
-   *  the pane from store.panes yet. _syncTerminals skips ensure() for these so
-   *  the terminal isn't phantom-recreated between the close send and the ACK. */
-  private _closingPanes = new Set<number>();
+  @state() private _closeConfirmation: CloseConfirmationRequiredOutcome | null = null;
+  @state() private _confirmingCloseKey: string | null = null;
+  @state() private _closeAlerts = new Map<string, CloseAlert>();
+  private _closeRequests = new Map<string, CloseRequestState>();
 
   private _socket: MuxSocket | null = null;
   private _paneContextTimer: ReturnType<typeof setInterval> | undefined;
@@ -734,6 +767,8 @@ export class MuxApp extends LitElement {
     // Layout-command relay: window CustomEvent from ws.ts → mux-dock routing.
     window.addEventListener('layout-command', this._onLayoutCommand);
     window.addEventListener(TERMINAL_FILE_OPEN_EVENT, this._onTerminalFileOpen);
+    this.addEventListener('pane-close', this._onPaneCloseIntent);
+    this.addEventListener('workspace-close', this._onWorkspaceCloseIntent);
     // Update layout mode when the viewport crosses the 768px breakpoint.
     window.addEventListener('resize', this._onViewportResize);
     if (this._mobilePlatform.mobile) {
@@ -759,9 +794,7 @@ export class MuxApp extends LitElement {
     // re-set on config changes.
     disposeAppShortcuts?.();
     disposeAppShortcuts = installAppShortcuts({
-      // Remove the active panel from dockview, which triggers onDidRemovePanel
-      // → pane-close event → _startDeferredClose (deferred kill + undo toast).
-      // This mirrors exactly what clicking the tab X button does.
+      // Emit the same pre-removal close intent as the tab close button.
       closePane: () => this._dock?.closeActivePanel(),
       // Cycle tabs within the active pane's group only (not across split panes).
       nextTab: () => this._dock?.cycleTabInGroup('next'),
@@ -802,7 +835,11 @@ export class MuxApp extends LitElement {
       if (msg.type === SessiondType.PaneAdded && msg.placement) {
         this._dock?.preparePlacementForPaneAdded(msg.placement, msg.referencePaneId);
       }
-      store.applySessiond(msg);
+      const appliesToAttachedWorkspace =
+        msg.type !== SessiondType.PaneClosed ||
+        (typeof msg.workspaceId === 'string' && msg.workspaceId === store.attached);
+      if (appliesToAttachedWorkspace) store.applySessiond(msg);
+      this._reconcileCloseAuthority(msg);
       this._controller?.onMessage(msg);
       // Replay setup: must run synchronously here, BEFORE binary replay frames
       // are processed. Lit's willUpdate/_syncTerminals fires on the next render
@@ -879,19 +916,18 @@ export class MuxApp extends LitElement {
       this._showReconnectOverlay = true;
       this._reconnectMessage = 'Connection lost. Reconnecting...';
       this._creatingWorkspace = false;
-      // Cancel grace-period timers: can't guarantee closePane delivery
-      // while disconnected; don't prune terminals that may survive reconnect.
-      // Capture ids BEFORE clearing the maps/set
-      const pendingIds = [...this._pendingCloses.keys()];
-      const closingIds = [...this._closingPanes];
-      for (const handle of this._pendingCloses.values()) clearTimeout(handle);
-      this._pendingCloses.clear();
-      this._pendingClosesMeta.clear();
-      this._closingPanes.clear();
-      // Re-enable reconciler for panes whose grace period was aborted or whose
-      // close was in-flight — their PTY is still alive on the server.
-      this._dock?.allowReconcile([...closingIds, ...pendingIds]);
-      this.requestUpdate();
+      const interruptedTargets = new Map<string, CloseTarget>();
+      for (const [key, request] of this._closeRequests) interruptedTargets.set(key, request.target);
+      if (this._closeConfirmation) {
+        const target = closeOutcomeTarget(this._closeConfirmation);
+        interruptedTargets.set(closeTargetKey(target), target);
+      }
+      this._closeRequests.clear();
+      this._closeConfirmation = null;
+      this._confirmingCloseKey = null;
+      for (const target of interruptedTargets.values()) {
+        this._setCloseAlert(target, 'The close outcome could not be confirmed because the connection was lost.');
+      }
     };
     this._socket.onReconnect = () => {
       this._showReconnectOverlay = false;
@@ -922,6 +958,8 @@ export class MuxApp extends LitElement {
     window.removeEventListener('open-launcher', this._onOpenLauncherAttr);
     window.removeEventListener('layout-command', this._onLayoutCommand);
     window.removeEventListener(TERMINAL_FILE_OPEN_EVENT, this._onTerminalFileOpen);
+    this.removeEventListener('pane-close', this._onPaneCloseIntent);
+    this.removeEventListener('workspace-close', this._onWorkspaceCloseIntent);
     window.removeEventListener('resize', this._onViewportResize);
     window.visualViewport?.removeEventListener('resize', this._syncMobileVisualViewport);
     window.visualViewport?.removeEventListener('scroll', this._syncMobileVisualViewport);
@@ -951,13 +989,10 @@ export class MuxApp extends LitElement {
       this._socket.disconnect();
       this._socket = null;
     }
-    // Clear any pending deferred-close timers (guards against test-suite timer bleed)
-    for (const handle of this._pendingCloses.values()) clearTimeout(handle);
-    this._pendingCloses.clear();
-    this._pendingClosesMeta.clear();
-    this._closingPanes.clear();
-    for (const entry of this._pendingWorkspaceCloses.values()) clearTimeout(entry.timer);
-    this._pendingWorkspaceCloses.clear();
+    this._closeRequests.clear();
+    this._closeConfirmation = null;
+    this._confirmingCloseKey = null;
+    this._closeAlerts = new Map();
     this._destroySplit();
   }
 
@@ -1007,10 +1042,6 @@ export class MuxApp extends LitElement {
       // Mounting a terminal on a provisional pane produces a phantom cursor
       // that flickers once the real positive-id pane settles.
       if (paneId < 0) continue;
-      // Skip panes where closePane has been sent but the server hasn't removed
-      // them from store.panes yet — recreating the terminal here would produce
-      // a phantom entry that conflicts with the in-flight close.
-      if (this._closingPanes.has(paneId)) continue;
       // Browser panes: opaque placeholder slots. Keep them in the live set so
       // the dock doesn't prune the panel, but do no terminal/registry work.
       if (pane.surfaceKind === 'browser') { liveIds.add(paneId); continue; }
@@ -1027,12 +1058,6 @@ export class MuxApp extends LitElement {
       liveIds.add(paneId);
     }
     terminalRegistry.prune(liveIds);
-    // Clean up _closingPanes entries the server has now removed from store.panes.
-    const toDelete = new Set<number>();
-    for (const id of this._closingPanes) {
-      if (!store.panes.some((p) => p.paneId === id)) toDelete.add(id);
-    }
-    for (const id of toDelete) this._closingPanes.delete(id);
   }
 
   private _initSplit(): void {
@@ -1139,7 +1164,6 @@ export class MuxApp extends LitElement {
             @workspace-create="${this._onOpenCreateModal}"
             @codex-workspace-create="${this._onOpenCodexCreateModal}"
             @workspace-rename="${this._onWorkspaceRename}"
-            @workspace-close="${this._onSidebarWorkspaceClose}"
             @launcher-action="${this._onLauncherAction}"
           ></mux-sidebar>
         ` : ''}
@@ -1166,7 +1190,6 @@ export class MuxApp extends LitElement {
                   .narrow="${!isWide}"
                   .keyboardFocusMode="${showMobileKeyboard}"
                   @pane-select="${this._onActivePane}"
-                  @pane-close="${this._onClosePane}"
                   @command-invoke="${this._onCommandInvoke}"
                   @pane-create="${this._onCreatePane}"
                   @pane-rename="${this._onPaneRename}"
@@ -1197,19 +1220,23 @@ export class MuxApp extends LitElement {
 
       </div>
 
-      <div class="undo-toast-stack" @pane-close-resolved="${this._onUndoPaneClose}">
-        ${repeat(
-          [...this._pendingClosesMeta.entries()],
-          ([paneId]) => paneId,
-          ([paneId, meta]) => html`
-            <mux-undo-toast
-              .paneId="${paneId}"
-              .paneTitle="${meta.title}"
-              .duration="${5000}"
-            ></mux-undo-toast>
-          `,
-        )}
+      <div class="close-alert-stack" aria-live="polite">
+        ${[...this._closeAlerts.entries()].map(([key, alert]) => html`
+          <div class="close-alert" role="alert">
+            <span>${alert.message}</span>
+            <button type="button" aria-label="Dismiss close error"
+              @click="${() => this._dismissCloseAlert(key)}">Dismiss</button>
+          </div>
+        `)}
       </div>
+      ${this._closeConfirmation ? html`
+        <close-confirmation-modal
+          .outcome="${this._closeConfirmation}"
+          .confirming="${this._isCurrentCloseConfirming()}"
+          @close-confirmation-cancel="${this._onCloseConfirmationCancel}"
+          @close-confirmation-confirm="${this._onCloseConfirmationConfirm}"
+        ></close-confirmation-modal>
+      ` : ''}
       <div class="overlay ${this._connectionStatus === 'connected' ? 'hidden' : ''}">
         Connecting to JustTerminal...
       </div>
@@ -1546,32 +1573,201 @@ export class MuxApp extends LitElement {
     });
   };
 
-  /**
-   * Handle workspace-close from the sidebar: starts a 10-second grace period
-   * (mirroring pane-close undo) keyed by a negative virtual ID so the undo
-   * toast machinery can handle it uniformly.
-   */
-  private _onSidebarWorkspaceClose = (e: CustomEvent<{ workspaceId: string; name: string }>): void => {
-    const { workspaceId: wsId, name } = e.detail;
-    // Guard duplicate: if this workspace already has a pending close, skip.
-    for (const entry of this._pendingWorkspaceCloses.values()) {
-      if (entry.wsId === wsId) return;
-    }
-    const vid = this._wsVirtualId--;
-    const timer = setTimeout(() => this._executeWorkspaceClose(vid), 5_000);
-    this._pendingWorkspaceCloses.set(vid, { timer, wsId, name });
-    this._pendingClosesMeta.set(vid, { title: name });
-    this.requestUpdate();
+  private _onWorkspaceCloseIntent = (e: Event): void => {
+    const detail = (e as CustomEvent<{ workspaceId?: unknown }>).detail;
+    if (!detail || typeof detail.workspaceId !== 'string' || !detail.workspaceId) return;
+    this._requestClose({ targetKind: 'workspace', workspaceId: detail.workspaceId });
   };
 
-  /** Actually close the workspace after the grace period expires. */
-  private _executeWorkspaceClose(vid: number): void {
-    const entry = this._pendingWorkspaceCloses.get(vid);
-    if (!entry) return;
-    this._pendingWorkspaceCloses.delete(vid);
-    this._pendingClosesMeta.delete(vid);
-    this._socket?.closeWorkspace(entry.wsId);
-    this.requestUpdate();
+  private _onPaneCloseIntent = (e: Event): void => {
+    const detail = (e as CustomEvent<{ workspaceId?: unknown; paneId?: unknown }>).detail;
+    if (!detail || typeof detail.workspaceId !== 'string' || !detail.workspaceId ||
+      typeof detail.paneId !== 'number') return;
+    this._requestClose({ targetKind: 'pane', workspaceId: detail.workspaceId, paneId: detail.paneId });
+  };
+
+  private _requestClose(target: CloseTarget): void {
+    const key = closeTargetKey(target);
+    if (this._closeConfirmation) {
+      this._focusCloseCancel();
+      return;
+    }
+    if (this._closeRequests.has(key)) return;
+    this._clearCloseAlert(key);
+    const socket = this._socket;
+    if (!socket) {
+      this._setCloseAlert(target, 'Cannot request close while disconnected.');
+      return;
+    }
+    const token = Symbol(key);
+    this._closeRequests.set(key, { target, token });
+    void socket.closeIntent(target).then(
+      (outcome) => this._handleCloseOutcome(target, key, token, outcome),
+      (error: unknown) => this._handleCloseError(target, key, token, error),
+    );
+  }
+
+  private _handleCloseOutcome(requestedTarget: CloseTarget, key: string, token: symbol, outcome: CloseOutcome): void {
+    const request = this._closeRequests.get(key);
+    if (!request || request.token !== token) return;
+    const outcomeTarget = closeOutcomeTarget(outcome);
+    if (closeTargetKey(outcomeTarget) !== key) {
+      this._closeRequests.delete(key);
+      this._clearMatchingConfirmation(key);
+      this._setCloseAlert(requestedTarget, 'The close service returned a mismatched target. Local state was left unchanged.');
+      return;
+    }
+    const wasConfirming = this._confirmingCloseKey === key;
+    if (wasConfirming) this._confirmingCloseKey = null;
+    switch (outcome.closeStatus) {
+      case 'closed':
+        this._clearMatchingConfirmation(key);
+        break;
+      case 'failed':
+        this._closeRequests.delete(key);
+        this._clearMatchingConfirmation(key);
+        this._setCloseAlert(requestedTarget,
+          wasConfirming && (outcome.failureCode === 'invalid-close-ticket' || outcome.failureCode === 'stale-close-ticket')
+            ? 'This close confirmation is no longer valid. The target is still open. Select Close again to reassess it.'
+            : outcome.error ?? 'The close request failed.');
+        break;
+      case 'confirmation-required':
+        this._closeRequests.delete(key);
+        if (this._closeConfirmation && closeTargetKey(closeOutcomeTarget(this._closeConfirmation)) !== key) {
+          this._setCloseAlert(requestedTarget, 'This target also needs confirmation. Finish the open close dialog, then try again.');
+          return;
+        }
+        this._closeConfirmation = outcome;
+        this._focusCloseCancel();
+        break;
+    }
+  }
+
+  private _handleCloseError(target: CloseTarget, key: string, token: symbol, error: unknown): void {
+    const request = this._closeRequests.get(key);
+    if (!request || request.token !== token) return;
+    const wasConfirming = this._confirmingCloseKey === key;
+    this._closeRequests.delete(key);
+    this._clearMatchingConfirmation(key);
+    if (this._confirmingCloseKey === key) this._confirmingCloseKey = null;
+    this._setCloseAlert(target, wasConfirming
+      ? 'The close confirmation could not be completed. The target is still open. Select Close again to reassess it.'
+      : error instanceof Error ? error.message : 'The close outcome could not be confirmed.');
+  }
+
+  private _onCloseConfirmationConfirm = (e: CustomEvent<{ ticket: string }>): void => {
+    const confirmation = this._closeConfirmation;
+    if (!confirmation || e.detail?.ticket !== confirmation.ticket) return;
+    const target = closeOutcomeTarget(confirmation);
+    const key = closeTargetKey(target);
+    if (this._confirmingCloseKey === key || this._closeRequests.has(key)) return;
+    const socket = this._socket;
+    if (!socket) {
+      this._closeConfirmation = null;
+      this._setCloseAlert(target, 'Cannot request close while disconnected.');
+      return;
+    }
+    const token = Symbol(key);
+    this._closeRequests.set(key, { target, token });
+    this._confirmingCloseKey = key;
+    void socket.closeConfirm(confirmation.ticket, target).then(
+      (outcome) => this._handleCloseOutcome(target, key, token, outcome),
+      (error: unknown) => this._handleCloseError(target, key, token, error),
+    );
+  };
+
+  private _onCloseConfirmationCancel = (): void => {
+    if (!this._isCurrentCloseConfirming()) this._closeConfirmation = null;
+  };
+
+  private _isCurrentCloseConfirming(): boolean {
+    return this._closeConfirmation !== null &&
+      this._confirmingCloseKey === closeTargetKey(closeOutcomeTarget(this._closeConfirmation));
+  }
+
+  private _focusCloseCancel(): void {
+    const focus = (): void => this._closeModal?.focusCancel();
+    focus();
+    void this.updateComplete.then(focus);
+  }
+
+  private _setCloseAlert(target: CloseTarget, message: string): void {
+    const next = new Map(this._closeAlerts);
+    next.set(closeTargetKey(target), { target, message });
+    this._closeAlerts = next;
+  }
+
+  private _clearCloseAlert(key: string): void {
+    if (!this._closeAlerts.has(key)) return;
+    const next = new Map(this._closeAlerts);
+    next.delete(key);
+    this._closeAlerts = next;
+  }
+
+  private _dismissCloseAlert(key: string): void { this._clearCloseAlert(key); }
+
+  private _clearMatchingConfirmation(key: string): void {
+    if (this._closeConfirmation && closeTargetKey(closeOutcomeTarget(this._closeConfirmation)) === key) {
+      this._closeConfirmation = null;
+      if (this._confirmingCloseKey === key) this._confirmingCloseKey = null;
+    }
+  }
+
+  private _reconcileCloseAuthority(msg: SessiondMessage): void {
+    if (msg.type === SessiondType.PaneClosed && typeof msg.workspaceId === 'string' && typeof msg.paneId === 'number') {
+      this._clearAuthoritativeCloseTarget({ targetKind: 'pane', workspaceId: msg.workspaceId, paneId: msg.paneId });
+      return;
+    }
+    if (msg.type === SessiondType.WorkspaceClosed && typeof msg.workspaceId === 'string') {
+      this._clearAuthoritativeWorkspace(msg.workspaceId);
+      return;
+    }
+    if (msg.type === SessiondType.WorkspaceList) {
+      const present = new Set((msg.workspaces ?? []).map((workspace) => workspace.workspaceId));
+      const tracked = new Set<string>();
+      for (const request of this._closeRequests.values()) tracked.add(request.target.workspaceId);
+      for (const alert of this._closeAlerts.values()) tracked.add(alert.target.workspaceId);
+      if (this._closeConfirmation) tracked.add(this._closeConfirmation.workspaceId);
+      for (const workspaceId of tracked) if (!present.has(workspaceId)) this._clearAuthoritativeWorkspace(workspaceId);
+      return;
+    }
+    if (msg.type === SessiondType.Composition && typeof msg.workspaceId === 'string') {
+      const present = new Set((msg.panes ?? []).map((pane) => pane.paneId));
+      const targets: CloseTarget[] = [];
+      for (const request of this._closeRequests.values()) targets.push(request.target);
+      for (const alert of this._closeAlerts.values()) targets.push(alert.target);
+      if (this._closeConfirmation) targets.push(closeOutcomeTarget(this._closeConfirmation));
+      for (const target of targets) {
+        if (target.targetKind === 'pane' && target.workspaceId === msg.workspaceId && !present.has(target.paneId)) {
+          this._clearAuthoritativeCloseTarget(target);
+        }
+      }
+    }
+  }
+
+  private _clearAuthoritativeCloseTarget(target: CloseTarget): void {
+    const key = closeTargetKey(target);
+    this._socket?.settleCloseTarget(target);
+    this._closeRequests.delete(key);
+    this._clearCloseAlert(key);
+    this._clearMatchingConfirmation(key);
+  }
+
+  private _clearAuthoritativeWorkspace(workspaceId: string): void {
+    this._socket?.settleCloseWorkspace(workspaceId);
+    for (const [key, request] of this._closeRequests) {
+      if (request.target.workspaceId === workspaceId) this._closeRequests.delete(key);
+    }
+    const alerts = new Map(this._closeAlerts);
+    let changed = false;
+    for (const [key, alert] of alerts) {
+      if (alert.target.workspaceId === workspaceId) { alerts.delete(key); changed = true; }
+    }
+    if (changed) this._closeAlerts = alerts;
+    if (this._closeConfirmation?.workspaceId === workspaceId) {
+      this._closeConfirmation = null;
+      this._confirmingCloseKey = null;
+    }
   }
 
   /**
@@ -1587,15 +1783,6 @@ export class MuxApp extends LitElement {
     // compare against yet — invalidate unconditionally. See
     // docs/designs/2026-07-31-voice-input-design.md.
     voiceInputController.invalidateIfActive();
-    // _pendingCloses: grace period only — closePane was never sent, PTY survives on server.
-    for (const handle of this._pendingCloses.values()) clearTimeout(handle);
-    this._pendingCloses.clear();
-    this._pendingClosesMeta.clear();
-    // _closingPanes: closePane was already sent, PTY is dying. Call allowReconcile so the
-    // reconciler doesn't recreate phantom terminals for panes whose close is in-flight.
-    this._dock?.allowReconcile([...this._closingPanes]);
-    this._closingPanes.clear();
-    this.requestUpdate();
     // Do NOT call disposeAll() — workspace-scoped composite keys in
     // terminalRegistry isolate paneIds across workspaces, so old terminals
     // stay alive with their scrollback until explicitly pruned or disposed.
@@ -1607,79 +1794,9 @@ export class MuxApp extends LitElement {
     return (this.renderRoot as ShadowRoot).querySelector('mux-dock');
   }
 
-  /** The live <mux-sidebar> element in our shadow root, or null when absent. */
-  private get _sidebar(): MuxSidebar | null {
-    return (this.renderRoot as ShadowRoot).querySelector('mux-sidebar');
+  private get _closeModal(): CloseConfirmationModal | null {
+    return (this.renderRoot as ShadowRoot).querySelector('close-confirmation-modal');
   }
-
-  /**
-   * Handle a pane-close event from mux-dock. All closes (mouse, touch, pen)
-   * are deferred for 10s with an undo toast so accidental closes are
-   * recoverable regardless of input device (see _startDeferredClose).
-   * Note: e.detail.touch is available for future per-input-type behaviour.
-   */
-  private _onClosePane = (e: CustomEvent<{ paneId: number; touch: boolean; title: string }>): void => {
-    this._startDeferredClose(e.detail.paneId, e.detail.title);
-  };
-
-  /** Begin a 5-second grace period before committing a pane close. */
-  private _startDeferredClose(paneId: number, title: string): void {
-    // Guard: if a timer already exists for this pane, clear it before replacing.
-    const existing = this._pendingCloses.get(paneId);
-    if (existing !== undefined) clearTimeout(existing);
-    const handle = setTimeout(() => this._executeClose(paneId), 5_000);
-    this._pendingCloses.set(paneId, handle);
-    this._pendingClosesMeta.set(paneId, { title });
-    this.requestUpdate();
-  }
-
-  /** Perform the actual kill: tell the server, prune the terminal, and clear bookkeeping. */
-  private _executeClose(paneId: number): void {
-    // Guard: if no pending close exists for this pane, it was already cancelled
-    // (e.g. via undo) — do nothing. This makes the method truly idempotent.
-    if (!this._pendingCloses.has(paneId)) return;
-    // Cancel the pending handle whether called by the timer itself or directly
-    // (e.g. __muxForceExpire DEV seam). clearTimeout on an already-fired handle
-    // is a no-op, so the normal timer-driven path is unaffected.
-    const handle = this._pendingCloses.get(paneId);
-    if (handle !== undefined) clearTimeout(handle);
-
-    this._socket?.closePane(paneId);
-    const remaining = new Set(
-      store.panes
-        .filter((p) => p.paneId >= 0 && p.paneId !== paneId)
-        .map((p) => p.paneId),
-    );
-    terminalRegistry.prune(remaining);
-    this._pendingCloses.delete(paneId);
-    this._pendingClosesMeta.delete(paneId);
-    this._closingPanes.add(paneId); // prevent _syncTerminals from recreating the terminal
-    this.requestUpdate();
-  }
-
-  /** Undo a pending close: cancel the timer, clear bookkeeping, reopen the pane or workspace. */
-  private _onUndoPaneClose = (e: CustomEvent<{ paneId: number }>): void => {
-    const { paneId } = e.detail;
-    // Check if this is a workspace close undo first (negative virtual IDs).
-    if (this._pendingWorkspaceCloses.has(paneId)) {
-      const entry = this._pendingWorkspaceCloses.get(paneId)!;
-      clearTimeout(entry.timer);
-      this._pendingWorkspaceCloses.delete(paneId);
-      this._pendingClosesMeta.delete(paneId);
-      this._sidebar?.restoreWorkspace(entry.wsId);
-      this.requestUpdate();
-      return;
-    }
-    // If the grace period already expired and _executeClose committed the close,
-    // undo is no longer possible — the close was sent to the server.
-    if (this._closingPanes.has(paneId)) return;
-    const handle = this._pendingCloses.get(paneId);
-    if (handle !== undefined) clearTimeout(handle);
-    this._pendingCloses.delete(paneId);
-    this._pendingClosesMeta.delete(paneId);
-    this._dock?.reopenPane(paneId);
-    this.requestUpdate();
-  };
 
   private _onPaneRename = (e: CustomEvent<{ paneId: number; name: string }>): void => {
     this._socket?.renamePane(e.detail.paneId, e.detail.name);
@@ -1797,23 +1914,8 @@ if (import.meta.env.DEV) {
     peek: (paneId: number) => terminalRegistry.getTerminal(paneId),
   };
 
-  // Touch-close-undo E2E seams -------------------------------------------
+  // Pane close E2E seam --------------------------------------------------
   const _app = (): MuxApp | null => document.querySelector('mux-app');
-
-  (window as unknown as Record<string, unknown>)['__muxPendingCloses'] = (): number[] => {
-    const app = _app() as unknown as { _pendingCloses?: Map<number, unknown> } | null;
-    return app?._pendingCloses ? [...app._pendingCloses.keys()] : [];
-  };
-
-  (window as unknown as Record<string, unknown>)['__muxUndoClose'] = (paneId: number): void => {
-    const app = _app() as unknown as { _onUndoPaneClose?: (e: CustomEvent<{ paneId: number }>) => void } | null;
-    app?._onUndoPaneClose?.(new CustomEvent('pane-close-resolved', { detail: { paneId } }) as CustomEvent<{ paneId: number }>);
-  };
-
-  (window as unknown as Record<string, unknown>)['__muxForceExpire'] = (paneId: number): void => {
-    const app = _app() as unknown as { _executeClose?: (id: number) => void } | null;
-    app?._executeClose?.(paneId);
-  };
 
   (window as unknown as Record<string, unknown>)['__muxCloseButtonFor'] = (paneId: number): Element | null => {
     const dock = _app()?.shadowRoot?.querySelector('mux-dock');

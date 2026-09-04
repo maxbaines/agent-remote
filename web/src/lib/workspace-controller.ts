@@ -13,7 +13,6 @@ import { SessiondType, SessiondErrorCode, type SessiondMessage } from '../types'
 import { WorkspaceMru } from './workspace-mru.js';
 import { chooseRecoveryTarget } from './workspace-recovery.js';
 import { currentLayoutMode } from './breakpoint.js';
-import { terminalRegistry } from './terminal-registry.js';
 import { voiceInputController } from './voice-input-controller.js';
 
 const LAST_WS_KEY = 'just-terminal.lastWorkspaceId';
@@ -76,11 +75,11 @@ export class WorkspaceController {
       case SessiondType.WorkspaceClosed: {
         const id = msg.workspaceId ?? '';
         this._mru.forget(id);
-        // Only recover when WE lost our active workspace (store already detached
-        // to null) or the closed one is still our attachment.
-        if (this.store.attached === id || this.store.attached === null) {
+        // sessiond publishes the authoritative replacement list immediately
+        // after this event, so do not race it with another list request.
+        if (this._recoveringFrom === null &&
+          (this.store.attached === id || this.store.attached === null)) {
           this._recoveringFrom = id;
-          this.socket.listWorkspaces();
         }
         break;
       }
@@ -107,6 +106,7 @@ export class WorkspaceController {
           );
           this._recoveringFrom = null;
           if (target.action === 'attach') {
+            this._attachInFlight = true;
             voiceInputController.invalidateIfActive();
             this.socket.attachWithBreakpoint(target.workspaceId, currentLayoutMode());
           } else {
@@ -122,6 +122,7 @@ export class WorkspaceController {
           // _activePaneId = panes[0], overriding the layout-restored active pane.
           const target = chooseRecoveryTarget(msg.workspaces ?? [], '', this._mru.order());
           if (target.action === 'attach') {
+            this._attachInFlight = true;
             voiceInputController.invalidateIfActive();
             this.socket.attachWithBreakpoint(target.workspaceId, currentLayoutMode());
           }
@@ -131,6 +132,7 @@ export class WorkspaceController {
 
       // no-survivor recovery path: attach the freshly-created workspace.
       case SessiondType.WorkspaceCreated: {
+    this._attachInFlight = true;
         voiceInputController.invalidateIfActive();
         this.socket.attachWithBreakpoint(msg.workspaceId ?? '', currentLayoutMode());
         break;

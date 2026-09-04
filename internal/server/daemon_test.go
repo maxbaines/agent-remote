@@ -33,6 +33,14 @@ func (f *fakeDaemonConn) CloseWorkspace(workspaceID string) error {
 	return nil
 }
 
+func (f *fakeDaemonConn) CloseIntent(target sessiond.CloseTarget) (sessiond.CloseOutcome, error) {
+	return sessiond.CloseOutcome{}, nil
+}
+
+func (f *fakeDaemonConn) CloseConfirm(ticket string) (sessiond.CloseOutcome, error) {
+	return sessiond.CloseOutcome{}, nil
+}
+
 func (f *fakeDaemonConn) Attach(workspaceID, breakpoint, clientKind string) (sessiond.Composition, error) {
 	f.attached = workspaceID
 	return sessiond.Composition{
@@ -71,6 +79,8 @@ func (f *fakeDaemonConn) PaneFocus(paneID uint32, cols, rows int) error {
 }
 
 func (f *fakeDaemonConn) PaneCWD(paneID int) (string, error) { return "", nil }
+
+func (f *fakeDaemonConn) PaneContext(paneID int) (*sessiond.Message, error) { return nil, nil }
 
 func (f *fakeDaemonConn) SaveClipboardImage(paneID int, mimeType, data string) (string, error) {
 	return "/tmp/pasted-image.png", nil
