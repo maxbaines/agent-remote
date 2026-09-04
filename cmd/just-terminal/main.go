@@ -415,6 +415,7 @@ func runLocal(cfg Config) error {
 		// No BehindReverseProxy field is set: local mode leaves it at its
 		// zero false, keeping the IsLocalhost() bypass exactly as today.
 		WebRedirectURI: webRedirectURIFor(cfg.Addr, localServerCfg),
+		Version:        version,
 	})
 	srv.Hub().SetResolvedConfig(resolved)
 	srv.Hub().SetDialer(newSessiondDialer())
@@ -471,6 +472,7 @@ func runServe(cfg Config) error {
 		TunnelOrigin:       tunnelOrigin,
 		WebRedirectURI:     webRedirectURIFor(cfg.Addr, srvCfg),
 		BehindReverseProxy: srvCfg.BehindReverseProxy,
+		Version:            version,
 	})
 	srv.Hub().SetResolvedConfig(resolved)
 	srv.Hub().SetDialer(newSessiondDialer())

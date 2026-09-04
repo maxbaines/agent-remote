@@ -4,6 +4,12 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Semver tag to publish (for example v0.1.0)'
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -15,6 +21,31 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      # A manual run creates the tag first. Pushes made with GITHUB_TOKEN do
+      # not recursively start another workflow, so this same run publishes it.
+      - name: Create release tag
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: |
+          if [[ ! "$RELEASE_VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([+-][0-9A-Za-z.-]+)?$ ]]; then
+            echo "version must be a semver tag such as v0.1.0" >&2
+            exit 1
+          fi
+          if git ls-remote --exit-code --tags origin "refs/tags/$RELEASE_VERSION" >/dev/null 2>&1; then
+            git fetch origin "refs/tags/$RELEASE_VERSION:refs/tags/$RELEASE_VERSION"
+            if [[ "$(git rev-list -n 1 "$RELEASE_VERSION")" != "$GITHUB_SHA" ]]; then
+              echo "tag $RELEASE_VERSION already exists on a different commit" >&2
+              exit 1
+            fi
+            echo "reusing tag $RELEASE_VERSION from an earlier attempt"
+          else
+            git config user.name github-actions[bot]
+            git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+            git tag -a "$RELEASE_VERSION" -m "Release $RELEASE_VERSION"
+            git push origin "refs/tags/$RELEASE_VERSION"
+          fi
 
       - uses: actions/setup-go@v5
         with:
@@ -30,14 +61,6 @@ jobs:
           cache: 'npm'
           cache-dependency-path: web/package-lock.json
 
-      - name: Generate Homebrew tap token
-        uses: actions/create-github-app-token@v2
-        id: tap-token
-        with:
-          app-id: ${{ secrets.HOMEBREW_APP_ID }}
-          private-key: ${{ secrets.HOMEBREW_APP_PRIVATE_KEY }}
-          repositories: homebrew-tap
-
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6
         with:
@@ -46,4 +69,3 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          HOMEBREW_TAP_GITHUB_TOKEN: ${{ steps.tap-token.outputs.token }}

@@ -8,6 +8,7 @@ import (
 	"mime"
 	"net/http"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/maxbaines/just-terminal/internal/authserver"
@@ -46,6 +47,10 @@ type Config struct {
 	// When true the IsLocalhost() auth bypass is disabled entirely — see
 	// internal/server/authmiddleware.go.
 	BehindReverseProxy bool
+
+	// Version is the running binary's version string. Development builds are
+	// reported but are never eligible for self-update.
+	Version string
 }
 
 // Server is the HTTP server for just-terminal.
@@ -69,6 +74,9 @@ type Server struct {
 	// codex owns the managed app-server child and projects its versioned
 	// JSON-RPC stream into the stable browser-facing snapshot.
 	codex *codexintegration.Manager
+
+	version  string
+	updating atomic.Bool
 }
 
 // New creates a Server, registers routes, and optionally serves static files.
@@ -87,6 +95,7 @@ func New(cfg Config) *Server {
 		tunnelOrigin:   cfg.TunnelOrigin,
 		authSrv:        cfg.AuthServer,
 		webRedirectURI: cfg.WebRedirectURI,
+		version:        cfg.Version,
 	}
 
 	s.configPath = cfg.ConfigPath
@@ -153,6 +162,10 @@ func New(cfg Config) *Server {
 	s.mux.Handle("GET /api/codex/status", protect(http.HandlerFunc(s.handleCodexStatus)))
 	s.mux.Handle("POST /api/codex/claims", protect(http.HandlerFunc(s.handleCodexClaim)))
 	s.mux.Handle("POST /api/codex/acknowledge", protect(http.HandlerFunc(s.handleCodexAcknowledge)))
+
+	// Replacing the running binary is an owner-only operation.
+	s.mux.Handle("GET /api/update/status", protect(http.HandlerFunc(s.handleUpdateStatus)))
+	s.mux.Handle("POST /api/update/apply", protect(http.HandlerFunc(s.handleUpdateApply)))
 
 	s.mux.Handle("GET /api/tunnels", protect(http.HandlerFunc(s.handleTunnelList)))
 	s.mux.Handle("POST /api/tunnels", protect(http.HandlerFunc(s.handleTunnelCreate)))

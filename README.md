@@ -6,8 +6,21 @@ JustTerminal runs shells and coding agents on a Host, while the UI runs in a bro
 
 ![JustTerminal workspace with Codex, Markdown and JavaScript viewers, and the project file tree](docs/visual-reference/just-terminal-desktop-v1.png)
 
-> [!NOTE]
-> JustTerminal is under active development and does not have a tagged release yet. The Homebrew tap has not been published, and the install script has no release archive to fetch. For now, build from source.
+## Install
+
+Tagged releases publish checksummed native archives for Linux amd64 and macOS,
+and can be installed on Linux with:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/maxbaines/just-terminal/main/install.sh | bash
+```
+
+Container deployments should continue to update by pulling and redeploying the
+image. The in-app updater deliberately does not rewrite binaries in containers.
+
+JustTerminal is under active development. Release archives are available from
+[GitHub Releases](https://github.com/maxbaines/just-terminal/releases); the
+Homebrew tap is not yet published.
 
 ## Highlights
 

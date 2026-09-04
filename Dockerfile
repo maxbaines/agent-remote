@@ -79,6 +79,9 @@ ENV JUST_TERMINAL_CODEX_VERSION=${CODEX_VERSION}
 ENV JUST_TERMINAL_CLAUDE_CODE_VERSION=${CLAUDE_CODE_VERSION}
 ENV JUST_TERMINAL_CODEX_SANDBOX_MODE=danger-full-access
 ENV JUST_TERMINAL_DEFAULT_CWD=/workspace
+# Runtime binaries in containers are immutable deployment artifacts. Updating
+# means pulling and redeploying an image, never rewriting the live container.
+ENV JUST_TERMINAL_UPDATE_METHOD=container
 
 RUN mkdir -p \
     "$XDG_RUNTIME_DIR" \
