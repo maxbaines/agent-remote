@@ -46,6 +46,7 @@ import './components/reconnect-overlay.js';
 import './components/mux-sidebar.js';
 import './components/mobile-keyboard-bar.js';
 import './components/file-tree-sidebar.js';
+import './components/update-status.js';
 
 
 import { WorkspaceController } from './lib/workspace-controller.js';
@@ -1310,6 +1311,7 @@ export class MuxApp extends LitElement {
                     xterm.js inside a dockview layout.</p>
                     <p>Config file: <strong>~/.config/just-terminal/config.toml</strong></p>
                   </div>
+                  <mux-update-status></mux-update-status>
                   <div class="about-sha">build ${__GIT_SHA__}</div>
                 </div>
               `}

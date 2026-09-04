@@ -4,21 +4,11 @@ import { store } from '../state.js';
 import { workspaceLabel } from './workspace-picker.js';
 import './launcher-menu.js';
 import { icon } from '../lib/icons.js';
-import { Bot, Check, Download, Ellipsis, Folder, GitBranch, Plus } from 'lucide';
+import { Bot, Check, Ellipsis, Folder, GitBranch, Plus } from 'lucide';
 import { SIDEBAR_MIN_WIDTH, SIDEBAR_MAX_WIDTH } from '../lib/sidebar-width.js';
 import { instanceLabel } from '../lib/instance-identity.js';
 import { terminalRegistry } from '../lib/terminal-registry.js';
 import { acknowledgeCodexDefault, isCodexCommand } from '../lib/codex.js';
-import {
-  applyUpdate,
-  fetchUpdateStatus,
-  UpdateEndpointMissingError,
-  type UpdateStatus,
-} from '../lib/update.js';
-
-const UPDATE_POLL_INTERVAL_MS = 2_000;
-const UPDATE_POLL_MAX_ATTEMPTS = 30;
-type UpdatePhase = 'idle' | 'checking' | 'updating' | 'failed';
 
 interface CodexTerminalHint {
   approval?: string;
@@ -394,54 +384,6 @@ export class MuxSidebar extends LitElement {
       align-items:center; margin-top:4px; padding-left:12px; }
     .git-dirty { color:var(--mux-warn); }
 
-    .footer {
-      flex-shrink: 0;
-      padding: 8px 12px 10px;
-      border-top: 1px solid var(--chrome-border);
-    }
-
-    .footer-line {
-      color: var(--chrome-text-dim);
-      font-size: 12px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .footer-note {
-      margin-top: 2px;
-      color: var(--chrome-text-dim);
-      font-size: 11px;
-      overflow-wrap: anywhere;
-    }
-
-    .update-btn {
-      box-sizing: border-box;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      width: 100%;
-      margin-top: 6px;
-      padding: 6px 10px;
-      border: 1px solid var(--chrome-accent);
-      border-radius: 5px;
-      background: transparent;
-      color: var(--chrome-accent);
-      cursor: pointer;
-      font: inherit;
-      font-size: 12px;
-      text-align: left;
-    }
-
-    .update-btn:hover { background: var(--chrome-hover); }
-    .update-btn:focus-visible { outline: 2px solid var(--chrome-accent); outline-offset: 2px; }
-    .update-btn:disabled {
-      border-color: var(--chrome-border);
-      color: var(--chrome-text-dim);
-      cursor: default;
-      opacity: 0.55;
-    }
-    .update-btn:disabled:hover { background: transparent; }
   `;
 
   // ---------------------------------------------------------------------------
@@ -452,14 +394,9 @@ export class MuxSidebar extends LitElement {
   @state() private _renaming: string | null = null;
   @state() private _menuOpen = false;
   @state() private _acknowledging = new Set<string>();
-  @state() private _updateStatus: UpdateStatus | null = null;
-  @state() private _updatePhase: UpdatePhase = 'idle';
-  @state() private _updateError = '';
 
   private _unsub: (() => void) | null = null;
   private _codexTerminalHints = new Map<string, CodexTerminalHint>();
-  private _updatePollTimer: number | null = null;
-  private _updatePollAttempts = 0;
 
   private _onOutsideClick = (e: MouseEvent): void => {
     if (this._menuOpen && !e.composedPath().includes(this)) {
@@ -498,70 +435,6 @@ export class MuxSidebar extends LitElement {
     super.disconnectedCallback();
     this._unsub?.();
     this._unsub = null;
-    this._clearUpdatePoll();
-  }
-
-  override firstUpdated(): void {
-    this._updatePhase = 'checking';
-    void fetchUpdateStatus()
-      .then((status) => { this._updateStatus = status; })
-      .catch(() => { /* An older/offline server has no footer state to show. */ })
-      .finally(() => {
-        if (this._updatePhase === 'checking') this._updatePhase = 'idle';
-      });
-  }
-
-  private _onUpdateClick(): void {
-    if (this._updatePhase === 'updating') return;
-    const previousVersion = this._updateStatus?.currentVersion ?? '';
-    this._updatePhase = 'updating';
-    this._updateError = '';
-    this._updatePollAttempts = 0;
-    void applyUpdate()
-      .then(() => { this._scheduleUpdatePoll(previousVersion); })
-      .catch((error: unknown) => {
-        this._updatePhase = 'failed';
-        this._updateError = error instanceof Error ? error.message : String(error);
-      });
-  }
-
-  private _clearUpdatePoll(): void {
-    if (this._updatePollTimer !== null) {
-      window.clearTimeout(this._updatePollTimer);
-      this._updatePollTimer = null;
-    }
-  }
-
-  private _scheduleUpdatePoll(previousVersion: string): void {
-    this._clearUpdatePoll();
-    this._updatePollTimer = window.setTimeout(() => {
-      this._updatePollTimer = null;
-      void this._pollForRestart(previousVersion);
-    }, UPDATE_POLL_INTERVAL_MS);
-  }
-
-  private async _pollForRestart(previousVersion: string): Promise<void> {
-    if (!this.isConnected || this._updatePhase !== 'updating') return;
-    this._updatePollAttempts++;
-    try {
-      const status = await fetchUpdateStatus();
-      if (status.currentVersion !== '' && status.currentVersion !== previousVersion) {
-        window.location.reload();
-        return;
-      }
-    } catch (error: unknown) {
-      if (error instanceof UpdateEndpointMissingError) {
-        window.location.reload();
-        return;
-      }
-    }
-    if (!this.isConnected || this._updatePhase !== 'updating') return;
-    if (this._updatePollAttempts >= UPDATE_POLL_MAX_ATTEMPTS) {
-      this._updatePhase = 'failed';
-      this._updateError = 'Update did not complete in time';
-      return;
-    }
-    this._scheduleUpdatePoll(previousVersion);
   }
 
   // ---------------------------------------------------------------------------
@@ -885,75 +758,6 @@ export class MuxSidebar extends LitElement {
     `;
   }
 
-  private _renderFooter() {
-    if (this._updatePhase === 'failed') {
-      return html`
-        <div class="footer">
-          <div class="footer-line">Update failed</div>
-          <div class="footer-note">${this._updateError}</div>
-          <button class="update-btn" @click="${() => this._onUpdateClick()}">
-            ${icon(Download, { size: 14 })}Retry
-          </button>
-        </div>
-      `;
-    }
-
-    const status = this._updateStatus;
-    if (!status) return '';
-    const versionLine = status.currentVersion
-      ? `JustTerminal ${status.currentVersion}`
-      : 'JustTerminal';
-
-    if (this._updatePhase === 'updating') {
-      return html`
-        <div class="footer">
-          <div class="footer-line">${versionLine}</div>
-          <button class="update-btn" disabled>
-            ${icon(Download, { size: 14 })}Updating…
-          </button>
-          <div class="footer-note">downloading and restarting…</div>
-        </div>
-      `;
-    }
-
-    if (status.devBuild || status.method === 'container') {
-      return html`
-        <div class="footer">
-          <div class="footer-line">${versionLine}</div>
-          <div class="footer-note">${status.reason || 'updates disabled'}</div>
-        </div>
-      `;
-    }
-
-    if (status.canUpdate) {
-      const label = status.latestVersion ? `Update to ${status.latestVersion}` : 'Update';
-      return html`
-        <div class="footer">
-          <div class="footer-line">${versionLine}</div>
-          <button class="update-btn" @click="${() => this._onUpdateClick()}">
-            ${icon(Download, { size: 14 })}${label}
-          </button>
-        </div>
-      `;
-    }
-
-    if (status.updateAvailable) {
-      return html`
-        <div class="footer">
-          <div class="footer-line">${versionLine}</div>
-          <div class="footer-note">${status.reason || 'update available — use your package manager'}</div>
-        </div>
-      `;
-    }
-
-    return html`
-      <div class="footer">
-        <div class="footer-line">${versionLine}</div>
-        <div class="footer-note">${status.error ? 'update check unavailable' : 'up to date'}</div>
-      </div>
-    `;
-  }
-
   // ---------------------------------------------------------------------------
   // Render
   // ---------------------------------------------------------------------------
@@ -997,7 +801,6 @@ export class MuxSidebar extends LitElement {
       <div class="tab-content">
         ${this._renderWorkspaces()}
       </div>
-      ${this._renderFooter()}
     `;
   }
 }
