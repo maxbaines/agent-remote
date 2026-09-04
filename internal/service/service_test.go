@@ -35,8 +35,11 @@ func TestRenderSystemdUnit_ContainsServeCommand(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RenderSystemdUnit() error: %v", err)
 	}
-	if !contains(out, "just-terminal serve --addr 0.0.0.0:8311 --secret secret123") {
+	if !contains(out, "just-terminal serve --addr 0.0.0.0:8311") {
 		t.Errorf("output missing serve command with flags, got:\n%s", out)
+	}
+	if contains(out, "--secret") {
+		t.Errorf("output contains obsolete --secret flag, got:\n%s", out)
 	}
 }
 
@@ -152,12 +155,13 @@ func TestRenderLaunchdPlist_ContainsServeArgs(t *testing.T) {
 		"<string>serve</string>",
 		"<string>--addr</string>",
 		"<string>0.0.0.0:8311</string>",
-		"<string>--secret</string>",
-		"<string>secret123</string>",
 	} {
 		if !contains(out, want) {
 			t.Errorf("output missing %s", want)
 		}
+	}
+	if contains(out, "--secret") {
+		t.Errorf("output contains obsolete --secret argument, got:\n%s", out)
 	}
 }
 

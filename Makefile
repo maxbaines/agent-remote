@@ -10,9 +10,14 @@ STABLE_BIN := $(HOME)/.local/bin/just-terminal
 AIR   := $(shell command -v air   2>/dev/null || echo $(HOME)/go/bin/air)
 CADDY := $(shell command -v caddy 2>/dev/null || echo $(HOME)/go/bin/caddy)
 
+# Version stamped into cmd/just-terminal's version variable. Tagged releases
+# use GoReleaser's equivalent flag below; local builds include the commit and
+# dirty state so they remain identifiable even when no tag is present.
+DEV_VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
+
 # Build the frontend and copy dist into the Go embed directory, then build Go binary.
 build: web
-	go build -o bin/just-terminal ./cmd/just-terminal
+	go build -ldflags "-X main.version=$(DEV_VERSION)" -o bin/just-terminal ./cmd/just-terminal
 
 # Dev mode: demo backend + demo frontend + Vite watch (just-terminal UI) + Caddy + air (Go hot-reload).
 #   - demo/backend  node server.mjs on :9002  (log: tmp/demo-backend.out)
@@ -109,7 +114,7 @@ install-stable: web
 		exit 1; \
 	fi
 	@echo "Building stable binary from $$(git rev-parse --short HEAD) ($(shell git log -1 --format='%s'))..."
-	go build -o $(STABLE_BIN) ./cmd/just-terminal
+	go build -ldflags "-X main.version=$(DEV_VERSION)" -o $(STABLE_BIN) ./cmd/just-terminal
 	@echo "Installed: $(STABLE_BIN)"
 	@echo "Restart services: systemctl --user restart just-terminal just-terminal-sessiond"
 

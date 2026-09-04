@@ -14,7 +14,7 @@ Wants=just-terminal-sessiond.service
 
 [Service]
 Type=simple
-ExecStart={{.BinaryPath}} serve --addr {{.Addr}} --secret {{.Secret}}
+ExecStart={{.BinaryPath}} serve --addr {{.Addr}}
 Restart=on-failure
 RestartSec=5s
 Environment=PATH={{.SafePATH}}
@@ -50,8 +50,6 @@ var launchdTemplate = template.Must(template.New("launchd").Parse(`<?xml version
         <string>serve</string>
         <string>--addr</string>
         <string>{{.Addr}}</string>
-        <string>--secret</string>
-        <string>{{.Secret}}</string>
     </array>
     <key>EnvironmentVariables</key>
     <dict>

@@ -202,8 +202,9 @@ func NewVTBuffer(w, h int) *VTBuffer {
 // (e.pw). If nothing consumes the read side (e.pr), the very first such query
 // causes Emulator.Write to block forever, hanging the readLoop goroutine.
 //
-// Callers must drain this continuously in a dedicated goroutine and forward the
-// bytes back to the PTY so the application actually receives the responses.
+// Callers must drain this continuously in a dedicated goroutine. Replies should
+// only be forwarded to the PTY while its slave is in raw/no-echo mode; writing
+// them in cooked mode causes the line discipline to echo them into the pane.
 //
 // Safe to call concurrently with Write: SafeEmulator.Read is deliberately not
 // mutex-guarded because the io.Pipe itself provides the synchronisation.

@@ -59,8 +59,8 @@ func TestInstall_Linux_WritesUnitFile(t *testing.T) {
 	if !strings.Contains(content, "/usr/local/bin/just-terminal") {
 		t.Error("unit file missing binary path")
 	}
-	if !strings.Contains(content, "test-secret") {
-		t.Error("unit file missing secret")
+	if strings.Contains(content, "--secret") {
+		t.Error("unit file contains obsolete --secret flag")
 	}
 }
 
@@ -164,8 +164,8 @@ func TestInstall_Darwin_WritesPlistFile(t *testing.T) {
 	if !strings.Contains(content, "/usr/local/bin/just-terminal") {
 		t.Error("plist file missing binary path")
 	}
-	if !strings.Contains(content, "darwin-secret") {
-		t.Error("plist file missing secret")
+	if strings.Contains(content, "--secret") {
+		t.Error("plist file contains obsolete --secret argument")
 	}
 }
 
